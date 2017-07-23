@@ -3,8 +3,6 @@
 <style|generic>
 
 <\body>
-  <section|Model>
-
   Suppose we have a model, <math|f<around*|(|x,\<theta\>|)>>, where <math|x>
   is the input and <math|\<theta\>> is the set of parameters of this model.
   Let <math|D> denotes an arbitrarily given dataset, i.e.
@@ -62,8 +60,6 @@
   <math|q<around*|(|\<theta\>|)>>, KL-divergence can be safely employed as
   the cost-function of the fitting.
 
-  <section|Numerical Consideration>
-
   For numerical consideration, instead of fitting
   <math|p<rsub|D><around*|(|\<theta\>|)>> by <math|q<around*|(|\<theta\>|)>>,
   we fit <math|ln p<rsub|D><around*|(|\<theta\>|)>> by <math|ln
@@ -104,26 +100,22 @@
   we can further approximate <math|ln q<around*|(|\<theta\>|)>\<approx\>\<beta\><rsub|max>+><math|<big|sum><rsub|i\<in\>M>exp<around*|(|\<beta\><rsub|i>-\<beta\><rsub|max>|)>>,
   thus no logrithm is to be computed.
 
-  <section|Cost-Function>
+  \;
+
+  \;
+
+  <\equation*>
+    KL=\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>|)>><around*|[|ln
+    p<around*|(|\<theta\>;D|)>-ln q<around*|(|\<theta\>|)>|]>
+  </equation*>
 
   <\eqnarray*>
     <tformat|<table|<row|<cell|KL>|<cell|\<assign\>>|<cell|\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>|)>><around*|[|ln
     p<around*|(|\<theta\>;D|)>-ln q<around*|(|\<theta\>|)>|]>>>|<row|<cell|>|<cell|\<approx\>>|<cell|<big|sum><rsub|\<theta\><rsup|<around*|(|s|)>><rsub|i>><around*|{|ln
     p<around*|(|\<theta\><rsub|i><rsup|<around*|(|s|)>>;D|)>-ln
-    q<around*|(|\<theta\><rsub|i><rsup|<around*|(|s|)>>|)>|}>,>>>>
+    q<around*|(|\<theta\><rsub|i>|)>|}>>>>>
   </eqnarray*>
-
-  where <math|\<theta\><rsup|<around*|(|s|)>>>s are sampled from
-  <math|q<around*|(|\<theta\>|)>> as a distribution.
 </body>
 
 <initial|<\collection>
 </collection>>
-
-<\references>
-  <\collection>
-    <associate|auto-1|<tuple|1|?>>
-    <associate|auto-2|<tuple|2|?>>
-    <associate|auto-3|<tuple|3|?>>
-  </collection>
-</references>
