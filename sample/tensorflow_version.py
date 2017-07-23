@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-TensorFlow version.
+TensorFlow version. For the principle and notations, c.f. '../docs/nn4post.tm'.
 """
 
 import tensorflow as tf
