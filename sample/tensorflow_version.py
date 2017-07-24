@@ -16,6 +16,20 @@ NUM_SAMPLES = 10
 
 TEST_NUM_PEAKS = 3
 
+# -- Experimential `p(theta)`
+def log_p(theta):
+    """ ln p (theta)
+
+    Args:
+        theta: tf.Tensor(shape=[None, DIM], dtype=tf.float32)
+            where `None` for batch_size.
+    
+    Returns:
+        tf.Tensor(shape=[None], dtype=tf.float32)
+    """
+    
+    return tf.reduce_sum(-0.5 * tf.square(theta), axis=1)
+
 
 # -- `tf.Variable`s
 a = tf.Variable(tf.random_uniform([NUM_PEAKS]),
@@ -40,6 +54,7 @@ components = [
     for i, _ in enumerate(b_list)
     ]
 dist_q = Mixture(cat=cat, components=components)
+
         
 
 def log_q(theta):
@@ -55,20 +70,23 @@ def log_q(theta):
     
     beta = tf.log(a_square) \
          + tf.reduce_sum(
-               -0.5 * tf.square((tf.matmul(theta, w_square) + b)) \
+               -0.5 * tf.square(tf.expand_dims(theta, axis=2) * w_square + b) \
                +0.5 * tf.log(w_square / (2 * 3.14)),
-               axis=0)
+               axis=1)
      
-    beta_max = tf.reduce_max(beta)
-    delta_beta = beta - beta_max
+    beta_max = tf.reduce_max(beta, axis=1)
+    delta_beta = beta - tf.expand_dims(beta_max, axis=1)
     top_beta, _ = tf.nn.top_k(delta_beta, k=3)
     
-    return beta_max + tf.log(tf.reduce_sum(tf.exp(top_beta)))  # tested.
+    return beta_max + tf.log(tf.reduce_sum(tf.exp(top_beta), axis=1))  # tested.
+
+
 
 
 def kl_divergence(log_p, log_q, dist_q):
     
-    theatae = dist_q.sample(sample_shape=[NUM_SAMPLES])  # tested.
+    thetae = dist_q.sample(sample_shape=[NUM_SAMPLES])  # tested.
     
-    return log_p(theatae) - log_q(theatae)
+    return tf.reduce_sum(log_p(thetae) - log_q(thetae))
     
+cost = kl_divergence(log_p, log_q, dist_q)
