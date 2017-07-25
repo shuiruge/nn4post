@@ -27,7 +27,7 @@
   ANN. We propose the fitting function
 
   <\equation*>
-    q<around*|(|\<theta\>|)>=<big|sum><rsub|i>a<rsub|i><rsup|2>
+    q<around*|(|\<theta\>;a,b,w|)>=<big|sum><rsub|i>a<rsub|i><rsup|2>
     <around*|{|<big|prod><rsub|j>N<around*|(|\<theta\><rsub|j>,w<rsub|j
     i>,b<rsub|j i>|)>|}>,
   </equation*>
@@ -40,7 +40,7 @@
     exp<around*|(|-<frac|1|2><around*|(|w<rsup|2> x+b|)><rsup|2>|)>
   </equation*>
 
-  While fitting, <math|q<around*|(|\<theta\>|)>> has no need of
+  While fitting, <math|q<around*|(|\<theta\>;a,b,w|)>> has no need of
   normalization, since <math|p<rsub|D><around*|(|\<theta\>|)>> is
   unormalized.
 
@@ -59,16 +59,18 @@
 
   Since there's no compact support, for both
   <math|p<rsub|D><around*|(|\<theta\>|)>> and
-  <math|q<around*|(|\<theta\>|)>>, KL-divergence can be safely employed as
-  the cost-function of the fitting.
+  <math|q<around*|(|\<theta\>;a,b,w|)>>, KL-divergence can be safely employed
+  as the cost-function of the fitting.
 
   <section|Numerical Consideration>
 
   For numerical consideration, instead of fitting
-  <math|p<rsub|D><around*|(|\<theta\>|)>> by <math|q<around*|(|\<theta\>|)>>,
-  we fit <math|ln p<rsub|D><around*|(|\<theta\>|)>> by <math|ln
-  q<around*|(|\<theta\>|)>>. To compute <math|ln q<around*|(|\<theta\>|)>>,
-  we have to employ some approximation method. Let
+  <math|p<rsub|D><around*|(|\<theta\>|)>> by
+  <math|q<around*|(|\<theta\>;a,b,w|)>>, we fit <math|ln
+  p<rsub|D><around*|(|\<theta\>|)>> by <math|ln
+  q<around*|(|\<theta\>;a,b,w|)>>. To compute <math|ln
+  q<around*|(|\<theta\>;a,b,w|)>>, we have to employ some approximation
+  method. Let
 
   <\eqnarray*>
     <tformat|<table|<row|<cell|\<beta\><rsub|i>>|<cell|\<assign\>>|<cell|ln<around*|(|a<rsub|i><rsup|2>
@@ -79,7 +81,7 @@
     i><rsup|2>|2 \<pi\>>|)>|}>,>>>>
   </eqnarray*>
 
-  thus <math|ln q<around*|(|\<theta\>|)>=ln<around*|(|<big|sum><rsub|i>exp<around*|(|\<beta\><rsub|i>|)>|)>.>
+  thus <math|ln q=ln<around*|(|<big|sum><rsub|i>exp<around*|(|\<beta\><rsub|i>|)>|)>.>
   We first compute all the <math|\<beta\><rsub|i>> and pick the maximum
   <math|\<beta\><rsub|max>>. Then pick out other <math|\<beta\><rsub|i>> for
   which <math|exp<around*|(|\<beta\><rsub|i>|)>> has the same order as
@@ -87,34 +89,78 @@
   (excluding <math|\<beta\><rsub|max>>). We have
 
   <\eqnarray*>
-    <tformat|<table|<row|<cell|ln q<around*|(|\<theta\>|)>>|<cell|=>|<cell|ln<around*|(|exp<around*|(|\<beta\><rsub|max>|)>+<big|sum><rsub|i\<neq\>max>exp<around*|(|\<beta\><rsub|i><rsup|>|)>|)>>>|<row|<cell|>|<cell|=>|<cell|ln<around*|(|1+<big|sum><rsub|i\<neq\>max>exp<around*|(|\<beta\><rsub|i>-\<beta\><rsub|max>|)>|)>+\<beta\><rsub|max>.>>>>
+    <tformat|<table|<row|<cell|ln q>|<cell|=>|<cell|ln<around*|(|exp<around*|(|\<beta\><rsub|max>|)>+<big|sum><rsub|i\<neq\>max>exp<around*|(|\<beta\><rsub|i><rsup|>|)>|)>>>|<row|<cell|>|<cell|=>|<cell|ln<around*|(|1+<big|sum><rsub|i\<neq\>max>exp<around*|(|\<beta\><rsub|i>-\<beta\><rsub|max>|)>|)>+\<beta\><rsub|max>.>>>>
   </eqnarray*>
 
   Since <math|exp<around*|(|\<beta\><rsub|i>|)>\<sim\>exp<around*|(|\<beta\><rsub|max>|)>>
-  iff <math|i\<in\>M> and <math|exp<around*|(|\<beta\><rsub|i>|)>\<ll\>exp<around*|(|\<beta\><rsub|max>|)>>
-  iff <math|i\<nin\>M>, <math|<big|sum><rsub|i\<in\>M>exp<around*|(|\<beta\><rsub|i>-\<beta\><rsub|max>|)>\<sim\>1>,
+  iff <math|i\<in\>M<rsub|\<beta\>>> and <math|exp<around*|(|\<beta\><rsub|i>|)>\<ll\>exp<around*|(|\<beta\><rsub|max>|)>>
+  iff <math|i\<nin\>M<rsub|\<beta\>>>, <math|<big|sum><rsub|i\<in\>M<rsub|\<beta\>>>exp<around*|(|\<beta\><rsub|i>-\<beta\><rsub|max>|)>\<sim\>1>,
   and others are negligible (comparing to <math|1>). Thus,
 
   <\equation*>
-    ln q<around*|(|\<theta\>|)>\<approx\>ln<around*|(|1+<big|sum><rsub|i\<in\>M>exp<around*|(|\<beta\><rsub|i>-\<beta\><rsub|max>|)>|)>+\<beta\><rsub|max>.
+    ln q\<approx\>ln<around*|(|1+<big|sum><rsub|i\<in\>M<rsub|\<beta\>>>exp<around*|(|\<beta\><rsub|i>-\<beta\><rsub|max>|)>|)>+\<beta\><rsub|max>.
   </equation*>
 
-  This makes <math|ln q<around*|(|\<theta\>|)>> numerically computable. (And
-  if <math|<big|sum><rsub|i\<in\>M>exp<around*|(|\<beta\><rsub|i>-\<beta\><rsub|max>|)>\<less\>0.1>,
-  we can further approximate <math|ln q<around*|(|\<theta\>|)>\<approx\>\<beta\><rsub|max>+><math|<big|sum><rsub|i\<in\>M>exp<around*|(|\<beta\><rsub|i>-\<beta\><rsub|max>|)>>,
+  This makes <math|ln q> numerically computable. (And if
+  <math|<big|sum><rsub|i\<in\>M<rsub|\<beta\>>>exp<around*|(|\<beta\><rsub|i>-\<beta\><rsub|max>|)>\<less\>0.1>,
+  we can further approximate <math|ln q\<approx\>\<beta\><rsub|max>+><math|<big|sum><rsub|i\<in\>M<rsub|\<beta\>>>exp<around*|(|\<beta\><rsub|i>-\<beta\><rsub|max>|)>>,
   thus no logrithm is to be computed.
 
   <section|Cost-Function>
 
   <\eqnarray*>
-    <tformat|<table|<row|<cell|KL>|<cell|\<assign\>>|<cell|\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>|)>><around*|[|ln
-    p<around*|(|\<theta\>;D|)>-ln q<around*|(|\<theta\>|)>|]>>>|<row|<cell|>|<cell|\<approx\>>|<cell|<big|sum><rsub|\<theta\><rsup|<around*|(|s|)>><rsub|i>><around*|{|ln
+    <tformat|<table|<row|<cell|KL<around*|(|w,b|)>>|<cell|\<assign\>>|<cell|\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>;w,b|)>><around*|[|ln
+    p<around*|(|\<theta\>;D|)>-ln q<around*|(|\<theta\>;a,b,w|)>|]>>>|<row|<cell|>|<cell|\<approx\>>|<cell|<big|sum><rsub|\<theta\><rsup|<around*|(|s|)>><rsub|i>><around*|{|ln
     p<around*|(|\<theta\><rsub|i><rsup|<around*|(|s|)>>;D|)>-ln
-    q<around*|(|\<theta\><rsub|i><rsup|<around*|(|s|)>>|)>|}>,>>>>
+    q<around*|(|\<theta\><rsub|i><rsup|<around*|(|s|)>>;a,b,w|)>|}>,>>>>
   </eqnarray*>
 
-  where <math|\<theta\><rsup|<around*|(|s|)>>>s are sampled from
-  <math|q<around*|(|\<theta\>|)>> as a distribution.
+  where <math|<around*|{|\<theta\><rsup|<around*|(|s|)>><rsub|i>|}>> is
+  sampled from <math|q<around*|(|\<theta\>;a,b,w|)>> as a distribution.
+
+  <section|Gradient>
+
+  Let <math|z\<assign\><around*|(|a,b,w|)>>. Then,
+
+  <\eqnarray*>
+    <tformat|<table|<row|<cell|<frac|\<partial\>KL|\<partial\>z><around*|(|z|)>>|<cell|=>|<cell|<frac|\<partial\>|\<partial\>z><big|int>\<mathd\>\<theta\>
+    q<around*|(|\<theta\>;z|)> <around*|{|ln p<around*|(|\<theta\>;D|)>-ln
+    q<around*|(|\<theta\>;z|)>|}>>>|<row|<cell|>|<cell|=>|<cell|<big|int>\<mathd\>\<theta\>
+    q<around*|(|\<theta\>;z|)> <frac|\<partial\>ln
+    q|\<partial\>z><around*|(|\<theta\>;z|)> <around*|{|ln
+    p<around*|(|\<theta\>;D|)>-ln q<around*|(|\<theta\>;z|)>|}>>>|<row|<cell|>|<cell|+>|<cell|<big|int>\<mathd\>\<theta\>
+    q<around*|(|\<theta\>;z|)> <around*|{|ln
+    p<around*|(|\<theta\>;D|)>-<frac|\<partial\>ln
+    q|\<partial\>z><around*|(|\<theta\>;z|)>|}>>>|<row|<cell|>|<cell|\<approx\>>|<cell|<big|sum><rsub|\<theta\><rsup|<around*|(|s|)>><rsub|i>><frac|\<partial\>ln
+    q|\<partial\>z><around*|(|\<theta\><rsub|i><rsup|<around*|(|s|)>>;z|)>
+    <around*|{|ln p<around*|(|\<theta\><rsub|i><rsup|<around*|(|s|)>>;D|)>-ln
+    q<around*|(|\<theta\><rsub|i><rsup|<around*|(|s|)>>;z|)>|}>>>|<row|<cell|>|<cell|+>|<cell|<big|sum><rsub|\<theta\><rsup|<around*|(|s|)>><rsub|i>><around*|{|ln
+    p<around*|(|\<theta\><rsub|i><rsup|<around*|(|s|)>>;D|)>-<frac|\<partial\>ln
+    q|\<partial\>z><around*|(|\<theta\><rsub|i><rsup|<around*|(|s|)>>;z|)>|}>>>>>
+  </eqnarray*>
+
+  where <math|<around*|{|\<theta\><rsup|<around*|(|s|)>><rsub|i>|}>> is
+  sampled from <math|q<around*|(|\<theta\>;z|)>> as a distribution. Next,
+  since <math|ln q=ln<around*|(|<big|sum><rsub|i>exp<around*|(|\<beta\><rsub|i>|)>|)>>,
+  we have
+
+  <\eqnarray*>
+    <tformat|<table|<row|<cell|<frac|\<partial\>ln
+    q|\<partial\>z><around*|(|\<theta\>;z|)>>|<cell|=>|<cell|<big|sum><rsub|i><frac|exp<around*|(|\<beta\><rsub|i>|)>|<big|sum><rsub|j>exp<around*|(|\<beta\><rsub|j>|)>>
+    <frac|\<partial\>\<beta\><rsub|i>|\<partial\>z>>>|<row|<cell|>|<cell|=>|<cell|<big|sum><rsub|i><frac|exp<around*|(|\<beta\><rsub|i>-\<beta\><rsub|max>|)>|<big|sum><rsub|j>exp<around*|(|\<beta\><rsub|j>-\<beta\><rsub|max>|)>>
+    <frac|\<partial\>\<beta\><rsub|i>|\<partial\>z>.>>>>
+  </eqnarray*>
+
+  Since <math|\<partial\>\<beta\><rsub|i>/\<partial\>z> is polynormial-like,
+  thus
+
+  <\equation*>
+    <frac|\<partial\>ln q|\<partial\>z><around*|(|\<theta\>;z|)>\<approx\><big|sum><rsub|i><frac|exp<around*|(|\<beta\><rsub|i>-\<beta\><rsub|max>|)>|<big|sum><rsub|j\<in\>M<rsub|\<beta\>>>exp<around*|(|\<beta\><rsub|j>-\<beta\><rsub|max>|)>>
+    <frac|\<partial\>\<beta\><rsub|i>|\<partial\>z>
+    \<delta\><rsub|i\<in\>M<rsub|\<beta\>>>,
+  </equation*>
+
+  where <math|M<rsub|\<beta\>>> is defined as previous.
 </body>
 
 <initial|<\collection>
@@ -125,5 +171,24 @@
     <associate|auto-1|<tuple|1|?>>
     <associate|auto-2|<tuple|2|?>>
     <associate|auto-3|<tuple|3|?>>
+    <associate|auto-4|<tuple|4|?>>
   </collection>
 </references>
+
+<\auxiliary>
+  <\collection>
+    <\associate|toc>
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|1<space|2spc>Model>
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-1><vspace|0.5fn>
+
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|2<space|2spc>Numerical
+      Consideration> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-2><vspace|0.5fn>
+
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|3<space|2spc>Cost-Function>
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-3><vspace|0.5fn>
+    </associate>
+  </collection>
+</auxiliary>
