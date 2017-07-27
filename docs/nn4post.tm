@@ -110,13 +110,14 @@
 
   <\eqnarray*>
     <tformat|<table|<row|<cell|KL<around*|(|w,b|)>>|<cell|\<assign\>>|<cell|\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>;w,b|)>><around*|[|ln
-    p<around*|(|\<theta\>;D|)>-ln q<around*|(|\<theta\>;a,b,w|)>|]>>>|<row|<cell|>|<cell|\<approx\>>|<cell|<big|sum><rsub|\<theta\><rsup|<around*|(|s|)>><rsub|i>><around*|{|ln
-    p<around*|(|\<theta\><rsub|i><rsup|<around*|(|s|)>>;D|)>-ln
-    q<around*|(|\<theta\><rsub|i><rsup|<around*|(|s|)>>;a,b,w|)>|}>,>>>>
+    p<around*|(|\<theta\>;D|)>-ln q<around*|(|\<theta\>;a,b,w|)>|]>>>|<row|<cell|>|<cell|\<approx\>>|<cell|<frac|1|n>
+    <big|sum><rsub|\<theta\><rsup|<around*|(|s|)>>><around*|{|ln
+    p<around*|(|\<theta\><rsup|<around*|(|s|)>>;D|)>-ln
+    q<around*|(|\<theta\><rsup|<around*|(|s|)>>;a,b,w|)>|}>,>>>>
   </eqnarray*>
 
-  where <math|<around*|{|\<theta\><rsup|<around*|(|s|)>><rsub|i>|}>> is
-  sampled from <math|q<around*|(|\<theta\>;a,b,w|)>> as a distribution.
+  where <math|<around*|{|\<theta\><rsup|<around*|(|s|)>>: s=1,\<ldots\>,n|}>>
+  is sampled from <math|q<around*|(|\<theta\>;a,b,w|)>> as a distribution.
 
   <section|Gradient>
 
@@ -128,19 +129,15 @@
     q<around*|(|\<theta\>;z|)>|}>>>|<row|<cell|>|<cell|=>|<cell|<big|int>\<mathd\>\<theta\>
     q<around*|(|\<theta\>;z|)> <frac|\<partial\>ln
     q|\<partial\>z><around*|(|\<theta\>;z|)> <around*|{|ln
-    p<around*|(|\<theta\>;D|)>-ln q<around*|(|\<theta\>;z|)>|}>>>|<row|<cell|>|<cell|+>|<cell|<big|int>\<mathd\>\<theta\>
-    q<around*|(|\<theta\>;z|)> <around*|{|ln
-    p<around*|(|\<theta\>;D|)>-<frac|\<partial\>ln
-    q|\<partial\>z><around*|(|\<theta\>;z|)>|}>>>|<row|<cell|>|<cell|\<approx\>>|<cell|<big|sum><rsub|\<theta\><rsup|<around*|(|s|)>><rsub|i>><frac|\<partial\>ln
-    q|\<partial\>z><around*|(|\<theta\><rsub|i><rsup|<around*|(|s|)>>;z|)>
-    <around*|{|ln p<around*|(|\<theta\><rsub|i><rsup|<around*|(|s|)>>;D|)>-ln
-    q<around*|(|\<theta\><rsub|i><rsup|<around*|(|s|)>>;z|)>|}>>>|<row|<cell|>|<cell|+>|<cell|<big|sum><rsub|\<theta\><rsup|<around*|(|s|)>><rsub|i>><around*|{|ln
-    p<around*|(|\<theta\><rsub|i><rsup|<around*|(|s|)>>;D|)>-<frac|\<partial\>ln
-    q|\<partial\>z><around*|(|\<theta\><rsub|i><rsup|<around*|(|s|)>>;z|)>|}>>>>>
+    p<around*|(|\<theta\>;D|)>-ln q<around*|(|\<theta\>;z|)>-1|}>>>|<row|<cell|>|<cell|\<approx\>>|<cell|<frac|1|n>
+    <big|sum><rsub|\<theta\><rsup|<around*|(|s|)>>><frac|\<partial\>ln
+    q|\<partial\>z><around*|(|\<theta\><rsup|<around*|(|s|)>>;z|)>
+    <around*|{|ln p<around*|(|\<theta\><rsup|<around*|(|s|)>>;D|)>-ln
+    q<around*|(|\<theta\><rsup|<around*|(|s|)>>;z|)>-1|}>>>>>
   </eqnarray*>
 
-  where <math|<around*|{|\<theta\><rsup|<around*|(|s|)>><rsub|i>|}>> is
-  sampled from <math|q<around*|(|\<theta\>;z|)>> as a distribution. Next,
+  where <math|<around*|{|\<theta\><rsup|<around*|(|s|)>>: s=1,\<ldots\>,n|}>>
+  is sampled from <math|q<around*|(|\<theta\>;z|)>> as a distribution. Next,
   since <math|ln q=ln<around*|(|<big|sum><rsub|i>exp<around*|(|\<beta\><rsub|i>|)>|)>>,
   we have
 
@@ -160,7 +157,43 @@
     \<delta\><rsub|i\<in\>M<rsub|\<beta\>>>,
   </equation*>
 
-  where <math|M<rsub|\<beta\>>> is defined as previous.
+  where <math|M<rsub|\<beta\>>> is defined as previous. To calculate
+  <math|\<partial\>\<beta\><rsub|i>/\<partial\>a<rsub|k>>,
+  <math|\<partial\>\<beta\><rsub|i>/\<partial\>b<rsub|j k>> and
+  <with|font-series|bold|<math|\<partial\>\<beta\><rsub|i>/\<partial\>w<rsub|j
+  k>>>, recall
+
+  <\equation*>
+    \<beta\><rsub|i>=ln a<rsub|i><rsup|2>+<big|sum><rsub|j><around*|{|-<frac|1|2><around*|(|\<theta\><rsub|j>
+    w<rsub|j i><rsup|2>+b<rsub|j i>|)><rsup|2>+<frac|1|2>ln<around*|(|<frac|w<rsub|j
+    i><rsup|2>|2 \<pi\>>|)>|}>,
+  </equation*>
+
+  we thus have
+
+  <\eqnarray*>
+    <tformat|<table|<row|<cell|<frac|\<partial\>\<beta\><rsub|i>|\<partial\>a<rsub|k>>>|<cell|=>|<cell|\<delta\><rsub|i
+    k> <frac|2|a<rsub|k>>;>>|<row|<cell|<frac|\<partial\>\<beta\><rsub|i>|\<partial\>b<rsub|j
+    k>>>|<cell|=>|<cell|-\<delta\><rsub|i k> <around*|{|\<theta\><rsub|j>
+    w<rsub|j k>+b<rsub|j k>|}>;>>|<row|<cell|<frac|\<partial\>\<beta\><rsub|i>|\<partial\>w<rsub|j
+    k>>>|<cell|=>|<cell|-\<delta\><rsub|i k>
+    <around*|{|<around*|(|\<theta\><rsub|j> w<rsub|j k>+b<rsub|j k>|)>
+    \<theta\><rsub|j>+<frac|1|w<rsub|j k>>|}>.>>>>
+  </eqnarray*>
+
+  And recall
+
+  <\equation*>
+    <frac|\<partial\>KL|\<partial\>z><around*|(|z|)>\<approx\><around*|(|<frac|1|n>
+    <big|sum><rsub|\<theta\><rsup|<around*|(|s|)>>>|)> <around*|{|ln
+    p<around*|(|\<theta\><rsup|<around*|(|s|)>>;D|)>-ln
+    q<around*|(|\<theta\><rsup|<around*|(|s|)>>;z|)>-1|}>
+    <big|sum><rsub|i><frac|exp<around*|(|\<beta\><rsub|i>-\<beta\><rsub|max>|)>|<big|sum><rsub|j\<in\>M<rsub|\<beta\>>>exp<around*|(|\<beta\><rsub|j>-\<beta\><rsub|max>|)>>
+    <frac|\<partial\>\<beta\><rsub|i>|\<partial\>z>
+    \<delta\><rsub|i\<in\>M<rsub|\<beta\>>>,
+  </equation*>
+
+  \;
 </body>
 
 <initial|<\collection>
@@ -189,6 +222,10 @@
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|3<space|2spc>Cost-Function>
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-3><vspace|0.5fn>
+
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|4<space|2spc>Gradient>
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-4><vspace|0.5fn>
     </associate>
   </collection>
 </auxiliary>

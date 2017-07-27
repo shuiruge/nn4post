@@ -175,16 +175,18 @@ def performance(log_p, fgmd, num_samples=100):
     """
     
     thetae = fgmd.sample(num_samples)
-    log_q = fgmd.log_prob
+    log_q = fgmd.log_pdf
     
     kl_divergence = np.mean(log_p(thetae) - log_q(thetae))
     return kl_divergence
+
+
 
 def nabla_perfm(log_p, fgmd, num_samples=100):
     
     num_peaks = fgmd.get_num_peaks()
     dim = fgmd.get_dim()
-    log_q = fgmd.log_prob
+    log_q = fgmd.log_pdf
     a = fgmd.get_a()
     b = fgmd.get_b()
     w = fgmd.get_w()
@@ -192,38 +194,58 @@ def nabla_perfm(log_p, fgmd, num_samples=100):
     thetae = fgmd.sample(num_samples)
 
     beta_max, delta_beta = fgmd.beta(thetae)
-    proportion = np.exp(delta_beta) / np.sum(np.exp(delta_beta), axis=1)  # shape: [num_samples, num_peaks]
-    
-    def nabla_perfm_i(nabla_beta):
+    proportion = np.exp(delta_beta) \
+               / np.expand_dims(np.sum(np.exp(delta_beta), axis=1), axis=1)  # shape: [num_samples, num_peaks]
+             
+    def nabla_perfm_sub(nabla_beta):
         """
         Args:
-            nabla_beta_i: np.array(shap=?)
+            nabla_beta_i: np.array(shape=?)
                 :math:`\frac{\partial \beta}{\partial z}`
         Returns:
-            np.array(shape=?)
+            np.array(shape=)
         """
-        return np.mean(
-            (log_p(thetae) - log_q(thetae) - 1) * propotion * nabla_beta)
-    
+        
+        x = np.expand_dims(log_p(thetae) - log_q(thetae) - 1, axis=1) \
+            * proportion  # shape: [num_samples, num_peaks]
+            
+        if len(nabla_beta.shape) == 1:  # like `a`, with shape: [num_peaks].
+            
+            return np.mean(x * nabla_beta, axis=0)
+        
+        else:
+            assert len(nabla_beta.shape) == 3  # like `b` and `w`, with shape: [num_samples, dim, num_peaks].
+            
+            return np.mean(
+                np.expand_dims(x, axis=1) * nabla_beta,
+                axis=0)
+            
+
     nabla_beta_by_a = 2 / a  # shape: [num_samples, num_peaks]
-    nabla_beta_by_b = (- np.expand_dims(theta, axis=2) * np.expand_dims(w, axis=0)
+    nabla_beta_by_b = (- np.expand_dims(thetae, axis=2) * np.expand_dims(w, axis=0)
                        + np.expand_dims(b, axis=0))  # shape: [num_samples, dim, num_peaks]
-    nabla_beta_by_w = (- np.expand_dims(theta, axis=2) * np.expand_dims(w, axis=0)
-                       + np.expand_dims(b, axis=0)) * np.expand_dims(theta, axis=2) \
+    nabla_beta_by_w = (- np.expand_dims(thetae, axis=2) * np.expand_dims(w, axis=0)
+                       + np.expand_dims(b, axis=0)) * np.expand_dims(thetae, axis=2) \
                       + 1 / np.expand_dims(w, axis=0)  # shape: [num_samples, dim, num_peaks]
-                      
-        
-        
-    
-    
-    return 
+
+    return (
+        nabla_perfm_sub(nabla_beta_by_a),
+        nabla_perfm_sub(nabla_beta_by_b),
+        nabla_perfm_sub(nabla_beta_by_w)
+        )
+
+
 
 # --- Test ---
 
 DIM = 100
-NUM_PEAKS = 10
+NUM_PEAKS = 2
 
-thetae = np.random.uniform(size=[50, DIM])
-gm = FGMD(DIM, NUM_PEAKS)
-print(gm.log_pdf(thetae).shape)
-print(gm.sample(30).shape)
+NUM_SAMPLES = 50
+
+thetae = np.random.uniform(size=[NUM_SAMPLES, DIM])
+fgmd = FGMD(DIM, NUM_PEAKS)
+log_p = lambda theta: -0.5 * np.sum(np.square(theta), axis=1)
+
+for _ in nabla_perfm(log_p, fgmd, num_samples=NUM_SAMPLES):
+    print(_.shape)
