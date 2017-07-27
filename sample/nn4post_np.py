@@ -61,17 +61,22 @@ class FGMD(object):
             sigma = np.diag(1 / w_square[:,i])  # shape: [self._dim, self._dim]
             self._components.append({'mu': mu, 'sigma': sigma})
             
-
-    def log_pdf(self, theta):
-        """ :math:`\ln q (\theta; a, b, w)`, where `theta` is argument and
-        `(a, b, w)` is parameter.
+    
+    def beta(self, theta):
+        """ The :math:`\beta` in `'../docs/nn4post.tm'`.
         
         Args:
-            theta: np.array(shape=[None, self._dim], dtype=float32)
+            theta: np.array(shape=[None, self.get_dim()], dtype=float32)
             
         Returns:
-            np.array(shape=[None], dtype=float32)
+            (
+                beta_max:
+                    np.array(shape=[None])
+                delta_beta:
+                    np.array(shape=[None, self.get_num_peaks()])
+            )
         """
+        
         log_cat = np.expand_dims(
             np.log(np.square(self._a)),
             axis=0)  # shape: [1, self._num_peaks]
@@ -81,11 +86,27 @@ class FGMD(object):
                 +0.5 * np.log(np.square(self._w) / (2 * 3.14))
             ),
             axis=1)  # shape: [None, self._num_peaks]
-    
-        beta = log_cat + log_gaussian  # shape: [None, self._num_peaks]
         
-        beta_max = np.max(beta, axis=1)  # shape: [None]
-        delta_beta = beta - np.expand_dims(beta_max, axis=1)  # shape: [None, self._dim]
+        beta0 = log_cat + log_gaussian  # shape: [None, self._num_peaks]
+        
+        beta_max = np.max(beta0, axis=1)  # shape: [None]
+        delta_beta = beta0 - np.expand_dims(beta_max, axis=1)  # shape: [None, self._num_peaks]
+    
+        return (beta_max, delta_beta)
+        
+
+    def log_pdf(self, theta):
+        """ :math:`\ln q (\theta; a, b, w)`, where `theta` is argument and
+        `(a, b, w)` is parameter.
+        
+        Args:
+            theta: np.array(shape=[None, self.get_dim()], dtype=float32)
+            
+        Returns:
+            np.array(shape=[None], dtype=float32)
+        """
+        
+        beta_max, delta_beta = self.beta(theta)
         
         return beta_max + np.log(np.sum(np.exp(delta_beta), axis=1))  # shape: [None]
     
@@ -95,7 +116,7 @@ class FGMD(object):
         Args:
             num_samples: int
         Returns:
-            np.array(shape=[num_samples, self._dim], dtype=float32)
+            np.array(shape=[num_samples, self.get_dim()], dtype=float32)
         """
         
         def generate_sample():
@@ -110,8 +131,92 @@ class FGMD(object):
             return samp
             
         return np.asarray([generate_sample() for _ in range(num_samples)])
-        
+    
+    
+    def get_dim(self):
+        return self._dim
+    
+    def get_num_peaks(self):
+        return self._num_peaks
+    
+    def get_a(self):
+        return self._a
+    
+    def get_b(self):
+        return self._b
+    
+    def get_w(self):
+        return self._w
+    
+    def set_a(self, value):
+        self._a = value
+        return None
+    
+    def set_b(self, value):
+        self._b = value
+        return None
+    
+    def set_w(self, value):
+        self._w = value
+        return None
+    
 
+def performance(log_p, fgmd, num_samples=100):
+    """ Use KL-divergence as performance of fitting a posterior `log_p` by a
+        finite Gaussian mixture distribution (FGMD).\
+    
+    Args:
+        log_p: np.array(shape=[fgmd.get_dim()]) -> float
+        fgmd: FGMD
+        num_sample: int
+            For Monte Carlo integration.
+    Returns:
+        float
+    """
+    
+    thetae = fgmd.sample(num_samples)
+    log_q = fgmd.log_prob
+    
+    kl_divergence = np.mean(log_p(thetae) - log_q(thetae))
+    return kl_divergence
+
+def nabla_perfm(log_p, fgmd, num_samples=100):
+    
+    num_peaks = fgmd.get_num_peaks()
+    dim = fgmd.get_dim()
+    log_q = fgmd.log_prob
+    a = fgmd.get_a()
+    b = fgmd.get_b()
+    w = fgmd.get_w()
+
+    thetae = fgmd.sample(num_samples)
+
+    beta_max, delta_beta = fgmd.beta(thetae)
+    proportion = np.exp(delta_beta) / np.sum(np.exp(delta_beta), axis=1)  # shape: [num_samples, num_peaks]
+    
+    def nabla_perfm_i(nabla_beta):
+        """
+        Args:
+            nabla_beta_i: np.array(shap=?)
+                :math:`\frac{\partial \beta}{\partial z}`
+        Returns:
+            np.array(shape=?)
+        """
+        return np.mean(
+            (log_p(thetae) - log_q(thetae) - 1) * propotion * nabla_beta)
+    
+    nabla_beta_by_a = 2 / a  # shape: [num_samples, num_peaks]
+    nabla_beta_by_b = (- np.expand_dims(theta, axis=2) * np.expand_dims(w, axis=0)
+                       + np.expand_dims(b, axis=0))  # shape: [num_samples, dim, num_peaks]
+    nabla_beta_by_w = (- np.expand_dims(theta, axis=2) * np.expand_dims(w, axis=0)
+                       + np.expand_dims(b, axis=0)) * np.expand_dims(theta, axis=2) \
+                      + 1 / np.expand_dims(w, axis=0)  # shape: [num_samples, dim, num_peaks]
+                      
+        
+        
+    
+    
+    return 
 
 # --- Test ---
 
