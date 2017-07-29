@@ -29,6 +29,15 @@ class Timer(object):
             print('=> elapsed time: %f secs' % self.secs)
 
 
+def no_underflow(epsilon, x):
+    """ If x underflow, then return `epsilon`, as protection in `1/x`.
+        Args:
+            x: float
+        Returns:
+            float
+    """
+    return np.where(x==0, x, epsilon)
+
 
 class FGMD(object):
     """ Finite Gaussian Mixture Distribution.
@@ -56,6 +65,8 @@ class FGMD(object):
     Args:
         dim: int
         num_peaks: int
+        epsilon: float
+            Employed in `no_underflow()`.
         
     Methods:
         log_pdf, sample, 
@@ -65,10 +76,11 @@ class FGMD(object):
         get_cat, get_components
     """
     
-    def __init__(self, dim, num_peaks):
+    def __init__(self, dim, num_peaks, epsilon=np.exp(-10)):
         
         self._dim = dim
         self._num_peaks = num_peaks
+        self._epsilon = epsilon
         
         self._a = np.ones(shape=[num_peaks])
         self._b = np.random.normal(size=[dim, num_peaks])
@@ -82,10 +94,11 @@ class FGMD(object):
         # --- :math:`\mu` and :math:`\sigma` for each Gaussian component ---
         b = self.get_b()
         w = self.get_w()
+        w = no_underflow(self.get_epsilon(), w)
         self._components = [
             {
                 'mu': -b[:,i] / w[:,i],  # shape: [dim]
-                'sigma': np.diag(1 / np.abs(w[:,i])),  # shape: [dim, dim]
+                'sigma': 1 / np.abs(w[:,i]),  # shape: [dim, dim]
             }
             for i in range(num_peaks)]
             
@@ -191,9 +204,11 @@ class FGMD(object):
             
             i = np.random.choice(num_peaks, p=cat)
             
-            samp = np.random.multivariate_normal(
-                      mean=components[i]['mu'],
-                      cov=components[i]['sigma'])
+            samp = [np.random.normal(
+                      loc=components[i]['mu'][j],
+                      scale=components[i]['sigma'][j])
+                    for j in range(self.get_dim())
+                    ]
             
             result.append(samp)
             
@@ -223,6 +238,9 @@ class FGMD(object):
     def get_components(self):
         return self._components
     
+    def get_epsilon(self):
+        return self._epsilon
+    
     
     # --- Set-Functions ---
     
@@ -238,10 +256,11 @@ class FGMD(object):
         num_peaks = self.get_num_peaks()
         b = self.get_b()
         w = self.get_w()
+        w = no_underflow(self.get_epsilon(), w)
         self._components = [
             {
                 'mu': -b[:,i] / w[:,i],  # shape: [dim]
-                'sigma': np.diag(1 / np.abs(w[:,i])),  # shape: [dim, dim]
+                'sigma': 1 / np.abs(w[:,i]),  # shape: [dim, dim]
             }
             for i in range(num_peaks)]
         return None
@@ -262,7 +281,9 @@ class FGMD(object):
         return None
     
     def copy(self):
-        fgmd = FGMD(self.get_dim(), self.get_num_peaks())
+        fgmd = FGMD(self.get_dim(),
+                    self.get_num_peaks(),
+                    self.get_epsilon())
         fgmd.set_a(self.get_a())
         fgmd.set_b(self.get_b())
         fgmd.set_w(self.get_w())
@@ -344,7 +365,7 @@ def nabla_perfm(fgmd, log_p, epsilon, clip_limit, num_samples):
     proportion = np.exp(delta_beta) \
                / np.expand_dims(np.sum(np.exp(delta_beta), axis=1), axis=1)  # shape: [num_samples, num_peaks]
              
-    def nabla_perfm_sub(nabla_beta):
+    def _nabla_perfm_sub(nabla_beta):
         """ Helper of `nabla_perfm()`.
         
         Args:
@@ -369,30 +390,24 @@ def nabla_perfm(fgmd, log_p, epsilon, clip_limit, num_samples):
                 axis=0)
     
     
-    def with_epsilon(x):
-        """ If x underflow, then return `epsilon` as protection in `1/x`.
-            Args:
-                x: float
-            Returns:
-                float
-        """
-        return np.where(x==0, x, epsilon)
+    def _no_underflow(x):
+        return no_underflow(epsilon, x)
     
             
     # :math:`\frac{\partial beta_i}{\partial a_i} = \frac{2}{a_i}`
-    nabla_beta_by_a = 2 / (with_epsilon(a))  # shape: [num_samples, num_peaks]
+    nabla_beta_by_a = 2 / (_no_underflow(a))  # shape: [num_samples, num_peaks]
     # :math:`\frac{\partial beta_i}{\partial b_{ji}} = -(\theta_j w_{ji} + b_{ji})`
     nabla_beta_by_b = (- np.expand_dims(thetae, axis=2) * np.expand_dims(w, axis=0)
                        + np.expand_dims(b, axis=0))  # shape: [num_samples, dim, num_peaks]
     # :math:`\frac{\partial beta_i}{\partial b_{ji}} = -(\theta_j w_{ji} + b_{ji}) \theta_j + \frac{1}{w_{ji}}`
     nabla_beta_by_w = (- np.expand_dims(thetae, axis=2) * np.expand_dims(w, axis=0)
                        + np.expand_dims(b, axis=0)) * np.expand_dims(thetae, axis=2) \
-                      + 1 / np.expand_dims(with_epsilon(w), axis=0)  # shape: [num_samples, dim, num_peaks]
+                      + 1 / np.expand_dims(_no_underflow(w), axis=0)  # shape: [num_samples, dim, num_peaks]
 
     gradients = [
-        nabla_perfm_sub(nabla_beta_by_a),  # shape: [num_peaks]
-        nabla_perfm_sub(nabla_beta_by_b),  # shape: [dim, num_peaks]
-        nabla_perfm_sub(nabla_beta_by_w),  # shape: [dim, num_peaks]
+        _nabla_perfm_sub(nabla_beta_by_a),  # shape: [num_peaks]
+        _nabla_perfm_sub(nabla_beta_by_b),  # shape: [dim, num_peaks]
+        _nabla_perfm_sub(nabla_beta_by_w),  # shape: [dim, num_peaks]
         ]
 
     # Clip the gradients
