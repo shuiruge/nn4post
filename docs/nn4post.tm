@@ -37,7 +37,7 @@
 
   <\equation*>
     N<around*|(|x,w,b|)>\<assign\><sqrt|<frac|w<rsup|2>|2 \<pi\>>>
-    exp<around*|(|-<frac|1|2><around*|(|w<rsup|2> x+b|)><rsup|2>|)>
+    exp<around*|(|-<frac|1|2><around*|(|w x+b|)><rsup|2>|)>
   </equation*>
 
   While fitting, <math|q<around*|(|\<theta\>;a,b,w|)>> has no need of
@@ -48,7 +48,7 @@
   <math|N<around*|(|x,w,b|)>> is realized as a one-dimensional Gaussian
   distribution (denote <math|<with|math-font|cal|N>>). Indeed,
   <math|N<around*|(|x,w,b|)>=<with|math-font|cal|N<around*|(|x-\<mu\>,\<sigma\>|)>>>
-  if <math|\<mu\>=b/w<rsup|2>> and <math|\<sigma\>=1/w<rsup|2>>. Thus
+  if <math|\<mu\>=b/w> and <math|\<sigma\>=1/<around*|\||w|\|>>. Thus
   <math|<big|prod><rsub|j> N<around*|(|\<theta\><rsub|j>,w<rsub|i j>,b<rsub|i
   j>|)>> is an multi-dimensional Gaussian distribution, with all dimensions
   independent. The <math|<around*|{|a<rsub|i><rsup|2>|}>> is an empirical
@@ -77,7 +77,7 @@
     <around*|{|<big|prod><rsub|j>N<around*|(|\<theta\><rsub|j>,w<rsub|j
     i>,b<rsub|j i>|)>|}>|)>>>|<row|<cell|>|<cell|=>|<cell|ln
     a<rsub|i><rsup|2>+<big|sum><rsub|j><around*|{|-<frac|1|2><around*|(|\<theta\><rsub|j>
-    w<rsub|j i><rsup|2>+b<rsub|j i>|)><rsup|2>+<frac|1|2>ln<around*|(|<frac|w<rsub|j
+    w<rsub|j i>+b<rsub|j i>|)><rsup|2>+<frac|1|2>ln<around*|(|<frac|w<rsub|j
     i><rsup|2>|2 \<pi\>>|)>|}>,>>>>
   </eqnarray*>
 
@@ -165,7 +165,7 @@
 
   <\equation*>
     \<beta\><rsub|i>=ln a<rsub|i><rsup|2>+<big|sum><rsub|j><around*|{|-<frac|1|2><around*|(|\<theta\><rsub|j>
-    w<rsub|j i><rsup|2>+b<rsub|j i>|)><rsup|2>+<frac|1|2>ln<around*|(|<frac|w<rsub|j
+    w<rsub|j i>+b<rsub|j i>|)><rsup|2>+<frac|1|2>ln<around*|(|<frac|w<rsub|j
     i><rsup|2>|2 \<pi\>>|)>|}>,
   </equation*>
 
