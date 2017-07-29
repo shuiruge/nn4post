@@ -36,7 +36,7 @@ def no_underflow(epsilon, x):
         Returns:
             float
     """
-    return np.where(x==0, x, epsilon)
+    return np.where(x==0, epsilon, x)  # `x==0` implies underflow.
 
 
 class FGMD(object):
@@ -482,7 +482,7 @@ def gradient_descent(log_p, fgmd, num_steps, learning_rate,
 
 # --- Test ---
 
-DIM = 500
+DIM = 100
 NUM_PEAKS = 2
 
 fgmd = FGMD(DIM, NUM_PEAKS)
@@ -499,7 +499,7 @@ print('performance: {0}'.format(old_performance))
 
 # --- Making gradient descent
 with Timer():
-    fgmd = gradient_descent(log_p, fgmd, num_steps=10, learning_rate=0.001)
+    fgmd = gradient_descent(log_p, fgmd, num_steps=1000, learning_rate=0.001)
     
 # After gradient descent
 print('After updating ......\n')
