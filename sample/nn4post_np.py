@@ -99,9 +99,10 @@ class FGMD(object):
         Returns:
             (
                 beta_max:
-                    np.array(shape=[None])
+                    np.array(shape=[None], dtype=float32)
                 delta_beta:
-                    np.array(shape=[None, self.get_num_peaks()])
+                    np.array(shape=[None, self.get_num_peaks()],
+                             dtype=float32)
             )
         """
         
@@ -131,7 +132,8 @@ class FGMD(object):
         `(a, b, w)` is parameter.
         
         Args:
-            theta: np.array(shape=[None, self.get_dim()], dtype=float32)
+            theta: np.array(shape=[None, self.get_dim()],
+                            dtype=float32)
             
         Returns:
             np.array(shape=[None], dtype=float32)
@@ -141,21 +143,51 @@ class FGMD(object):
         
         return beta_max + np.log(np.sum(np.exp(delta_beta), axis=1))  # shape: [None]
     
+## Commented out for the below    
+#    def sample(self, num_samples):
+#        """
+#        Args:
+#            num_samples: int
+#        Returns:
+#            np.array(shape=[num_samples, self.get_dim()],
+#                     dtype=float32)
+#        """
+#        
+#        num_peaks = self.get_num_peaks()
+#        cat = self.get_cat()
+#        components = self.get_components()
+#        
+#        def generate_sample():
+#            """ as Gaussian mixture distribution. """
+#            
+#            i = np.random.choice(num_peaks, p=cat)
+#            
+#            samp = np.random.multivariate_normal(
+#                      mean=components[i]['mu'],
+#                      cov=components[i]['sigma'])
+#            
+#            return samp
+#            
+#        return np.asarray([generate_sample() for _ in range(num_samples)])
 
+    # --- Test the profile of sub-code within `sample()` ---
+    @profile
     def sample(self, num_samples):
         """
         Args:
             num_samples: int
         Returns:
-            np.array(shape=[num_samples, self.get_dim()], dtype=float32)
+            np.array(shape=[num_samples, self.get_dim()],
+                     dtype=float32)
         """
         
         num_peaks = self.get_num_peaks()
         cat = self.get_cat()
         components = self.get_components()
         
-        def generate_sample():
-            """ as Gaussian mixture distribution. """
+        result = []
+        
+        for _ in range(num_samples):
             
             i = np.random.choice(num_peaks, p=cat)
             
@@ -163,9 +195,9 @@ class FGMD(object):
                       mean=components[i]['mu'],
                       cov=components[i]['sigma'])
             
-            return samp
+            result.append(samp)
             
-        return np.asarray([generate_sample() for _ in range(num_samples)])
+        return np.asarray(result)
     
     
     # --- Get-Functions ---
@@ -235,8 +267,9 @@ class FGMD(object):
         fgmd.set_b(self.get_b())
         fgmd.set_w(self.get_w())
         return fgmd
-    
 
+    
+@profile
 def performance(log_p, fgmd, num_samples=100):
     """ Use KL-divergence as performance of fitting a posterior `log_p` by a
         finite Gaussian mixture distribution (FGMD).
@@ -247,7 +280,7 @@ def performance(log_p, fgmd, num_samples=100):
         "non-negative up to an overall constant".
     
     Args:
-        log_p: np.array(shape=[fgmd.get_dim()]) -> float
+        log_p: np.array(shape=[fgmd.get_dim()], dtype=float32) -> float
         fgmd: FGMD
         num_sample: int
             For Monte Carlo integration.
@@ -262,7 +295,7 @@ def performance(log_p, fgmd, num_samples=100):
     return kl_divergence
 
 
-
+@profile
 def nabla_perfm(fgmd, log_p, epsilon, clip_limit, num_samples):
     """ :math:`\nabla_z \textrm(KL) (q(z) || p)`, where :math:`z := (a, b, w)`,
         :math:`q` is the PDF of `fgmd` (whose logrithm is `fgmd.log_pdf`), and
@@ -280,7 +313,7 @@ def nabla_perfm(fgmd, log_p, epsilon, clip_limit, num_samples):
         
     Args:
         fgmd: FGMD
-        log_p: np.array(shape=[fgmd.get_dim()]) -> float
+        log_p: np.array(shape=[fgmd.get_dim()], dtype=float32) -> float
         epsilon: float
             asdf   BUGS HEREIN
         clip_limit: float or None
@@ -291,9 +324,12 @@ def nabla_perfm(fgmd, log_p, epsilon, clip_limit, num_samples):
             
     Returns:
         [
-            nabla_perfm_by_a: np.array(shape=fgmd.get_a().shape),
-            nabla_perfm_by_b: np.array(shape=fgmd.get_b().shape),
-            nabla_perfm_by_w: np.array(shape=fgmd.get_w().shape),
+            nabla_perfm_by_a: np.array(shape=fgmd.get_a().shape,
+                                       dtype=float32),
+            nabla_perfm_by_b: np.array(shape=fgmd.get_b().shape,
+                                       dtype=float32),
+            nabla_perfm_by_w: np.array(shape=fgmd.get_w().shape,
+                                       dtype=float32),
         ]
     """
 
@@ -312,10 +348,10 @@ def nabla_perfm(fgmd, log_p, epsilon, clip_limit, num_samples):
         """ Helper of `nabla_perfm()`.
         
         Args:
-            nabla_beta_i: np.array(shape=?)
+            nabla_beta_i: np.array(shape=?, dtype=float32)
                 :math:`\frac{\partial \beta}{\partial z}`
         Returns:
-            np.array(shape=?)
+            np.array(shape=?, dtype=float32)
         """
         
         x = np.expand_dims(log_q(thetae) - log_p(thetae) - 1, axis=1) \
@@ -331,16 +367,27 @@ def nabla_perfm(fgmd, log_p, epsilon, clip_limit, num_samples):
             return np.mean(
                 np.expand_dims(x, axis=1) * nabla_beta,
                 axis=0)
+    
+    
+    def with_epsilon(x):
+        """ If x underflow, then return `epsilon` as protection in `1/x`.
+            Args:
+                x: float
+            Returns:
+                float
+        """
+        return np.where(x==0, x, epsilon)
+    
             
     # :math:`\frac{\partial beta_i}{\partial a_i} = \frac{2}{a_i}`
-    nabla_beta_by_a = 2 / (a + epsilon)  # shape: [num_samples, num_peaks]
+    nabla_beta_by_a = 2 / (with_epsilon(a))  # shape: [num_samples, num_peaks]
     # :math:`\frac{\partial beta_i}{\partial b_{ji}} = -(\theta_j w_{ji} + b_{ji})`
     nabla_beta_by_b = (- np.expand_dims(thetae, axis=2) * np.expand_dims(w, axis=0)
                        + np.expand_dims(b, axis=0))  # shape: [num_samples, dim, num_peaks]
     # :math:`\frac{\partial beta_i}{\partial b_{ji}} = -(\theta_j w_{ji} + b_{ji}) \theta_j + \frac{1}{w_{ji}}`
     nabla_beta_by_w = (- np.expand_dims(thetae, axis=2) * np.expand_dims(w, axis=0)
                        + np.expand_dims(b, axis=0)) * np.expand_dims(thetae, axis=2) \
-                      + 1 / np.expand_dims(w + epsilon, axis=0)  # shape: [num_samples, dim, num_peaks]
+                      + 1 / np.expand_dims(with_epsilon(w), axis=0)  # shape: [num_samples, dim, num_peaks]
 
     gradients = [
         nabla_perfm_sub(nabla_beta_by_a),  # shape: [num_peaks]
@@ -354,7 +401,7 @@ def nabla_perfm(fgmd, log_p, epsilon, clip_limit, num_samples):
         
     return gradients
 
-
+@profile
 def gradient_descent(log_p, fgmd, num_steps, learning_rate,
         epsilon=np.exp(-20), clip_limit=np.exp(7), num_samples=100):
     """ Using gradient descent method to update `fgmd` by **minimizing** the
@@ -370,7 +417,7 @@ def gradient_descent(log_p, fgmd, num_steps, learning_rate,
         
     Args:
         fgmd: FGMD
-        log_p: np.array(shape=[fgmd.get_dim()]) -> float
+        log_p: np.array(shape=[fgmd.get_dim()], dtype=float32) -> float
         num_steps: int
             Number of times of updating by gradient descent.
         learning_rate: float
@@ -420,37 +467,39 @@ def gradient_descent(log_p, fgmd, num_steps, learning_rate,
 
 # --- Test ---
 
-DIM = 100
+DIM = 500
 NUM_PEAKS = 2
 
 fgmd = FGMD(DIM, NUM_PEAKS)
 log_p = lambda theta: (-0.5 * np.sum(np.square(theta), axis=1)
                        - 0.5 * np.log(2 * 3.14))
 
-# Before gradient descent
-print('b: {0}'.format(fgmd.get_b()))
-print('w: {0}'.format(fgmd.get_w()))
-print('cat: {0}'.format(fgmd.get_cat()))
-print('components: {0}'.format(fgmd.get_components()))
+# --- Before gradient descent
+#print('b: {0}'.format(fgmd.get_b()))
+#print('w: {0}'.format(fgmd.get_w()))
+#print('cat: {0}'.format(fgmd.get_cat()))
+#print('components: {0}'.format(fgmd.get_components()))
 old_performance = performance(log_p, fgmd)
 print('performance: {0}'.format(old_performance))
 
-# Making gradient descent
+# --- Making gradient descent
 with Timer():
-    fgmd = gradient_descent(log_p, fgmd, num_steps=500, learning_rate=0.001)
+    fgmd = gradient_descent(log_p, fgmd, num_steps=10, learning_rate=0.001)
     
 # After gradient descent
 print('After updating ......\n')
-new_performance = performance(log_p, fgmd)
-print('updated performance:\n\t{0}  -->  {1}\n'.format(
-        old_performance, new_performance))
-print('updated a: {0}'.format(fgmd.get_a()))
-print('updated b (shall be near `0`): {0}'.format(fgmd.get_b()))
-print('updated w (shall be near `+-1`): {0}'.format(fgmd.get_w()))
-print('updated cat: {0}'.format(fgmd.get_cat()))
-print('updated components: {0}'.format(fgmd.get_components()))
+#print('updated a: {0}'.format(fgmd.get_a()))
+#print('updated b (shall be near `0`): {0}'.format(fgmd.get_b()))
+#print('updated w (shall be near `+-1`): {0}'.format(fgmd.get_w()))
+#print('updated cat: {0}'.format(fgmd.get_cat()))
+#print('updated components: {0}'.format(fgmd.get_components()))
 
-''' outputs of one arbitrary (i.e. without any post-selection) trial:
+# --- Improvement by gradient descent
+new_performance = performance(log_p, fgmd)
+print('\nupdated performance:\n\t{0}  -->  {1}\n'.format(
+        old_performance, new_performance))
+
+''' Outputs of one arbitrary (i.e. without any post-selection) trial:
     >>> updated_performance:
     ...     779.4549314953962  -->  0.19749876522128815
     ... updated cat: ?
@@ -468,4 +517,9 @@ print('updated components: {0}'.format(fgmd.get_components()))
     
     Looks good on performance. But I do not know if there's some bug within
     the code. Thus a careful overall check is called for.
+'''
+
+''' Conclusion of profile:
+    
+    The `np.ramdom.multivariate_normal()` is the root of all evil.
 '''
