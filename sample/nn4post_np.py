@@ -36,7 +36,7 @@ def no_underflow(epsilon, x):
         Returns:
             float
     """
-    return np.where(x==0, epsilon, x)  # `x==0` implies underflow.
+    return np.where(x==0, epsilon, x)
 
 
 class FGMD(object):
@@ -92,14 +92,12 @@ class FGMD(object):
         self._cat = a_square / np.sum(a_square)
 
         # --- :math:`\mu` and :math:`\sigma` for each Gaussian component ---
+        # C.f. the docstring of `self.get_components()`
         b = self.get_b()
         w = self.get_w()
         w = no_underflow(self.get_epsilon(), w)
         self._components = [
-            {
-                'mu': -b[:,i] / w[:,i],  # shape: [dim]
-                'sigma': 1 / np.abs(w[:,i]),  # shape: [dim, dim]
-            }
+            np.array([-b[:,i] / w[:,i], 1 / np.abs(w[:,i])])
             for i in range(num_peaks)]
             
     
@@ -155,64 +153,33 @@ class FGMD(object):
         beta_max, delta_beta = self.beta(theta)
         
         return beta_max + np.log(np.sum(np.exp(delta_beta), axis=1))  # shape: [None]
-    
-## Commented out for the below    
-#    def sample(self, num_samples):
-#        """
-#        Args:
-#            num_samples: int
-#        Returns:
-#            np.array(shape=[num_samples, self.get_dim()],
-#                     dtype=float32)
-#        """
-#        
-#        num_peaks = self.get_num_peaks()
-#        cat = self.get_cat()
-#        components = self.get_components()
-#        
-#        def generate_sample():
-#            """ as Gaussian mixture distribution. """
-#            
-#            i = np.random.choice(num_peaks, p=cat)
-#            
-#            samp = np.random.multivariate_normal(
-#                      mean=components[i]['mu'],
-#                      cov=components[i]['sigma'])
-#            
-#            return samp
-#            
-#        return np.asarray([generate_sample() for _ in range(num_samples)])
+   
 
-    # --- Test the profile of sub-code within `sample()` ---
-    @profile
     def sample(self, num_samples):
-        """
+        """ Randomly sample `num_samples` samples from FGMD.
+        
         Args:
             num_samples: int
+            
         Returns:
             np.array(shape=[num_samples, self.get_dim()],
                      dtype=float32)
         """
         
         num_peaks = self.get_num_peaks()
+        dim = self.get_dim()
         cat = self.get_cat()
         components = self.get_components()
         
-        result = []
+        def generate_sample():
+            """ Generate one sample from FGMD. """
+            
+            index = np.random.choice(num_peaks, p=cat)
+            samp = np.random.normal(*components[index])
+            
+            return samp
         
-        for _ in range(num_samples):
-            
-            i = np.random.choice(num_peaks, p=cat)
-            
-            samp = [np.random.normal(
-                      loc=components[i]['mu'][j],
-                      scale=components[i]['sigma'][j])
-                    for j in range(self.get_dim())
-                    ]
-            
-            result.append(samp)
-            
-        return np.asarray(result)
+        return np.array([generate_sample() for _ in range(num_samples)])
     
     
     # --- Get-Functions ---
@@ -233,9 +200,20 @@ class FGMD(object):
         return self._w
     
     def get_cat(self):
+        """
+        Returns:
+            np.array(shape=[self._get_num_peaks()], dtype=float32)
+        """
         return self._cat
     
     def get_components(self):
+        """
+        Returns:
+            np.array(shape=[self.get_num_peaks(), 2, self.get_dim()],
+                     dtype=float32)
+            wherein the first in the `2` is the value of "mu", and the second
+            of "sigma".
+        """
         return self._components
     
     def get_epsilon(self):
@@ -252,16 +230,14 @@ class FGMD(object):
         return None
     
     def _update_components(self):
-        """ Helper of `self.set_b()` and `self.set_w(). """
+        """ Helper of `self.set_b()` and `self.set_w().
+        """
         num_peaks = self.get_num_peaks()
         b = self.get_b()
         w = self.get_w()
         w = no_underflow(self.get_epsilon(), w)
         self._components = [
-            {
-                'mu': -b[:,i] / w[:,i],  # shape: [dim]
-                'sigma': 1 / np.abs(w[:,i]),  # shape: [dim, dim]
-            }
+            np.array([-b[:,i] / w[:,i], 1 / np.abs(w[:,i])])
             for i in range(num_peaks)]
         return None
     
@@ -289,8 +265,7 @@ class FGMD(object):
         fgmd.set_w(self.get_w())
         return fgmd
 
-    
-@profile
+
 def performance(log_p, fgmd, num_samples=100):
     """ Use KL-divergence as performance of fitting a posterior `log_p` by a
         finite Gaussian mixture distribution (FGMD).
@@ -316,7 +291,6 @@ def performance(log_p, fgmd, num_samples=100):
     return kl_divergence
 
 
-@profile
 def nabla_perfm(fgmd, log_p, epsilon, clip_limit, num_samples):
     """ :math:`\nabla_z \textrm(KL) (q(z) || p)`, where :math:`z := (a, b, w)`,
         :math:`q` is the PDF of `fgmd` (whose logrithm is `fgmd.log_pdf`), and
@@ -416,7 +390,7 @@ def nabla_perfm(fgmd, log_p, epsilon, clip_limit, num_samples):
         
     return gradients
 
-@profile
+
 def gradient_descent(log_p, fgmd, num_steps, learning_rate,
         epsilon=np.exp(-20), clip_limit=np.exp(7), num_samples=100):
     """ Using gradient descent method to update `fgmd` by **minimizing** the
@@ -532,9 +506,4 @@ print('\nupdated performance:\n\t{0}  -->  {1}\n'.format(
     
     Looks good on performance. But I do not know if there's some bug within
     the code. Thus a careful overall check is called for.
-'''
-
-''' Conclusion of profile:
-    
-    The `np.ramdom.multivariate_normal()` is the root of all evil.
 '''
