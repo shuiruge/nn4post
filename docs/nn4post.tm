@@ -3,7 +3,57 @@
 <style|generic>
 
 <\body>
-  <section|Model>
+  <section|Preliminary>
+
+  <subsection|Assumptions on Posterior>
+
+  Let <math|f<around*|(|x;\<theta\>|)>> a function of <math|x> with parameter
+  <math|\<theta\>>. Let <math|y=f<around*|(|x;\<theta\>|)>> an observable,
+  thus the observed value obeys a Gaussian distribution. Thus, for a list of
+  observations <math|D\<assign\><around*|{|<around*|(|x<rsub|i>,y<rsub|i>,\<sigma\><rsub|i>|)>:i=1,\<ldots\>,n|}>>
+  (<math|\<sigma\><rsub|i>> is the observational error of <math|y<rsub|i>>),
+  we can construct a (logrithmic) likelihood, as
+
+  <\eqnarray*>
+    <tformat|<table|<row|<cell|ln p<around*|(|D\|\<theta\>|)>>|<cell|=>|<cell|ln<around*|(|<big|prod><rsub|i=1><rsup|n><frac|1|<sqrt|2
+    \<pi\> \<sigma\><rsub|i><rsup|2>>> exp<around*|{|-<frac|1|2>
+    <around*|(|<frac|y<rsub|i>-f<around*|(|x<rsub|i>;\<theta\>|)>|\<sigma\><rsub|i>>|)><rsup|2>|}>|)>>>|<row|<cell|>|<cell|=>|<cell|<big|sum><rsub|i=1><rsup|n><around*|{|-<frac|1|2>ln
+    <around*|(|2 \<pi\> \<sigma\><rsub|i><rsup|2>|)>-<frac|1|2>
+    <around*|(|<frac|y<rsub|i>-f<around*|(|x<rsub|i>;\<theta\>|)>|\<sigma\><rsub|i>>|)><rsup|2>|}>.>>>>
+  </eqnarray*>
+
+  If in addition assume a Gaussian prior, for some hyper-parameter
+  <math|\<sigma\>>,
+
+  <\equation*>
+    p<around*|(|\<theta\>|)>=<frac|1|<sqrt|2 \<pi\> \<sigma\><rsup|2>>>
+    exp<around*|(|-<frac|\<theta\><rsup|2>|2 \<sigma\><rsup|2>>|)>,
+  </equation*>
+
+  then we have posterior <math|p<around*|(|\<theta\>\|D|)>>
+
+  <\eqnarray*>
+    <tformat|<table|<row|<cell|ln p<around*|(|\<theta\>\|D|)>>|<cell|=>|<cell|-<frac|1|2><around*|{|<big|sum><rsub|i=1><rsup|n>
+    <around*|(|<frac|y<rsub|i>-f<around*|(|x<rsub|i>;\<theta\>|)>|\<sigma\><rsub|i>>|)><rsup|2>+<around*|(|<frac|\<theta\>|\<sigma\>>|)><rsup|2>|}>>>|<row|<cell|>|<cell|->|<cell|<frac|1|2><around*|{|ln
+    <around*|(|2 \<pi\> \<sigma\><rsub|i><rsup|2>|)>+ln <around*|(|2 \<pi\>
+    \<sigma\><rsup|2>|)>|}>,>>>>
+  </eqnarray*>
+
+  where the second line is <math|\<theta\>>-independent.
+
+  <subsection|Bayesian Inference>
+
+  Sample <math|m> samples from <math|p<around*|(|\<theta\>\|D|)>>,
+  <math|<around*|{|\<theta\><rsup|<around*|(|s|)>>:s=1,\<ldots\>,m|}>>. Thus,
+  the Bayesian inference gives prediction from <math|x> to <math|y> as
+
+  <\eqnarray*>
+    <tformat|<table|<row|<cell|<wide|y|^>>|<cell|=>|<cell|\<bbb-E\><rsub|\<theta\>\<sim\>p<around*|(|\<theta\>\|D|)>><around*|[|f<around*|(|x;\<theta\>|)>|]>>>|<row|<cell|>|<cell|\<approx\>>|<cell|<frac|1|m><big|sum><rsub|s=1><rsup|m>f<around*|(|x;\<theta\><rsup|<around*|(|s|)>>|)>.>>>>
+  </eqnarray*>
+
+  <section|Neural Network for Posterior>
+
+  <subsection|Model>
 
   Suppose we have a model, <math|f<around*|(|x,\<theta\>|)>>, where <math|x>
   is the input and <math|\<theta\>> is the set of parameters of this model.
@@ -62,7 +112,7 @@
   <math|q<around*|(|\<theta\>;a,b,w|)>>, KL-divergence can be safely employed
   as the cost-function of the fitting.
 
-  <section|Numerical Consideration>
+  <subsection|Numerical Consideration>
 
   For numerical consideration, instead of fitting
   <math|p<rsub|D><around*|(|\<theta\>|)>> by
@@ -106,7 +156,7 @@
   we can further approximate <math|ln q\<approx\>\<beta\><rsub|max>+><math|<big|sum><rsub|i\<in\>M<rsub|\<beta\>>>exp<around*|(|\<beta\><rsub|i>-\<beta\><rsub|max>|)>>,
   thus no logrithm is to be computed.
 
-  <section|Cost-Function>
+  <subsection|Cost-Function (Performance)>
 
   <\eqnarray*>
     <tformat|<table|<row|<cell|KL<around*|(|w,b|)>>|<cell|\<assign\>>|<cell|\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>;w,b|)>><around*|[|ln
@@ -119,7 +169,7 @@
   where <math|<around*|{|\<theta\><rsup|<around*|(|s|)>>: s=1,\<ldots\>,n|}>>
   is sampled from <math|q<around*|(|\<theta\>;a,b,w|)>> as a distribution.
 
-  <section|Gradient>
+  <subsection|Gradient>
 
   Let <math|z\<assign\><around*|(|a,b,w|)>>. Then,
 
@@ -202,9 +252,13 @@
 <\references>
   <\collection>
     <associate|auto-1|<tuple|1|?>>
-    <associate|auto-2|<tuple|2|?>>
-    <associate|auto-3|<tuple|3|?>>
-    <associate|auto-4|<tuple|4|?>>
+    <associate|auto-2|<tuple|1.1|?>>
+    <associate|auto-3|<tuple|1.2|?>>
+    <associate|auto-4|<tuple|2|?>>
+    <associate|auto-5|<tuple|2.1|?>>
+    <associate|auto-6|<tuple|2.2|?>>
+    <associate|auto-7|<tuple|2.3|?>>
+    <associate|auto-8|<tuple|2.4|?>>
   </collection>
 </references>
 

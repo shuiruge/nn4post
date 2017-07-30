@@ -379,7 +379,7 @@ def nabla_perfm(fgmd, log_p, epsilon, clip_limit, num_samples):
 
 
 def gradient_descent(log_p, fgmd, num_steps, learning_rate,
-        epsilon=np.exp(-20), clip_limit=np.exp(7), num_samples=100):
+        epsilon=np.exp(-10), clip_limit=np.exp(7), num_samples=100):
     """ Using gradient descent method to update `fgmd` by **minimizing** the
         KL-divergence (as the performance) between `log_p` and `fgmd.log_pdf`.
         
@@ -462,7 +462,7 @@ if __name__ == '__main__':
     print('performance: {0}'.format(old_performance))
     
     # --- Making gradient descent
-    with Timer():
+    with tools.Timer():
         fgmd = gradient_descent(log_p, fgmd, num_steps=1000, learning_rate=0.001)
         
     # After gradient descent
