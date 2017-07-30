@@ -4,29 +4,7 @@
 Numpy Version.
 """
 
-
 import numpy as np
-
-
-from time import time
-class Timer(object):
-    """
-    C.f. [here](https://www.huyng.com/posts/python-performance-analysis)
-    """
-
-    def __init__(self, verbose=True):
-        self.verbose = verbose
-
-    def __enter__(self):
-        self.start = time()
-        return self
-
-    def __exit__(self, *args):
-        self.end = time()
-        self.secs = self.end - self.start
-        self.msecs = self.secs * 1000  # millisecs
-        if self.verbose:
-            print('=> elapsed time: %f secs' % self.secs)
 
 
 def no_underflow(epsilon, x):
@@ -121,19 +99,24 @@ class FGMD(object):
         w = self.get_w()
         b = self.get_b()
         
+        # shape: [1, self._num_peaks]
         log_cat = np.expand_dims(
             np.log(cat),
-            axis=0)  # shape: [1, self._num_peaks]
+            axis=0)
+        # shape: [None, self._num_peaks]
         log_gaussian = np.sum(
             (   -0.5 * np.square(np.expand_dims(theta, axis=2) * w + b)
                 +0.5 * np.log(np.square(w) / (2 * 3.14))
             ),
-            axis=1)  # shape: [None, self._num_peaks]
+            axis=1)
         
-        beta0 = log_cat + log_gaussian  # shape: [None, self._num_peaks]
+        # shape: [None, self._num_peaks]
+        beta0 = log_cat + log_gaussian
         
-        beta_max = np.max(beta0, axis=1)  # shape: [None]
-        delta_beta = beta0 - np.expand_dims(beta_max, axis=1)  # shape: [None, self._num_peaks]
+        # shape: [None]
+        beta_max = np.max(beta0, axis=1)
+        # shape: [None, self._num_peaks]
+        delta_beta = beta0 - np.expand_dims(beta_max, axis=1)
     
         return (beta_max, delta_beta)
         
@@ -336,8 +319,9 @@ def nabla_perfm(fgmd, log_p, epsilon, clip_limit, num_samples):
     thetae = fgmd.sample(num_samples)
 
     beta_max, delta_beta = fgmd.beta(thetae)
+    # shape: [num_samples, num_peaks]
     proportion = np.exp(delta_beta) \
-               / np.expand_dims(np.sum(np.exp(delta_beta), axis=1), axis=1)  # shape: [num_samples, num_peaks]
+               / np.expand_dims(np.sum(np.exp(delta_beta), axis=1), axis=1)
              
     def _nabla_perfm_sub(nabla_beta):
         """ Helper of `nabla_perfm()`.
@@ -349,34 +333,37 @@ def nabla_perfm(fgmd, log_p, epsilon, clip_limit, num_samples):
             np.array(shape=?, dtype=float32)
         """
         
+        # shape: [num_samples, num_peaks]
         x = np.expand_dims(log_q(thetae) - log_p(thetae) - 1, axis=1) \
-            * proportion  # shape: [num_samples, num_peaks]
+            * proportion
             
         if len(nabla_beta.shape) == 1:  # like `a`, with shape: [num_peaks].
             
             return np.mean(x * nabla_beta, axis=0)
         
-        else:
-            assert len(nabla_beta.shape) == 3  # like `b` and `w`, with shape: [num_samples, dim, num_peaks].
+        else:  # like `b` and `w`, with shape: [num_samples, dim, num_peaks].
+        
+            assert len(nabla_beta.shape) == 3
             
             return np.mean(
                 np.expand_dims(x, axis=1) * nabla_beta,
                 axis=0)
     
-    
     def _no_underflow(x):
         return no_underflow(epsilon, x)
     
-            
     # :math:`\frac{\partial beta_i}{\partial a_i} = \frac{2}{a_i}`
-    nabla_beta_by_a = 2 / (_no_underflow(a))  # shape: [num_samples, num_peaks]
+    # shape: [num_samples, num_peaks]
+    nabla_beta_by_a = 2 / (_no_underflow(a))
     # :math:`\frac{\partial beta_i}{\partial b_{ji}} = -(\theta_j w_{ji} + b_{ji})`
+    # shape: [num_samples, dim, num_peaks]
     nabla_beta_by_b = (- np.expand_dims(thetae, axis=2) * np.expand_dims(w, axis=0)
-                       + np.expand_dims(b, axis=0))  # shape: [num_samples, dim, num_peaks]
+                       + np.expand_dims(b, axis=0))
     # :math:`\frac{\partial beta_i}{\partial b_{ji}} = -(\theta_j w_{ji} + b_{ji}) \theta_j + \frac{1}{w_{ji}}`
+    # shape: [num_samples, dim, num_peaks]
     nabla_beta_by_w = (- np.expand_dims(thetae, axis=2) * np.expand_dims(w, axis=0)
                        + np.expand_dims(b, axis=0)) * np.expand_dims(thetae, axis=2) \
-                      + 1 / np.expand_dims(_no_underflow(w), axis=0)  # shape: [num_samples, dim, num_peaks]
+                      + 1 / np.expand_dims(_no_underflow(w), axis=0)
 
     gradients = [
         _nabla_perfm_sub(nabla_beta_by_a),  # shape: [num_peaks]
@@ -454,56 +441,39 @@ def gradient_descent(log_p, fgmd, num_steps, learning_rate,
     return fgmd0
 
 
-# --- Test ---
-
-DIM = 100
-NUM_PEAKS = 2
-
-fgmd = FGMD(DIM, NUM_PEAKS)
-log_p = lambda theta: (-0.5 * np.sum(np.square(theta), axis=1)
-                       - 0.5 * np.log(2 * 3.14))
-
-# --- Before gradient descent
-#print('b: {0}'.format(fgmd.get_b()))
-#print('w: {0}'.format(fgmd.get_w()))
-#print('cat: {0}'.format(fgmd.get_cat()))
-#print('components: {0}'.format(fgmd.get_components()))
-old_performance = performance(log_p, fgmd)
-print('performance: {0}'.format(old_performance))
-
-# --- Making gradient descent
-with Timer():
-    fgmd = gradient_descent(log_p, fgmd, num_steps=1000, learning_rate=0.001)
+if __name__ == '__main__':
+    """ Test. """
     
-# After gradient descent
-print('After updating ......\n')
-#print('updated a: {0}'.format(fgmd.get_a()))
-#print('updated b (shall be near `0`): {0}'.format(fgmd.get_b()))
-#print('updated w (shall be near `+-1`): {0}'.format(fgmd.get_w()))
-#print('updated cat: {0}'.format(fgmd.get_cat()))
-#print('updated components: {0}'.format(fgmd.get_components()))
+    import tools
 
-# --- Improvement by gradient descent
-new_performance = performance(log_p, fgmd)
-print('\nupdated performance:\n\t{0}  -->  {1}\n'.format(
-        old_performance, new_performance))
-
-''' Outputs of one arbitrary (i.e. without any post-selection) trial:
-    >>> updated_performance:
-    ...     779.4549314953962  -->  0.19749876522128815
-    ... updated cat: ?
-    ... updated components:
-    ...     ?
+    DIM = 100
+    NUM_PEAKS = 2
     
-    with parameters ..code:
+    fgmd = FGMD(DIM, NUM_PEAKS)
+    log_p = lambda theta: (-0.5 * np.sum(np.square(theta), axis=1)
+                           - 0.5 * np.log(2 * 3.14))
+    
+    # --- Before gradient descent
+    #print('b: {0}'.format(fgmd.get_b()))
+    #print('w: {0}'.format(fgmd.get_w()))
+    #print('cat: {0}'.format(fgmd.get_cat()))
+    #print('components: {0}'.format(fgmd.get_components()))
+    old_performance = performance(log_p, fgmd)
+    print('performance: {0}'.format(old_performance))
+    
+    # --- Making gradient descent
+    with Timer():
+        fgmd = gradient_descent(log_p, fgmd, num_steps=1000, learning_rate=0.001)
         
-        DIM = 100
-        NUM_PEAKS = 2
-        
-        fgmd = FGMD(DIM, NUM_PEAKS)
-        log_p = lambda theta: (-0.5 * np.sum(np.square(theta), axis=1)
-                               - 0.5 * np.log(2 * 3.14))
+    # After gradient descent
+    print('After updating ......\n')
+    #print('updated a: {0}'.format(fgmd.get_a()))
+    #print('updated b (shall be near `0`): {0}'.format(fgmd.get_b()))
+    #print('updated w (shall be near `+-1`): {0}'.format(fgmd.get_w()))
+    #print('updated cat: {0}'.format(fgmd.get_cat()))
+    #print('updated components: {0}'.format(fgmd.get_components()))
     
-    Looks good on performance. But I do not know if there's some bug within
-    the code. Thus a careful overall check is called for.
-'''
+    # --- Improvement by gradient descent
+    new_performance = performance(log_p, fgmd)
+    print('\nupdated performance:\n\t{0}  -->  {1}\n'.format(
+            old_performance, new_performance))
