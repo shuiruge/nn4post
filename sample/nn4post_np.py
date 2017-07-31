@@ -106,7 +106,7 @@ class FGMD(object):
         # shape: [None, self._num_peaks]
         log_gaussian = np.sum(
             (   -0.5 * np.square(np.expand_dims(theta, axis=2) * w + b)
-                +0.5 * np.log(np.square(w) / (2 * 3.14))
+                +0.5 * np.log(np.square(w) / (2 * np.pi))
             ),
             axis=1)
         
@@ -380,7 +380,7 @@ def nabla_perfm(fgmd, log_p, epsilon, clip_limit, num_samples):
 
 def gradient_descent(log_p, fgmd, num_steps, learning_rate,
         epsilon=np.exp(-10), clip_limit=np.exp(7), num_samples=100):
-    """ Using gradient descent method to update `fgmd` by **minimizing** the
+    """ Update `fgmd` by using gradient descent method which **minimizes** the
         KL-divergence (as the performance) between `log_p` and `fgmd.log_pdf`.
         
     Numerical Treatments:
@@ -406,16 +406,13 @@ def gradient_descent(log_p, fgmd, num_steps, learning_rate,
     
     Returns:
         FGMD
-            This instance of `FGMD` is **not** the one in the argument (i.e.
-            the `fgmd`), but a new instance initially copied from the `fgmd`.
+            The updated `fgmd`.
     """
-    
-    fgmd0 = fgmd.copy()
-    
+        
     for step in range(num_steps):
         
         try:
-            gradients = nabla_perfm(fgmd0, log_p,
+            gradients = nabla_perfm(fgmd, log_p,
                                     num_samples=num_samples,
                                     epsilon=epsilon,
                                     clip_limit=clip_limit)
@@ -424,13 +421,13 @@ def gradient_descent(log_p, fgmd, num_steps, learning_rate,
             delta_b = -learning_rate * gradients[1]
             delta_w = -learning_rate * gradients[2]
             
-            a = fgmd0.get_a()
-            b = fgmd0.get_b()
-            w = fgmd0.get_w()
+            a = fgmd.get_a()
+            b = fgmd.get_b()
+            w = fgmd.get_w()
             
-            fgmd0.set_a(a + delta_a)
-            fgmd0.set_b(b + delta_b)
-            fgmd0.set_w(w + delta_w)
+            fgmd.set_a(a + delta_a)
+            fgmd.set_b(b + delta_b)
+            fgmd.set_w(w + delta_w)
         
         except Exception as e:
             
@@ -438,11 +435,13 @@ def gradient_descent(log_p, fgmd, num_steps, learning_rate,
             print('step at {0}'.format(step))
             raise Exception(e)
            
-    return fgmd0
+    return fgmd
 
 
 if __name__ == '__main__':
-    """ Test. """
+    """ Tests. """
+    
+    # --- The First Test ---
     
     import tools
 
@@ -451,7 +450,7 @@ if __name__ == '__main__':
     
     fgmd = FGMD(DIM, NUM_PEAKS)
     log_p = lambda theta: (-0.5 * np.sum(np.square(theta), axis=1)
-                           - 0.5 * np.log(2 * 3.14))
+                           - 0.5 * np.log(2 * np.pi))
     
     # --- Before gradient descent
     #print('b: {0}'.format(fgmd.get_b()))
@@ -463,7 +462,7 @@ if __name__ == '__main__':
     
     # --- Making gradient descent
     with tools.Timer():
-        fgmd = gradient_descent(log_p, fgmd, num_steps=1000, learning_rate=0.001)
+        gradient_descent(log_p, fgmd, num_steps=1000, learning_rate=0.001)
         
     # After gradient descent
     print('After updating ......\n')
@@ -477,3 +476,49 @@ if __name__ == '__main__':
     new_performance = performance(log_p, fgmd)
     print('\nupdated performance:\n\t{0}  -->  {1}\n'.format(
             old_performance, new_performance))
+
+
+#    # --- The Second Test ---
+#
+#    import tools
+#    import matplotlib.pyplot as plt
+#
+#    DIM = 1
+#    NUM_PEAKS = 1
+#    
+#    fgmd = FGMD(DIM, NUM_PEAKS)
+#    
+#    NUM_DATA = 100
+#    THETA_STAR = 1
+#    x = np.linspace(-1, 1, NUM_DATA)
+#    mu = - np.sqrt(np.sum(np.square(x))) * THETA_STAR
+#    one_by_sigma = np.sqrt(np.sum(np.square(x)))
+#    print(mu, one_by_sigma)
+#
+#    def log_p(theta):
+#        return -0.5 * (np.sum(np.square(one_by_sigma * (theta - mu)), axis=1)
+#                       + np.log(2 * np.pi)
+#                       - np.log(np.square(one_by_sigma)))
+#    
+#    # --- Before gradient descent
+#    old_performance = performance(log_p, fgmd)
+#    print('performance: {0}'.format(old_performance))
+#    
+#    # --- Making gradient descent
+#    with tools.Timer():
+#        
+#        epochs = 10 ** 3
+#        performance_log = []
+#        performance_log.append(np.log(old_performance))
+#        
+#        for epoch in range(epochs): 
+#            gradient_descent(log_p, fgmd, num_steps=10, learning_rate=0.001, num_samples=10**3)
+#            new_performance = performance(log_p, fgmd)
+#            performance_log.append(np.log(new_performance))
+#            
+#    new_performance = performance(log_p, fgmd)
+#    print('\nupdated performance:\n\t{0}  -->  {1}\n'.format(
+#            old_performance, new_performance))
+#    
+#    plt.plot(performance_log)
+#    plt.show()
