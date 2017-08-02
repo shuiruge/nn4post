@@ -517,6 +517,8 @@ if __name__ == '__main__':
     # --- The First Test ---
     
     import tools
+    import matplotlib.pyplot as plt
+
 
     DIM = 1
     NUM_PEAKS = 10
@@ -532,78 +534,28 @@ if __name__ == '__main__':
     #print('components: {0}'.format(cgmd.get_components()))
     old_performance = performance(log_p, cgmd)
     print('performance: {0}'.format(old_performance))
-    
+        
     # --- Making gradient descent
     with tools.Timer():
-        for step in range(1000):
+        performance_log = [old_performance]
+        for step in range(2000):
             gradient_descent(log_p, cgmd, learning_rate=0.0001)
+            new_performance = performance(log_p, cgmd)
+            performance_log.append(new_performance)
         
-    # After gradient descent
-    print('After updating ......\n')
-    #print('updated a: {0}'.format(cgmd.get_a()))
-    #print('updated b (shall be near `0`): {0}'.format(cgmd.get_b()))
-    #print('updated w (shall be near `+-1`): {0}'.format(cgmd.get_w()))
-    #print('updated cat: {0}'.format(cgmd.get_cat()))
-    #print('updated components: {0}'.format(cgmd.get_components()))
-    
     # --- Improvement by gradient descent
     new_performance = performance(log_p, cgmd)
     print('\nupdated performance:\n\t{0}  -->  {1}\n'.format(
             old_performance, new_performance))
+    plt.plot(performance_log)
+    plt.show()
     
     # --- Plot the result out
     #     **Valid only when `DIM = 1`**
     assert DIM == 1
-    import matplotlib.pyplot as plt
     boundary = 2
     num_x = boundary * 10
     x = np.linspace(-boundary, boundary, num_x)
     plt.plot(x, log_p(np.array([[_] for _ in x])))
     plt.plot(x, cgmd.log_pdf(np.array([[_] for _ in x])), '--')    
     plt.show()
-
-#    # --- The Second Test ---
-#
-#    import tools
-#    import matplotlib.pyplot as plt
-#
-#    DIM = 1
-#    NUM_PEAKS = 100
-#    
-#    cgmd = CGMD(DIM, NUM_PEAKS)
-#    
-#    NUM_DATA = 1000
-#    THETA_STAR = 1
-#    x = np.linspace(-1, 1, NUM_DATA)
-#    mu = - np.sqrt(np.sum(np.square(x))) * THETA_STAR
-#    one_by_sigma = np.sqrt(np.sum(np.square(x)))
-#    print(mu, one_by_sigma)
-#
-#    def log_p(theta):
-#        noise = np.random.normal()
-#        return -0.5 * (np.sum(np.square(one_by_sigma * (theta - mu)), axis=1)
-#                       + np.log(2 * np.pi)
-#                       - np.log(np.square(one_by_sigma))) + noise
-#    
-#    # --- Before gradient descent
-#    old_performance = performance(log_p, cgmd)
-#    print('performance: {0}'.format(old_performance))
-#    
-#    # --- Making gradient descent
-#    with tools.Timer():
-#        
-#        epochs = 10 ** 3
-#        performance_log = []
-#        performance_log.append(np.log(old_performance))
-#        
-#        for epoch in range(epochs):
-#            gradient_descent(log_p, cgmd, learning_rate=0.001, num_samples=10**2)
-#            new_performance = performance(log_p, cgmd)
-#            performance_log.append(np.log(new_performance))
-#            
-#    new_performance = performance(log_p, cgmd)
-#    print('\nupdated performance:\n\t{0}  -->  {1}\n'.format(
-#            old_performance, new_performance))
-#    
-#    plt.plot(performance_log)
-#    plt.show()
