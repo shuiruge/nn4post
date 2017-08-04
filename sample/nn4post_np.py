@@ -23,6 +23,24 @@ def no_underflow(epsilon, x):
     return np.where(x==0, epsilon, x)
 
 
+def vectorize(f):
+    """ Vectorize function `f` (as the `None` in the "Returns" hints).
+    Args:
+        f: Map(x: np.array(shape=[*a]),
+               y: np.array(shape=[*b]))
+    
+    Returns:
+        Map(xs: np.array(shape=[None, *a]),
+            ys: np.array(shape=[None, *b]))
+    """
+    
+    def vectorized_f(xs):
+        num_xs = xs.shape[0]
+        return np.array([f(xs[i]) for i in range(num_xs)])
+    
+    return vectorized_f
+
+
 class CGMD(object):
     """ Categorical Gaussian Mixture Distribution.
     
@@ -301,7 +319,7 @@ def nabla_perfm(log_p, cgmd, epsilon, clip_limit, num_samples):
         log_p: Map(**{thetae: np.array(shape=[None, cgmd.get_dim()],
                                        dtype=float32)},
                    float)
-            Vectorized, as `None` hints.
+            Vectorized (via `@vectorize`), as the `None` hints.
         cgmd: CGMD
         epsilon: float
             Positive. Added to the denominator of `1/a` andb '1/w` in the
@@ -413,7 +431,7 @@ def gradient_descent(
         log_p: Map(**{thetae: np.array(shape=[None, cgmd.get_dim()],
                                        dtype=float32)},
                    float)
-            Vectorized, as `None` hints.
+            Vectorized (via `@vectorize`), as the `None` hints.
         cgmd: CGMD
         learning_rate: float
             `z += -learning_rate * gradient_by_z for z in [a, b, w]`.
@@ -495,10 +513,9 @@ def sgd(log_posterior,
         
         # Recall that `gradient_descent()` requires its argument `log_p` being
         # vectorized
-        def log_p(thetae):
-            num_thetae = thetae.shape[0]
-            return np.array([log_posterior(data, thetae[i,:])
-                             for i in range(num_thetae)])
+        @vectorize
+        def log_p(theta):
+            return log_posterior(data, theta)
         
         gradient_descent(
             log_p,
@@ -521,7 +538,7 @@ if __name__ == '__main__':
 
 
     DIM = 1
-    NUM_PEAKS = 10
+    NUM_PEAKS = 100
     
     cgmd = CGMD(DIM, NUM_PEAKS)
     log_p = lambda theta: (-0.5 * np.sum(np.square(theta), axis=1)
@@ -553,9 +570,55 @@ if __name__ == '__main__':
     # --- Plot the result out
     #     **Valid only when `DIM = 1`**
     assert DIM == 1
-    boundary = 2
+    boundary = 5
     num_x = boundary * 10
     x = np.linspace(-boundary, boundary, num_x)
     plt.plot(x, log_p(np.array([[_] for _ in x])))
     plt.plot(x, cgmd.log_pdf(np.array([[_] for _ in x])), '--')    
     plt.show()
+
+#    # --- The Second Test ---
+#
+#    import tools
+#    import matplotlib.pyplot as plt
+#
+#    DIM = 1
+#    NUM_PEAKS = 100
+#    
+#    cgmd = CGMD(DIM, NUM_PEAKS)
+#    
+#    NUM_DATA = 1000
+#    THETA_STAR = 1
+#    x = np.linspace(-1, 1, NUM_DATA)
+#    mu = - np.sqrt(np.sum(np.square(x))) * THETA_STAR
+#    one_by_sigma = np.sqrt(np.sum(np.square(x)))
+#    print(mu, one_by_sigma)
+#
+#    def log_p(theta):
+#        noise = np.random.normal()
+#        return -0.5 * (np.sum(np.square(one_by_sigma * (theta - mu)), axis=1)
+#                       + np.log(2 * np.pi)
+#                       - np.log(np.square(one_by_sigma))) + noise
+#    
+#    # --- Before gradient descent
+#    old_performance = performance(log_p, cgmd)
+#    print('performance: {0}'.format(old_performance))
+#    
+#    # --- Making gradient descent
+#    with tools.Timer():
+#        
+#        epochs = 10 ** 3
+#        performance_log = []
+#        performance_log.append(np.log(old_performance))
+#        
+#        for epoch in range(epochs):
+#            gradient_descent(log_p, cgmd, learning_rate=0.001, num_samples=10**2)
+#            new_performance = performance(log_p, cgmd)
+#            performance_log.append(np.log(new_performance))
+#            
+#    new_performance = performance(log_p, cgmd)
+#    print('\nupdated performance:\n\t{0}  -->  {1}\n'.format(
+#            old_performance, new_performance))
+#    
+#    plt.plot(performance_log)
+#    plt.show()
