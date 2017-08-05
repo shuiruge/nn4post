@@ -8,7 +8,7 @@ import numpy as np
 
 
 _DEFAULT_NUM_SAMPLES = 10 ** 2
-_DEFAULT_EPSILON = np.exp(-10)
+_DEFAULT_EPSILON = np.exp(-20)
 #_DEFAULT_CLIP_LIMIT = np.exp(7)
 _DEFAULT_CLIP_LIMIT = np.inf  # test!
 
@@ -86,7 +86,7 @@ class CGMD(object):
         
         self._a = np.ones(shape=[num_peaks])
         self._b = np.random.normal(size=[dim, num_peaks])
-        self._w = np.random.normal(size=[dim, num_peaks])
+        self._w = np.random.uniform(1, 2, size=[dim, num_peaks])
         
         # --- `prob` in the finite categorical distribution ---
         a = self.get_a()
@@ -97,7 +97,6 @@ class CGMD(object):
         # C.f. the docstring of `self.get_components()`
         b = self.get_b()
         w = self.get_w()
-        w = no_underflow(self.get_epsilon(), w)
         self._components = [
             np.array([-b[:,i] / w[:,i], 1 / np.abs(w[:,i])])
             for i in range(num_peaks)]
@@ -120,8 +119,8 @@ class CGMD(object):
         """
         
         cat = self.get_cat()
-        w = self.get_w()
         b = self.get_b()
+        w = self.get_w()
         
         # shape: [1, self._num_peaks]
         log_cat = np.expand_dims(
@@ -130,7 +129,7 @@ class CGMD(object):
         # shape: [None, self._num_peaks]
         log_gaussian = np.sum(
             (   -0.5 * np.square(np.expand_dims(theta, axis=2) * w + b)
-                +0.5 * np.log(np.square(w) / (2 * np.pi))
+                +0.5 * np.log(w / (2 * np.pi))
             ),
             axis=1)
         
@@ -204,7 +203,8 @@ class CGMD(object):
         return self._b
     
     def get_w(self):
-        return self._w
+        return no_underflow(self.get_epsilon(), self._w)
+
     
     def get_cat(self):
         """
@@ -242,7 +242,6 @@ class CGMD(object):
         num_peaks = self.get_num_peaks()
         b = self.get_b()
         w = self.get_w()
-        w = no_underflow(self.get_epsilon(), w)
         self._components = [
             np.array([-b[:,i] / w[:,i], 1 / np.abs(w[:,i])])
             for i in range(num_peaks)]
@@ -283,8 +282,8 @@ def performance(log_p, cgmd, num_samples=_DEFAULT_NUM_SAMPLES):
         "non-negative up to an overall constant".
     
     Args:
-        log_p: Map(**{thetae: np.array(shape=[None, cgmd.get_dim()],
-                                       dtype=float32)},
+        log_p: Map(**{theta: np.array(shape=[cgmd.get_dim()],
+                                      dtype=float32)},
                    float)
         cgmd: CGMD
         num_sample: int
@@ -293,6 +292,8 @@ def performance(log_p, cgmd, num_samples=_DEFAULT_NUM_SAMPLES):
     Returns:
         float
     """
+    
+    log_p = vectorize(log_p)
     
     thetae = cgmd.sample(num_samples)
 
@@ -393,7 +394,7 @@ def nabla_perfm(log_p, cgmd, epsilon, clip_limit, num_samples):
     # shape: [num_samples, dim, num_peaks]
     nabla_beta_by_w = (- np.expand_dims(thetae, axis=2) * np.expand_dims(w, axis=0)
                        + np.expand_dims(b, axis=0)) * np.expand_dims(thetae, axis=2) \
-                      + 1 / np.expand_dims(_no_underflow(w), axis=0)
+                      + 1 / np.expand_dims(w, axis=0)
 
     gradients = [
         _nabla_perfm_sub(nabla_beta_by_a),  # shape: [num_peaks]
@@ -428,10 +429,9 @@ def gradient_descent(
         '1/w` in the computation of gradients to avoid `nan`.
         
     Args:
-        log_p: Map(**{thetae: np.array(shape=[None, cgmd.get_dim()],
-                                       dtype=float32)},
+        log_p: Map(**{theta: np.array(shape=[cgmd.get_dim()],
+                                      dtype=float32)},
                    float)
-            Vectorized (via `@vectorize`), as the `None` hints.
         cgmd: CGMD
         learning_rate: float
             `z += -learning_rate * gradient_by_z for z in [a, b, w]`.
@@ -445,6 +445,7 @@ def gradient_descent(
         CGMD
             The updated `cgmd`.
     """
+    log_p = vectorize(log_p)
 
     gradients = nabla_perfm(log_p,
                             cgmd,
@@ -529,7 +530,7 @@ def sgd(log_posterior,
 
 
 if __name__ == '__main__':
-    """ Tests. """
+    
     
     # --- The First Test ---
     
@@ -538,11 +539,18 @@ if __name__ == '__main__':
 
 
     DIM = 1
-    NUM_PEAKS = 100
+    NUM_PEAKS = 1
     
     cgmd = CGMD(DIM, NUM_PEAKS)
-    log_p = lambda theta: (-0.5 * np.sum(np.square(theta), axis=1)
-                           - 0.5 * np.log(2 * np.pi))
+    def log_p(theta):
+        """
+        Args:
+            theta: np.array(?)     
+        Returns:
+            float
+        """
+        return (-0.5 * np.sum(np.square(theta - 10))
+                - 0.5 * np.log(2 * np.pi))
     
     # --- Before gradient descent
     #print('b: {0}'.format(cgmd.get_b()))
@@ -551,14 +559,22 @@ if __name__ == '__main__':
     #print('components: {0}'.format(cgmd.get_components()))
     old_performance = performance(log_p, cgmd)
     print('performance: {0}'.format(old_performance))
+
+    performance_log = [old_performance]
+    a_log = [cgmd.get_a()]
+    b_log = [cgmd.get_b()]
+    w_log = [cgmd.get_w()]
+
         
     # --- Making gradient descent
     with tools.Timer():
-        performance_log = [old_performance]
-        for step in range(2000):
-            gradient_descent(log_p, cgmd, learning_rate=0.0001)
+        for step in range(1000):
+            gradient_descent(log_p, cgmd, learning_rate=0.0003)
             new_performance = performance(log_p, cgmd)
             performance_log.append(new_performance)
+            a_log.append(cgmd.get_a())
+            b_log.append(cgmd.get_b())
+            w_log.append(cgmd.get_w())
         
     # --- Improvement by gradient descent
     new_performance = performance(log_p, cgmd)
@@ -570,12 +586,32 @@ if __name__ == '__main__':
     # --- Plot the result out
     #     **Valid only when `DIM = 1`**
     assert DIM == 1
-    boundary = 5
+    boundary = 20
     num_x = boundary * 10
     x = np.linspace(-boundary, boundary, num_x)
-    plt.plot(x, log_p(np.array([[_] for _ in x])))
+    plt.plot(x, [log_p(np.array([_])) for _ in x])
     plt.plot(x, cgmd.log_pdf(np.array([[_] for _ in x])), '--')    
     plt.show()
+    
+    
+    # --- Plot b_log
+    plt.plot([b[0,0] for b in b_log])
+    plt.show()
+    
+    # --- Plot w_log
+    plt.plot([w[0,0] for w in w_log])
+    plt.show()
+
+    ''' Conclusion:
+        
+    1. The reason of a best fit, as found by logs, is a improper learning-rate.
+    
+    2. The `b = 0` looks like a local minimum (attractor).
+    '''
+    
+    
+    
+    
 
 #    # --- The Second Test ---
 #

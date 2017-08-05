@@ -34,9 +34,9 @@
 
   <\eqnarray*>
     <tformat|<table|<row|<cell|ln p<around*|(|\<theta\>\|D|)>>|<cell|=>|<cell|-<frac|1|2><around*|{|<big|sum><rsub|i=1><rsup|n>
-    <around*|(|<frac|y<rsub|i>-f<around*|(|x<rsub|i>;\<theta\>|)>|\<sigma\><rsub|i>>|)><rsup|2>+<around*|(|<frac|\<theta\>|\<sigma\>>|)><rsup|2>|}>>>|<row|<cell|>|<cell|->|<cell|<frac|1|2><around*|{|ln
-    <around*|(|2 \<pi\> \<sigma\><rsub|i><rsup|2>|)>+ln <around*|(|2 \<pi\>
-    \<sigma\><rsup|2>|)>|}>,>>>>
+    <around*|(|<frac|y<rsub|i>-f<around*|(|x<rsub|i>;\<theta\>|)>|\<sigma\><rsub|i>>|)><rsup|2>+<around*|(|<frac|\<theta\>|\<sigma\>>|)><rsup|2>|}>>>|<row|<cell|>|<cell|->|<cell|<frac|1|2><around*|{|<big|sum><rsub|i=1><rsup|n>
+    ln <around*|(|2 \<pi\> \<sigma\><rsub|i><rsup|2>|)>+ln <around*|(|2
+    \<pi\> \<sigma\><rsup|2>|)>|}>,>>>>
   </eqnarray*>
 
   where the second line is <math|\<theta\>>-independent.
@@ -44,11 +44,11 @@
   <subsection|Bayesian Inference>
 
   Sample <math|m> samples from <math|p<around*|(|\<theta\>\|D|)>>,
-  <math|<around*|{|\<theta\><rsup|<around*|(|s|)>>:s=1,\<ldots\>,m|}>>. Thus,
+  <math|<around*|{|\<theta\><rsub|<around*|(|s|)>>:s=1,\<ldots\>,m|}>>. Thus,
   the Bayesian inference gives prediction from <math|x> to <math|y> as
 
   <\eqnarray*>
-    <tformat|<table|<row|<cell|<wide|y|^>>|<cell|=>|<cell|\<bbb-E\><rsub|\<theta\>\<sim\>p<around*|(|\<theta\>\|D|)>><around*|[|f<around*|(|x;\<theta\>|)>|]>>>|<row|<cell|>|<cell|\<approx\>>|<cell|<frac|1|m><big|sum><rsub|s=1><rsup|m>f<around*|(|x;\<theta\><rsup|<around*|(|s|)>>|)>.>>>>
+    <tformat|<table|<row|<cell|<wide|y|^>>|<cell|=>|<cell|\<bbb-E\><rsub|\<theta\>\<sim\>p<around*|(|\<theta\>\|D|)>><around*|[|f<around*|(|x;\<theta\>|)>|]>>>|<row|<cell|>|<cell|\<approx\>>|<cell|<around*|(|<frac|1|m><big|sum><rsub|s=1><rsup|m>|)>f<around*|(|x;\<theta\><rsub|<around*|(|s|)>>|)>.>>>>
   </eqnarray*>
 
   <section|Neural Network for Posterior>
@@ -62,11 +62,13 @@
   wherein for <math|\<forall\>i> <math|x<rsub|i>> is the input and
   <math|y<rsub|i>> the target (observed). With some assumption of the
   dataset, e.g. independency and Gaussianity, we can gain a likelihood
-  <math|L<around*|(|D,\<theta\>|)>>. Suppose we have some prior on
-  <math|\<theta\>>, <math|p<around*|(|\<theta\>|)>>, we gain the unormalized
-  posterior <math|L<around*|(|D,\<theta\>|)> p<around*|(|\<theta\>|)>>. With
-  <math|D> arbitrarily given, this unormalized posterior is a function of
-  <math|\<theta\>>, denoted by <math|p<around*|(|\<theta\>;D|)>>.
+  <math|L<around*|(|\<theta\>;D|)>\<assign\>p<around*|(|D\|\<theta\>|)>>.
+  Suppose we have some prior on <math|\<theta\>>,
+  <math|p<around*|(|\<theta\>|)>>, we gain the unormalized posterior
+  <math|L<around*|(|D,\<theta\>|)> p<around*|(|\<theta\>|)>>. With <math|D>
+  arbitrarily given, this unormalized posterior is a function of
+  <math|\<theta\>>, denoted by <math|p<around*|(|\<theta\>;D|)>> or
+  <math|p<rsub|D><around*|(|\<theta\>|)>>.
 
   We we are going to do is fit this <math|p<rsub|D><around*|(|\<theta\>|)>>
   by ANN for any given <math|D>. To do so, we have to assume that
@@ -94,7 +96,7 @@
   normalization, since <math|p<rsub|D><around*|(|\<theta\>|)>> is
   unormalized.
 
-  <math|q<around*|(|\<theta\>|)>> has probablitic illustration.
+  <math|q<around*|(|\<theta\>;a,b,w|)>> has probablitic illustration.
   <math|N<around*|(|x,w,b|)>> is realized as a one-dimensional Gaussian
   distribution (denote <math|<with|math-font|cal|N>>). Indeed,
   <math|N<around*|(|x,w,b|)>=<with|math-font|cal|N<around*|(|x-\<mu\>,\<sigma\>|)>>>
@@ -115,9 +117,8 @@
   <subsection|Numerical Consideration>
 
   For numerical consideration, instead of fitting
-  <math|p<rsub|D><around*|(|\<theta\>|)>> by
-  <math|q<around*|(|\<theta\>;a,b,w|)>>, we fit <math|ln
-  p<rsub|D><around*|(|\<theta\>|)>> by <math|ln
+  <math|p<around*|(|\<theta\>;D|)>> by <math|q<around*|(|\<theta\>;a,b,w|)>>,
+  we fit <math|ln p<around*|(|\<theta\>;D|)>> by <math|ln
   q<around*|(|\<theta\>;a,b,w|)>>. To compute <math|ln
   q<around*|(|\<theta\>;a,b,w|)>>, we have to employ some approximation
   method. Let
@@ -160,13 +161,13 @@
 
   <\eqnarray*>
     <tformat|<table|<row|<cell|KL<around*|(|w,b|)>>|<cell|\<assign\>>|<cell|\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>;w,b|)>><around*|[|ln
-    p<around*|(|\<theta\>;D|)>-ln q<around*|(|\<theta\>;a,b,w|)>|]>>>|<row|<cell|>|<cell|\<approx\>>|<cell|<frac|1|n>
-    <big|sum><rsub|\<theta\><rsup|<around*|(|s|)>>><around*|{|ln
-    p<around*|(|\<theta\><rsup|<around*|(|s|)>>;D|)>-ln
-    q<around*|(|\<theta\><rsup|<around*|(|s|)>>;a,b,w|)>|}>,>>>>
+    p<around*|(|\<theta\>;D|)>-ln q<around*|(|\<theta\>;a,b,w|)>|]>>>|<row|<cell|>|<cell|\<approx\>>|<cell|<around*|(|<frac|1|n>
+    <big|sum><rsub|\<theta\><rsup|<around*|(|s|)>>>|)><around*|{|ln
+    p<around*|(|\<theta\><rsub|<around*|(|s|)>>;D|)>-ln
+    q<around*|(|\<theta\><rsub|<around*|(|s|)>>;a,b,w|)>|}>,>>>>
   </eqnarray*>
 
-  where <math|<around*|{|\<theta\><rsup|<around*|(|s|)>>: s=1,\<ldots\>,n|}>>
+  where <math|<around*|{|\<theta\><rsub|<around*|(|s|)>>: s=1,\<ldots\>,n|}>>
   is sampled from <math|q<around*|(|\<theta\>;a,b,w|)>> as a distribution.
 
   <subsection|Gradient>
@@ -180,13 +181,13 @@
     q<around*|(|\<theta\>;z|)> <frac|\<partial\>ln
     q|\<partial\>z><around*|(|\<theta\>;z|)> <around*|{|ln
     p<around*|(|\<theta\>;D|)>-ln q<around*|(|\<theta\>;z|)>-1|}>>>|<row|<cell|>|<cell|\<approx\>>|<cell|<frac|1|n>
-    <big|sum><rsub|\<theta\><rsup|<around*|(|s|)>>><frac|\<partial\>ln
-    q|\<partial\>z><around*|(|\<theta\><rsup|<around*|(|s|)>>;z|)>
-    <around*|{|ln p<around*|(|\<theta\><rsup|<around*|(|s|)>>;D|)>-ln
-    q<around*|(|\<theta\><rsup|<around*|(|s|)>>;z|)>-1|}>>>>>
+    <big|sum><rsub|\<theta\><rsub|<around*|(|s|)>>><frac|\<partial\>ln
+    q|\<partial\>z><around*|(|\<theta\><rsub|<around*|(|s|)>>;z|)>
+    <around*|{|ln p<around*|(|\<theta\><rsub|<around*|(|s|)>>;D|)>-ln
+    q<around*|(|\<theta\><rsub|<around*|(|s|)>>;z|)>-1|}>>>>>
   </eqnarray*>
 
-  where <math|<around*|{|\<theta\><rsup|<around*|(|s|)>>: s=1,\<ldots\>,n|}>>
+  where <math|<around*|{|\<theta\><rsub|<around*|(|s|)>>: s=1,\<ldots\>,n|}>>
   is sampled from <math|q<around*|(|\<theta\>;z|)>> as a distribution. Next,
   since <math|ln q=ln<around*|(|<big|sum><rsub|i>exp<around*|(|\<beta\><rsub|i>|)>|)>>,
   we have
@@ -235,12 +236,42 @@
 
   <\equation*>
     <frac|\<partial\>KL|\<partial\>z><around*|(|z|)>\<approx\><around*|(|<frac|1|n>
-    <big|sum><rsub|\<theta\><rsup|<around*|(|s|)>>>|)> <around*|{|ln
-    p<around*|(|\<theta\><rsup|<around*|(|s|)>>;D|)>-ln
-    q<around*|(|\<theta\><rsup|<around*|(|s|)>>;z|)>-1|}>
+    <big|sum><rsub|\<theta\><rsub|<around*|(|s|)>>>|)> <around*|{|ln
+    p<around*|(|\<theta\><rsub|<around*|(|s|)>>;D|)>-ln
+    q<around*|(|\<theta\><rsub|<around*|(|s|)>>;z|)>-1|}>
     <big|sum><rsub|i><frac|exp<around*|(|\<beta\><rsub|i>-\<beta\><rsub|max>|)>|<big|sum><rsub|j\<in\>M<rsub|\<beta\>>>exp<around*|(|\<beta\><rsub|j>-\<beta\><rsub|max>|)>>
     <frac|\<partial\>\<beta\><rsub|i>|\<partial\>z>
     \<delta\><rsub|i\<in\>M<rsub|\<beta\>>>,
+  </equation*>
+
+  \;
+
+  <section|Examples>
+
+  <subsection|Linear Regression>
+
+  Let <math|f<around*|(|x,\<theta\>|)>=\<theta\>\<cdot\>x>,
+  <math|\<sigma\><rsub|i>\<equiv\>1>, and <math|p<around*|(|\<theta\>|)>=1>,
+  then we have
+
+  <\equation*>
+    ln p<around*|(|\<theta\>;D|)>=-<frac|1|2> <big|sum><rsub|i=1><rsup|n>
+    <around*|(|y<rsub|i>-\<theta\>\<cdot\>x<rsub|i>|)><rsup|2>.
+  </equation*>
+
+  Thus,
+
+  <\eqnarray*>
+    <tformat|<table|<row|<cell|KL<around*|(|a,b,w|)>>|<cell|=>|<cell|<around*|(|<frac|1|n>
+    <big|sum><rsub|\<theta\><rsub|<around*|(|s|)>>>|)><around*|{|ln
+    p<around*|(|\<theta\><rsub|<around*|(|s|)>>;D|)>-ln
+    q<around*|(|\<theta\><rsub|<around*|(|s|)>>;a,b,w|)>|}>>>|<row|<cell|>|<cell|=>|<cell|<around*|(|<frac|1|n>
+    <big|sum><rsub|\<theta\><rsub|<around*|(|s|)>>>|)> <around*|{|-<frac|1|2>
+    <big|sum><rsub|i=1><rsup|n> <around*|(|y<rsub|i>-\<theta\><rsub|<around*|(|s|)>>\<cdot\>x<rsub|i>|)><rsup|2>-ln<around*|(|exp<around*|(|\<beta\><rsub|i>|)>|)>l|}>>>>>
+  </eqnarray*>
+
+  <\equation*>
+    =
   </equation*>
 
   \;
@@ -252,6 +283,7 @@
 <\references>
   <\collection>
     <associate|auto-1|<tuple|1|?>>
+    <associate|auto-10|<tuple|3.1|?>>
     <associate|auto-2|<tuple|1.1|?>>
     <associate|auto-3|<tuple|1.2|?>>
     <associate|auto-4|<tuple|2|?>>
@@ -259,27 +291,52 @@
     <associate|auto-6|<tuple|2.2|?>>
     <associate|auto-7|<tuple|2.3|?>>
     <associate|auto-8|<tuple|2.4|?>>
+    <associate|auto-9|<tuple|3|?>>
   </collection>
 </references>
 
 <\auxiliary>
   <\collection>
     <\associate|toc>
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|1<space|2spc>Model>
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|1<space|2spc>Preliminary>
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-1><vspace|0.5fn>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|2<space|2spc>Numerical
-      Consideration> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-2><vspace|0.5fn>
-
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|3<space|2spc>Cost-Function>
+      <with|par-left|<quote|1tab>|1.1<space|2spc>Assumptions on Posterior
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-3><vspace|0.5fn>
+      <no-break><pageref|auto-2>>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|4<space|2spc>Gradient>
+      <with|par-left|<quote|1tab>|1.2<space|2spc>Bayesian Inference
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-3>>
+
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|2<space|2spc>Neural
+      Network for Posterior> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-4><vspace|0.5fn>
+
+      <with|par-left|<quote|1tab>|2.1<space|2spc>Model
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-5>>
+
+      <with|par-left|<quote|1tab>|2.2<space|2spc>Numerical Consideration
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-6>>
+
+      <with|par-left|<quote|1tab>|2.3<space|2spc>Cost-Function (Performance)
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-7>>
+
+      <with|par-left|<quote|1tab>|2.4<space|2spc>Gradient
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-8>>
+
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|3<space|2spc>Examples>
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-9><vspace|0.5fn>
+
+      <with|par-left|<quote|1tab>|3.1<space|2spc>Linear Regression
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-10>>
     </associate>
   </collection>
 </auxiliary>
