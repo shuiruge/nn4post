@@ -67,13 +67,12 @@
   <math|p<around*|(|\<theta\>|)>>, we gain the unormalized posterior
   <math|L<around*|(|D,\<theta\>|)> p<around*|(|\<theta\>|)>>. With <math|D>
   arbitrarily given, this unormalized posterior is a function of
-  <math|\<theta\>>, denoted by <math|p<around*|(|\<theta\>;D|)>> or
-  <math|p<rsub|D><around*|(|\<theta\>|)>>.
+  <math|\<theta\>>, denoted by <math|p<around*|(|\<theta\>;D|)>>.
 
   We we are going to do is fit this <math|p<rsub|D><around*|(|\<theta\>|)>>
   by ANN for any given <math|D>. To do so, we have to assume that
-  <math|supp<around*|{|p<rsub|D><around*|(|\<theta\>|)>|}>=\<bbb-R\><rsup|m>>
-  for some <math|m\<in\>\<bbb-N\><rsup|+>> (i.e. has no compact support) but
+  <math|supp<around*|{|p<around*|(|\<theta\>;D|)>|}>=\<bbb-R\><rsup|m>> for
+  some <math|m\<in\>\<bbb-N\><rsup|+>> (i.e. has no compact support) but
   decrease exponentially fast as <math|<around*|\<\|\|\>|\<theta\>|\<\|\|\>>\<rightarrow\>+\<infty\>>.
   With this assumption, we can use Gaussian function as the activation of the
   ANN. We propose the fitting function
@@ -93,8 +92,7 @@
   </equation*>
 
   While fitting, <math|q<around*|(|\<theta\>;a,b,w|)>> has no need of
-  normalization, since <math|p<rsub|D><around*|(|\<theta\>|)>> is
-  unormalized.
+  normalization, since <math|p<around*|(|\<theta\>;D|)>> is unormalized.
 
   <math|q<around*|(|\<theta\>;a,b,w|)>> has probablitic illustration.
   <math|N<around*|(|x,w,b|)>> is realized as a one-dimensional Gaussian
@@ -110,9 +108,9 @@
   distribution>|https://en.wikipedia.org/wiki/Mixture_distribution>.
 
   Since there's no compact support, for both
-  <math|p<rsub|D><around*|(|\<theta\>|)>> and
-  <math|q<around*|(|\<theta\>;a,b,w|)>>, KL-divergence can be safely employed
-  as the cost-function of the fitting.
+  <math|p<around*|(|\<theta\>;D|)>> and <math|q<around*|(|\<theta\>;a,b,w|)>>,
+  KL-divergence (equivalently, ELBO) can be safely employed as the
+  cost-function of the fitting.
 
   <subsection|Numerical Consideration>
 
@@ -160,7 +158,7 @@
   <subsection|Cost-Function (Performance)>
 
   <\eqnarray*>
-    <tformat|<table|<row|<cell|KL<around*|(|w,b|)>>|<cell|\<assign\>>|<cell|\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>;w,b|)>><around*|[|ln
+    <tformat|<table|<row|<cell|ELBO<around*|(|a,b,w|)>>|<cell|\<assign\>>|<cell|\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>;w,b|)>><around*|[|ln
     p<around*|(|\<theta\>;D|)>-ln q<around*|(|\<theta\>;a,b,w|)>|]>>>|<row|<cell|>|<cell|\<approx\>>|<cell|<around*|(|<frac|1|n>
     <big|sum><rsub|\<theta\><rsup|<around*|(|s|)>>>|)><around*|{|ln
     p<around*|(|\<theta\><rsub|<around*|(|s|)>>;D|)>-ln
@@ -175,7 +173,7 @@
   Let <math|z\<assign\><around*|(|a,b,w|)>>. Then,
 
   <\eqnarray*>
-    <tformat|<table|<row|<cell|<frac|\<partial\>KL|\<partial\>z><around*|(|z|)>>|<cell|=>|<cell|<frac|\<partial\>|\<partial\>z><big|int>\<mathd\>\<theta\>
+    <tformat|<table|<row|<cell|<frac|\<partial\>ELBO|\<partial\>z><around*|(|z|)>>|<cell|=>|<cell|<frac|\<partial\>|\<partial\>z><big|int>\<mathd\>\<theta\>
     q<around*|(|\<theta\>;z|)> <around*|{|ln p<around*|(|\<theta\>;D|)>-ln
     q<around*|(|\<theta\>;z|)>|}>>>|<row|<cell|>|<cell|=>|<cell|<big|int>\<mathd\>\<theta\>
     q<around*|(|\<theta\>;z|)> <frac|\<partial\>ln
@@ -235,7 +233,7 @@
   And recall
 
   <\equation*>
-    <frac|\<partial\>KL|\<partial\>z><around*|(|z|)>\<approx\><around*|(|<frac|1|n>
+    <frac|\<partial\>ELBO|\<partial\>z><around*|(|z|)>\<approx\><around*|(|<frac|1|n>
     <big|sum><rsub|\<theta\><rsub|<around*|(|s|)>>>|)> <around*|{|ln
     p<around*|(|\<theta\><rsub|<around*|(|s|)>>;D|)>-ln
     q<around*|(|\<theta\><rsub|<around*|(|s|)>>;z|)>-1|}>
@@ -244,37 +242,9 @@
     \<delta\><rsub|i\<in\>M<rsub|\<beta\>>>,
   </equation*>
 
-  \;
-
-  <section|Examples>
-
-  <subsection|Linear Regression>
-
-  Let <math|f<around*|(|x,\<theta\>|)>=\<theta\>\<cdot\>x>,
-  <math|\<sigma\><rsub|i>\<equiv\>1>, and <math|p<around*|(|\<theta\>|)>=1>,
-  then we have
-
-  <\equation*>
-    ln p<around*|(|\<theta\>;D|)>=-<frac|1|2> <big|sum><rsub|i=1><rsup|n>
-    <around*|(|y<rsub|i>-\<theta\>\<cdot\>x<rsub|i>|)><rsup|2>.
-  </equation*>
-
-  Thus,
-
-  <\eqnarray*>
-    <tformat|<table|<row|<cell|KL<around*|(|a,b,w|)>>|<cell|=>|<cell|<around*|(|<frac|1|n>
-    <big|sum><rsub|\<theta\><rsub|<around*|(|s|)>>>|)><around*|{|ln
-    p<around*|(|\<theta\><rsub|<around*|(|s|)>>;D|)>-ln
-    q<around*|(|\<theta\><rsub|<around*|(|s|)>>;a,b,w|)>|}>>>|<row|<cell|>|<cell|=>|<cell|<around*|(|<frac|1|n>
-    <big|sum><rsub|\<theta\><rsub|<around*|(|s|)>>>|)> <around*|{|-<frac|1|2>
-    <big|sum><rsub|i=1><rsup|n> <around*|(|y<rsub|i>-\<theta\><rsub|<around*|(|s|)>>\<cdot\>x<rsub|i>|)><rsup|2>-ln<around*|(|exp<around*|(|\<beta\><rsub|i>|)>|)>l|}>>>>>
-  </eqnarray*>
-
-  <\equation*>
-    =
-  </equation*>
-
-  \;
+  For stability, using <math|\<sigma\><rprime|'>> instead of
+  <math|\<sigma\>=1/<around*|\||w|\|>> where
+  <math|\<sigma\>=ln<around*|(|1+exp<around*|(|\<sigma\><rprime|'>|)>|)>>???
 </body>
 
 <initial|<\collection>
