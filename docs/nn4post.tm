@@ -245,6 +245,7 @@
   For stability, using <math|\<sigma\><rprime|'>> instead of
   <math|\<sigma\>=1/<around*|\||w|\|>> where
   <math|\<sigma\>=ln<around*|(|1+exp<around*|(|\<sigma\><rprime|'>|)>|)>>???
+  (C.f. <hlink|here|https://gist.github.com/altosaar/75df2f05698fb6872174306425bcc780>.)
 </body>
 
 <initial|<\collection>
@@ -299,14 +300,6 @@
       <with|par-left|<quote|1tab>|2.4<space|2spc>Gradient
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-8>>
-
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|3<space|2spc>Examples>
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-9><vspace|0.5fn>
-
-      <with|par-left|<quote|1tab>|3.1<space|2spc>Linear Regression
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-10>>
     </associate>
   </collection>
 </auxiliary>
