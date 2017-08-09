@@ -70,7 +70,7 @@ def log_softmax(x):
 
 
 def sigmoid(x):
-    """ :math:`\frac{1}{1 + \exp(-x)}`.
+    """ :math:`\frac{1}{1 + \exp(-x)}`. Apply to `x` element-wisely.
     
     Args:
         x: array_like
@@ -82,7 +82,7 @@ def sigmoid(x):
 
 
 def softplus(x):
-    """ :math:`\ln(1 + \exp(x))`.
+    """ :math:`\ln(1 + \exp(x))`. Apply to `x` element-wisely.
     
     Args:
         x: array_like
@@ -94,10 +94,11 @@ def softplus(x):
 
 
 def log_softplus(x):
-    """ :math:`\ln(1 + \exp(x))`.
+    """ :math:`\ln(1 + \exp(x))`. Apply to `x` element-wisely.
     
     NOTE:
-        Numerical trick is taken.
+        Numerical trick is taken. That is, if one element of `x`, say `y` is
+        tiny, so that :math:`\exp(y) \ll 1`, `\ln(\ln(1 + \exp(y))) \approx y`.
         
     TODO:
         Test.
@@ -122,34 +123,27 @@ class CGMD(object):
     
     .. _WikiPedia: https://en.wikipedia.org/wiki/Mixture_distribution#Finite_\
                    and_countable_mixtures
-    
-    Notations:
-        cat:
-            (Parameters of) categorical distribution, i.e. the probability for
-            each category.
-        components:
-            (List of parameters of) Gaussian distributions as components, i.e.
-            list of the :math:`\mu` and :math:`\sigma` of each multivariate
-            Gaussian distribution.
-        
-        For other notations employed herein, c.f. `'../docs/nn4post.tm'`.
         
     NOTE:
-        `a` is initialized by `np.ones`; `b` and `w` are both initialized
-        randomly by standard Gaussian.
+        `a`, `mu`, and `zeta` are randomly initialized by standard normal
+        distribution.
                    
     Args:
         dim: int
+            The dimension of domain the PDF of the CGMD acts on.
         num_peaks: int
-        epsilon: float
-            Employed in `no_underflow()`.
+            The number of categories of the CGMD (Gaussianities, thus we call
+            peaks).
         
     Methods:
-        log_pdf, sample, 
+        beta,
+        log_pdf, vlog_pdf (vectorized_log_pdf),
+        sample,
         get_a, set_a,
         get_mu, set_mu,
         get_zeta, set_zeta,
-        get_cat, get_components
+        get_w, get_log_w,
+        get_sigma, get_log_sigma
     """
     
     def __init__(self, dim, num_peaks):
@@ -307,23 +301,179 @@ class CGMD(object):
         cgmd.set_mu(self.get_mu())
         cgmd.set_sigma(self.get_sigma())
         return cgmd
+    
+    
+def elbo(cgmd, log_p, num_samples=_DEFAULT_NUM_SAMPLES):
+    """ ELBO between `cgmd.log_pdf` and `log_p`.
+    
+    Args:
+        cgmd: CGMD
+        log_p: Map(**{theta:
+                        np.array(shape[=cgmd.get_dim()], dtype=np.float32)},
+                   np.array(shape=[], dtype=np.float32))
+            The :math:`\ln(p(\theta))` in the documentation.
+        num_samples: int
+            Number of samples in the Monte Carlo integration.
+    
+    Returns:
+        np.array(shape=[], dtype=np.float32)
+    """
+    
+    # `vectorized_log_q` and `vectorized_log_p` both returns `np.array` with
+    # shape `[num_samples]` and dtype `np.float32`.
+    vectorized_log_q = vectorize(cgmd.log_pdf)
+    vectorized_log_p = vectorize(log_p)
+    
+    thetae = cgmd.sample(num_samples)
+    return np.mean(vectorized_log_p(thetae) - vectorized_log_q(thetae))
+
+
+def grad_elbo(cgmd, log_p, num_samples=_DEFAULT_NUM_SAMPLES):
+    """ Gradient of the ELBO between `cgmd.log_pdf` and `log_p`.
+    
+    Args:
+        cgmd: CGMD
+        log_p: Map(**{theta:
+                        np.array(shape=[cgmd.get_dim()], dtype=np.float32)},
+                   np.array(shape=[], dtype=np.float32))
+            The :math:`\ln(p(\theta))` in the documentation.
+        num_samples: int
+            Number of samples in the Monte Carlo integration.
+    
+    Returns:
+        {
+            'a':
+                np.array(shape=[cgmd.get_num_peaks()],
+                         dtype=np.float32),
+            'mu':
+                np.array(shape=[cgmd.get_num_peaks(), cgmd.get_dim()],
+                                dtype=np.float32),
+            'zeta':
+                np.array(shape=[cgmd.get_num_peaks(), cgmd.get_dim()],
+                                dtype=np.float32)
+        }
+    """
+    dim = cgmd.get_dim()
+    num_peaks = cgmd.get_num_peaks()
+    log_q = cgmd.log_pdf
+    
+    # -- Re-shape all in the "standard shape", wherein the first axis is for
+    #    samples, the second for categories (peaks), and the third for dim.
+    # shape: [1, num_peaks]
+    a = np.expand_dims(cgmd.get_a(), axis=0)
+    # shape: [1, num_peaks, dim]
+    mu = np.expand_dims(cgmd.get_mu(), axis=0)
+    # shape: [1, num_peaks, dim]
+    zeta = np.expand_dims(cgmd.get_zeta(), axis=0)
+    # shape: [1, num_peaks, dim]
+    sigma = np.expand_dims(cgmd.get_sigma(), axis=0)
+    
+    # -- Vectorizations
+    vlog_q = vectorize(log_q)
+    vlog_p = vectorize(log_p)
+    vbeta = vectorize(cgmd.beta)
+    
+    # shape: [num_samples, dim]
+    thetae = cgmd.sample(num_samples)
+    
+    # shape: [num_samples]
+    propotion_1 = (vlog_q(thetae) - vlog_p(thetae) + 1)
+    # shape: [num_samples, num_peaks]
+    propotion_2 = softmax(vbeta(thetae))
+    # shape: [num_samples, num_peaks]
+    propotion = np.expand_dims(propotion_1, axis=1) * propotion_2
+
+    # -- Re-shape for later.                          
+    # shape = [num_samples, 1, dim]
+    thetae = np.expand_dims(thetae, axis=1)
+    
+    # shape: [1, num_peaks]      
+    partial_beta_by_a = 1 - softmax(a)
+    # shape: [num_samples, num_peaks, dim]
+    partial_beta_by_mu = (thetae - mu) / np.square(sigma)
+    # shape: [num_samples, num_peaks, dim]
+    partial_beta_by_zeta = ((-1 + np.square((thetae-mu)/sigma))
+                            * sigmoid(zeta) / softplus(zeta))
+    # shape: [num_peaks]
+    partial_elbo_by_a = np.mean(propotion * partial_beta_by_a, axis=0)
+    
+    # -- Re-shape for later.
+    # shape: [num_samples, num_peaks, 1]
+    propotion = np.expand_dims(propotion, axis=2)
+    
+    # shape: [num_peaks, dim]
+    partial_elbo_by_mu = np.mean(propotion * partial_beta_by_mu, axis=0)
+    # shape: [num_peaks, dim]
+    partial_elbo_by_zeta = np.mean(propotion * partial_beta_by_zeta, axis=0)
+    
+    return {
+        'a': partial_elbo_by_a,
+        'mu': partial_elbo_by_mu,
+        'zeta': partial_elbo_by_zeta,
+        }
+    
 
 
 
 if __name__ == '__main__':
     
-    
-    # --- The First Test ---
-    
     import tools
     import matplotlib.pyplot as plt
-
-
-    DIM = 10
-    NUM_PEAKS = 5
     
-    cgmd = CGMD(DIM, NUM_PEAKS)
-    thetae = cgmd.sample(20)
-    y = cgmd.vlog_pdf(thetae)
     
-    # So far so good.
+#    # --- Test `CGMD` ---
+#    
+#    DIM = 10
+#    NUM_PEAKS = 5
+#    
+#    cgmd = CGMD(DIM, NUM_PEAKS)
+#    thetae = cgmd.sample(20)
+#    y = cgmd.vlog_pdf(thetae)
+#    
+#    # So far so good.
+#    
+#    
+#    # --- Test `elbo()` ---
+#    
+#    DIM = 10
+#    NUM_PEAKS = 5
+#    
+#    def log_p(theta):
+#        """
+#        Args:
+#            theta: np.array(shape=[DIM], dtype=np.float32)
+#        Returns:
+#            np.array(shape=[], dtype=np.float32)
+#        """
+#        return (-0.5 * np.log(2 * np.pi) * DIM
+#                -0.5 * np.sum(np.square(theta)))
+#    
+#    cgmd = CGMD(DIM, NUM_PEAKS)
+#    el = elbo(cgmd, log_p)
+#    
+#    # So far so good.
+#
+#    
+#    # --- Test `grad_elbo()` ---
+#    
+#    DIM = 10
+#    NUM_PEAKS = 5
+#    num_samples = 10 ** 2
+#    
+#    def log_p(theta):
+#        """
+#        Args:
+#            theta: np.array(shape=[DIM], dtype=np.float32)
+#        Returns:
+#            np.array(shape=[], dtype=np.float32)
+#        """
+#        return (-0.5 * np.log(2 * np.pi) * DIM
+#                -0.5 * np.sum(np.square(theta)))
+#    
+#    cgmd = CGMD(DIM, NUM_PEAKS)
+#    grads = grad_elbo(cgmd, log_p)
+#    grad_a = grads['a']
+#    grad_mu = grads['mu']
+#    grad_zeta = grads['zeta']
+#    
+#    # So far so good.
