@@ -8,7 +8,7 @@ import numpy as np
 
 
 _DEFAULT_NUM_SAMPLES = 10 ** 2
-_GREAT_NEGATIVE = -10
+_GREAT_NEGATIVE = -5
 
 
 
@@ -163,9 +163,6 @@ class CGMD(object):
         self._sigma = softplus(self._zeta)
         self._log_sigma = log_softplus(self._zeta)
         
-        self.vectorized_log_pdf = vectorize(self.log_pdf)
-        self.vlog_pdf = self.vectorized_log_pdf  # for short.
-
         
     
     def beta(self, theta):
@@ -178,12 +175,17 @@ class CGMD(object):
             np.array(shape=[self.get_num_peaks()], dtype=np.float32)
         """
         
-        return (self.get_log_w()
-                + self.get_dim() * (-0.5 * np.log(2 * np.pi))
-                + np.sum(
-                    - self.get_log_sigma()
-                    - 0.5 * np.square(theta * self.get_mu() / self.get_sigma()),
-                    axis=1))
+        dim = self.get_dim()
+        # `num_peaks = self.get_num_peaks()`
+        log_w = self.get_log_w()  # shape: [num_peaks]
+        mu = self.get_mu()  # shape: [num_peaks, dim]
+        sigma = self.get_sigma()  # shape: [num_peaks, dim]
+        log_sigma = self.get_log_sigma()  # shape: [num_peaks, dim]
+        
+        # shape: [num_peaks]
+        return (log_w - dim * 0.5 * np.log(2 * np.pi)
+                - np.sum(log_sigma + 0.5*np.square((theta-mu)/sigma),
+                         axis=1))
     
         
     def log_pdf(self, theta):
@@ -228,6 +230,12 @@ class CGMD(object):
             index = np.random.choice(num_peaks, p=weights)
             samp = np.random.normal(loc=mu[index], scale=sigma[index])
             
+            # Since when `self.get_dim() == 1`, `np.random.normal` generates
+            # scalars instead of arraies, we have to convert scalars to arries
+            # manually
+            if self.get_dim() == 1:
+                samp = [samp]
+            
             return samp
         
         return np.array([generate_sample() for _ in range(num_samples)])
@@ -260,7 +268,7 @@ class CGMD(object):
         return self._sigma
     
     def get_log_sigma(self):
-        return self._sigma
+        return self._log_sigma
 
     
     # --- Set-Functions ---
@@ -325,11 +333,13 @@ def elbo(cgmd, log_p, num_samples=_DEFAULT_NUM_SAMPLES):
     vectorized_log_p = vectorize(log_p)
     
     thetae = cgmd.sample(num_samples)
-    return np.mean(vectorized_log_p(thetae) - vectorized_log_q(thetae))
+    return np.mean(vectorized_log_q(thetae) - vectorized_log_p(thetae))
 
 
 def grad_elbo(cgmd, log_p, num_samples=_DEFAULT_NUM_SAMPLES):
     """ Gradient of the ELBO between `cgmd.log_pdf` and `log_p`.
+    
+    TODO: debug.
     
     Args:
         cgmd: CGMD
@@ -353,14 +363,14 @@ def grad_elbo(cgmd, log_p, num_samples=_DEFAULT_NUM_SAMPLES):
                                 dtype=np.float32)
         }
     """
-    dim = cgmd.get_dim()
-    num_peaks = cgmd.get_num_peaks()
+    # `dim = cgmd.get_dim()`
+    # `num_peaks = cgmd.get_num_peaks()`
     log_q = cgmd.log_pdf
     
     # -- Re-shape all in the "standard shape", wherein the first axis is for
     #    samples, the second for categories (peaks), and the third for dim.
     # shape: [1, num_peaks]
-    a = np.expand_dims(cgmd.get_a(), axis=0)
+    w = np.expand_dims(cgmd.get_w(), axis=0)    
     # shape: [1, num_peaks, dim]
     mu = np.expand_dims(cgmd.get_mu(), axis=0)
     # shape: [1, num_peaks, dim]
@@ -388,12 +398,12 @@ def grad_elbo(cgmd, log_p, num_samples=_DEFAULT_NUM_SAMPLES):
     thetae = np.expand_dims(thetae, axis=1)
     
     # shape: [1, num_peaks]      
-    partial_beta_by_a = 1 - softmax(a)
+    partial_beta_by_a = 1 - w
     # shape: [num_samples, num_peaks, dim]
     partial_beta_by_mu = (thetae - mu) / np.square(sigma)
     # shape: [num_samples, num_peaks, dim]
     partial_beta_by_zeta = ((-1 + np.square((thetae-mu)/sigma))
-                            * sigmoid(zeta) / softplus(zeta))
+                            * sigmoid(zeta) / sigma)
     # shape: [num_peaks]
     partial_elbo_by_a = np.mean(propotion * partial_beta_by_a, axis=0)
     
@@ -412,6 +422,34 @@ def grad_elbo(cgmd, log_p, num_samples=_DEFAULT_NUM_SAMPLES):
         'zeta': partial_elbo_by_zeta,
         }
     
+    
+def gradient_descent(cgmd, log_p, learning_rate):
+    """ Modifies (upates) the `cgmd` by gradient descent algorithm.
+    
+    Args:
+        cgmd: CGMD
+        log_p: Map(**{theta:
+                        np.array(shape[=cgmd.get_dim()], dtype=np.float32)},
+                   np.array(shape=[], dtype=np.float32))
+        learning_rate: float
+    """
+    
+    a = cgmd.get_a()
+    mu = cgmd.get_mu()
+    zeta = cgmd.get_zeta()
+    
+    grads = grad_elbo(cgmd, log_p)
+    
+    a = a - grads['a'] * learning_rate
+    mu = mu - grads['mu'] * learning_rate
+    zeta = zeta - grads['zeta'] * learning_rate
+    
+    cgmd.set_a(a)
+    cgmd.set_mu(mu)
+    cgmd.set_zeta(zeta)
+    
+                       
+    
 
 
 
@@ -423,20 +461,27 @@ if __name__ == '__main__':
     
 #    # --- Test `CGMD` ---
 #    
-#    DIM = 10
-#    NUM_PEAKS = 5
+#    DIM = 2
+#    NUM_PEAKS = 1
 #    
 #    cgmd = CGMD(DIM, NUM_PEAKS)
-#    thetae = cgmd.sample(20)
-#    y = cgmd.vlog_pdf(thetae)
+#    thetae = np.sort(cgmd.sample(20), axis=0)
+#    y = vectorize(cgmd.log_pdf)(thetae)
+#    
+#    print('mu, zeta, sigma: ',
+#          cgmd.get_mu(),
+#          cgmd.get_zeta(),
+#          cgmd.get_sigma())
+#    plt.plot(thetae, y, '-')
+#    plt.show()
 #    
 #    # So far so good.
 #    
 #    
 #    # --- Test `elbo()` ---
 #    
-#    DIM = 10
-#    NUM_PEAKS = 5
+#    DIM = 1
+#    NUM_PEAKS = 1
 #    
 #    def log_p(theta):
 #        """
@@ -451,14 +496,23 @@ if __name__ == '__main__':
 #    cgmd = CGMD(DIM, NUM_PEAKS)
 #    el = elbo(cgmd, log_p)
 #    
+#    thetae = np.sort(cgmd.sample(_DEFAULT_NUM_SAMPLES))
+#    y_1 = vectorize(cgmd.beta)(thetae)
+#    plt.plot(thetae, y_1, '.')
+#    y_2 = vectorize(log_p)(thetae)
+#    plt.plot(thetae, y_2, '-')
+#    plt.show()
+#    
 #    # So far so good.
 #
 #    
 #    # --- Test `grad_elbo()` ---
 #    
-#    DIM = 10
-#    NUM_PEAKS = 5
+#    DIM = 1
+#    NUM_PEAKS = 1
 #    num_samples = 10 ** 2
+#    
+#    cgmd = CGMD(DIM, NUM_PEAKS)
 #    
 #    def log_p(theta):
 #        """
@@ -468,7 +522,7 @@ if __name__ == '__main__':
 #            np.array(shape=[], dtype=np.float32)
 #        """
 #        return (-0.5 * np.log(2 * np.pi) * DIM
-#                -0.5 * np.sum(np.square(theta)))
+#                -0.5 * np.sum(np.square(theta-10)))    
 #    
 #    cgmd = CGMD(DIM, NUM_PEAKS)
 #    grads = grad_elbo(cgmd, log_p)
@@ -477,3 +531,54 @@ if __name__ == '__main__':
 #    grad_zeta = grads['zeta']
 #    
 #    # So far so good.
+
+
+# --- Test `gradient_descent()` on **mean-field approximation ** ---
+
+    DIM = 10
+    NUM_PEAKS = 1  # shall be `1` for **mean-field approximation**.
+    
+    def log_p(theta, mean=10):
+        """
+        Args:
+            theta: np.array(shape=[DIM], dtype=np.float32)
+        Returns:
+            np.array(shape=[], dtype=np.float32)
+        """
+        return (-0.5 * np.log(2 * np.pi) * DIM
+                -0.5 * np.sum(np.square(theta - mean)))
+        
+    cgmd = CGMD(DIM, NUM_PEAKS)    
+    elbo_log = [elbo(cgmd, log_p)]
+    
+    for step in range(500):
+        gradient_descent(cgmd, log_p, 0.1)
+        
+        grads = grad_elbo(cgmd, log_p)
+        elbo_log.append(elbo(cgmd, log_p))
+        
+        if step % 10 == 0:
+            print('grad_by_zeta (max, min): ',
+                  np.max(grads['zeta'].reshape([-1])),
+                  np.min(grads['zeta'].reshape([-1])))
+            print('zeta (max, min): ',
+                  np.max(cgmd.get_zeta().reshape([-1])),
+                  np.min(cgmd.get_zeta().reshape([-1])))
+            print('elbo: ', elbo(cgmd, log_p))
+            
+    plt.plot(elbo_log)
+    plt.show()
+    
+    if cgmd.get_dim() == 1:
+        # -- Plot `cgmd.log_pdf()` only.
+        thetae = np.sort(cgmd.sample(_DEFAULT_NUM_SAMPLES), axis=0)
+        y_1 = vectorize(cgmd.log_pdf)(thetae)
+        plt.plot(thetae, y_1, '.')
+        plt.show()
+        # -- Plot `cgmd.log_pdf()` and `log_p()` together
+        thetae = np.sort(cgmd.sample(_DEFAULT_NUM_SAMPLES), axis=0)
+        y_1 = vectorize(cgmd.log_pdf)(thetae)
+        plt.plot(thetae, y_1, '.')
+        y_2 = vectorize(log_p)(thetae)
+        plt.plot(thetae, y_2, '-')
+        plt.show()
