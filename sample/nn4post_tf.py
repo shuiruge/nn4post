@@ -142,12 +142,43 @@ grads = [grads_0[i] + elbo for i in range(3)]
 '''
 
 
-## --- WITHOUT Modification of Gradients ---
+# --- WITHOUT Modification of Gradients ---
+
+# Un-comment this block if test WITHOUT modification of gradients
+
+optimizer = tf.train.AdamOptimizer(learning_rate=0.01)
+optimize = optimizer.minimize(elbo)
+
+# -- Test
+with tf.Session() as sess:
+    
+    sess.run(tf.global_variables_initializer())
+    
+    with Timer():
+        
+        for i in range(15000):
+       
+           elbo_val, _ = sess.run([elbo, optimize])
+
+           if i % 100 == 0:
+               print('step: {0}'.format(i))
+               print('elbo: {0}'.format(elbo_val))
+               print('theta sample: {0}'.format(sess.run(thetae)[0]))
+               print('-----------------------\n')
+
+
+
+## --- WITH Modification of Gradients ---
 #
-## Un-comment this block if test WITHOUT modification of gradients
+## Un-comment this block if test WITH modification of gradients
 #
 #optimizer = tf.train.AdamOptimizer(learning_rate=0.01)
-#optimize = optimizer.minimize(elbo)
+#direct_grads_to_vars = optimizer.compute_gradients(elbo)
+#real_grads_to_vars = [
+#    (grad + elbo, var)
+#    if grad is not None else (None, var)
+#    for grad, var in direct_grads_to_vars]
+#optimize = optimizer.apply_gradients(real_grads_to_vars)
 #
 ## -- Test
 #with tf.Session() as sess:
@@ -159,48 +190,20 @@ grads = [grads_0[i] + elbo for i in range(3)]
 #        for i in range(50000):
 #       
 #           elbo_val, _ = sess.run([elbo, optimize])
-#
+#           
 #           if i % 100 == 0:
 #               print('step: {0}'.format(i))
 #               print('elbo: {0}'.format(elbo_val))
-#               print('theta instance: {0}'.format(sess.run(thetae)[0]))
-
-
-
-# --- WITH Modification of Gradients ---
-
-## Un-comment this block if test WITH modification of gradients
-
-optimizer = tf.train.AdamOptimizer(learning_rate=0.01)
-direct_grads_to_vars = optimizer.compute_gradients(elbo)
-real_grads_to_vars = [
-    (grad + elbo, var)
-    if grad is not None else (None, var)
-    for grad, var in direct_grads_to_vars]
-optimize = optimizer.apply_gradients(real_grads_to_vars)
-
-# -- Test
-with tf.Session() as sess:
-    
-    sess.run(tf.global_variables_initializer())
-    
-    with Timer():
-        
-        for i in range(50000):
-       
-           elbo_val, _ = sess.run([elbo, optimize])
-           
-           if i % 100 == 0:
-               print('step: {0}'.format(i))
-               print('elbo: {0}'.format(elbo_val))
-               print('theta instance: {0}'.format(sess.run(thetae)[0]))
+#               print('theta sample: {0}'.format(sess.run(thetae)[0]))
+#               print('-----------------------\n')
                
                
 ''' Conclusion:
     
     Without the modification of gradients in `optimizer` for ELBO, the
-    optimization works surprsingly great. However, also surprisingly, when with
-    the modification, the optimization blow up quickly.
+    optimization works surprsingly great (implied by ELBO as well as by the
+    sample of `theta`). However, also surprisingly, when with the modification,
+    the optimization blow up quickly.
     
     Can it be possible that TensorFlow has handed the modification for ELBO???
     
