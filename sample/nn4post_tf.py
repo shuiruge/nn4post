@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """
+TensorFlow version.
 """
 
 from tools import Timer
