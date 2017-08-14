@@ -204,3 +204,4 @@ with tf.Session() as sess:
     Can it be possible that TensorFlow has handed the modification for ELBO???
     
     TODO: To answer this, we need a double-check by numpy (i.e. `nn4post_np`).
+'''
