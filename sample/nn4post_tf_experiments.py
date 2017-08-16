@@ -104,7 +104,8 @@ grads_0 = tf.gradients(elbo, [a, mu, zeta])
 print('hahaha', [_.shape for _ in grads_0])
 #grads = [grads_0[i] + elbo for i in range(3)]
 
-
+grad_mci = tf.gradients([mc_integrand[i] for i in range(mc_integrand.shape[0])],
+                        [a, mu, zeta])
 
 
 ''' NOTE:
@@ -248,4 +249,58 @@ with tf.Session() as sess:
     
     TODO: Try pure gradient descent optimizer and see what happened in the
           optimization process by TensorBoard ("graph" section).
+'''
+
+
+
+
+''' Checking with Hand-Calculated Gradients in the Sample Instance:
+    
+Use the codes in `'nn4post_tf.py'`:
+    
+    # Add to `with graph.as_default():`
+    with tf.name_scope('momenta'):
+        momentum_1 = tf.reduce_mean(thetae,
+                                    axis=0,
+                                    name='momentum_1')
+        momentum_2 = tf.reduce_mean(tf.pow(thetae, 2),
+                                    axis=0,
+                                    name='momentum_2')
+        momentum_3 = tf.reduce_mean(tf.pow(thetae, 3),
+                                    axis=0,
+                                    name='momentum_3')
+    
+    # Add to `with tf.Session(graph=graph) as sess:`
+
+    grads_by_optimizer, m1, m2, m3 = sess.run([
+        [g for g, v in gvs if g is not None],
+        momentum_1,
+        momentum_2,
+        momentum_3])
+    m0 = 1
+    momenta = [m0, m1[0], m2[0], m3[0]]
+    
+    for i in range(3):
+        print('grad', i, grads_by_optimizer[i])
+    print()
+    for i in range(4):
+        print('momentum', i, momenta[i])
+
+        
+    def cal_grad_by_mu(momenta):
+        return -100 * momenta[2] + 5001 * momenta[1]
+    def cal_grad_by_zeta(momenta):
+        return (np.e-1)/np.e * (-100*momenta[3] + 5001*momenta[2]
+                                + 100*momenta[1] - 5001*momenta[0])
+    
+    print(cal_grad_by_mu(momenta))
+    print(cal_grad_by_zeta(momenta))
+    
+Conclusion:
+    
+    Even though the momenta are not consistent with the result of gradients
+    computed by TensorFlow, but the EFFECT is that the result of gradients
+    from TensorFlow is surprisingly more accurate to the theoritical
+    calculation result of gradients. I do not know why and where TensorFlow
+    makes better than bared computation by my derived formulae.
 '''
