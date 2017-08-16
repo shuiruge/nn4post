@@ -62,10 +62,11 @@ with graph.as_default():
         optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.01)
         optimize = optimizer.minimize(elbo)
     
-    with tf.name_scope("summary"):
+    with tf.name_scope('summary'):
         tf.summary.scalar('ELBO', elbo)
         tf.summary.histogram('histogram_ELBO', elbo)
         summary = tf.summary.merge_all()
+
 
 # -- Test
 with tf.Session(graph=graph) as sess:
@@ -73,33 +74,20 @@ with tf.Session(graph=graph) as sess:
     writer = tf.summary.FileWriter('../dat/graphs', graph)
     sess.run(tf.global_variables_initializer())
     
-#    with Timer():
-#        
-#        for step in range(6000):
-#       
-#           elbo_val, _, summary_val = sess.run([elbo, optimize, summary])
-#           writer.add_summary(summary_val, global_step=step)
-#
-#           if step % 100 == 0:
-#               print('step: {0}'.format(step))
-#               print('elbo: {0}'.format(elbo_val))
-#               print('theta sample: {0}'.format(sess.run(thetae)[0]))
-#               print('-----------------------\n')
-#               
-#    weights_val, mu_val, sigma_val = sess.run([weights, mu, sigma])
-#    print('weights: {0}'.format(weights_val))
-#    print('mu: {0}'.format(mu_val))
-#    print('sigma: {0}'.format(sigma_val))
-    
-    # -- Double-check gradients with `nn4post_np.py`
-    gvs = optimizer.compute_gradients(elbo)
-    print([v for g, v in gvs if g is not None])
-    grads_by_optimizer = [
-        (g.eval().tolist(), v)
-        for g, v in gvs if g is not None]
-    
-    for i in range(3):
-        grad = np.mean(
-            [grads_by_optimizer[i][0][0] for _ in range(1000)],
-            axis=0)
-        print(grad)
+    with Timer():
+        
+        for step in range(6000):
+       
+           elbo_val, _, summary_val = sess.run([elbo, optimize, summary])
+           writer.add_summary(summary_val, global_step=step)
+
+           if step % 100 == 0:
+               print('step: {0}'.format(step))
+               print('elbo: {0}'.format(elbo_val))
+               print('theta sample: {0}'.format(sess.run(thetae)[0]))
+               print('-----------------------\n')
+               
+    weights_val, mu_val, sigma_val = sess.run([weights, mu, sigma])
+    print('weights: {0}'.format(weights_val))
+    print('mu: {0}'.format(mu_val))
+    print('sigma: {0}'.format(sigma_val))
