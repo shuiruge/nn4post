@@ -3,91 +3,90 @@
 TensorFlow version.
 """
 
-from tools import Timer
-import numpy as np
+
 import tensorflow as tf
 from tensorflow.contrib.distributions import \
     Categorical, Mixture, MultivariateNormalDiag
 from tensorflow.contrib.distributions import softplus_inverse
-    
-    
-NUM_PEAKS = 1
-DIM = 1
-NUM_SAMPLES = 1000
 
 
-graph = tf.Graph()
+class PostNN(object):
+    """
+    TODO: complete it.
+    TODO: write `self.fit()`.
+    """
     
-def log_p(thetae):  # -- Test
-    return (-0.5 * tf.reduce_sum(tf.square(thetae-100), axis=1)
-            -0.5 * tf.log(2 * np.pi) * DIM)
-
-with graph.as_default():
-
-    with tf.name_scope('trainable_variables'):
-        a = tf.Variable(tf.ones([NUM_PEAKS]),
-                        dtype=tf.float32,
-                        name='a')
-        mu = tf.Variable(tf.zeros([NUM_PEAKS, DIM]),
-                         dtype=tf.float32,
-                         name='mu')
-        zeta = tf.Variable(softplus_inverse(
-                               tf.ones([NUM_PEAKS, DIM])),
-                           dtype=tf.float32,
-                           name='zeta')
-    
-    with tf.name_scope('CGMD_model'):
-        with tf.name_scope('model_parameters'):
-            weights = tf.nn.softmax(a, name='weights')
-            sigma = tf.nn.softplus(zeta, name='sigma')
-        with tf.name_scope('categorical'):
-            cat = Categorical(probs=weights)
-        with tf.name_scope('Gaussian'):
-            components = [
-                MultivariateNormalDiag(
-                    loc=mu[i],
-                    scale_diag=sigma[i])
-                for i in range(NUM_PEAKS)]
-        with tf.name_scope('mixture'):
-            cgmd = Mixture(cat=cat, components=components, name='CGMD')
+    def __init__(self, num_peaks, dim, num_samples=1000):
+        self._num_peaks = num_peaks
+        self._dim = dim
+        self._num_samples = num_samples
         
-    with tf.name_scope('sampling'):
-        thetae = cgmd.sample(NUM_SAMPLES, name='thetae')
+    
+    def compile(self, log_post, learning_rate):
+        """ Set up the computation-graph.
+        
+        Args:
+            log_post: Map(np.array(shape=[None, self.get_dim()],
+                                   dtype=float32),
+                          float)
+            learning_rate: float
+        """
+        
+        self.graph = tf.Graph()
+
+        with self.graph.as_default():
+        
+            with tf.name_scope('trainable_variables'):
+                self.a = tf.Variable(tf.ones([self.get_num_peaks()]),
+                                dtype=tf.float32,
+                                name='a')
+                self.mu = tf.Variable(tf.zeros([self.get_num_peaks(), self.get_dim()]),
+                                 dtype=tf.float32,
+                                 name='mu')
+                self.zeta = tf.Variable(softplus_inverse(
+                                       tf.ones([self.get_num_peaks(), self.get_dim()])),
+                                   dtype=tf.float32,
+                                   name='zeta')
             
-    with tf.name_scope('ELBO'):
-        mc_integrand = cgmd.log_prob(thetae) - log_p(thetae)
-        elbo = tf.reduce_mean(mc_integrand, name='ELBO')
-
-    with tf.name_scope('optimize'):
-        optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.01)
-        optimize = optimizer.minimize(elbo)
-    
-    with tf.name_scope('summary'):
-        tf.summary.scalar('ELBO', elbo)
-        tf.summary.histogram('histogram_ELBO', elbo)
-        summary = tf.summary.merge_all()
-
-
-# -- Test
-with tf.Session(graph=graph) as sess:
-    
-    writer = tf.summary.FileWriter('../dat/graphs', graph)
-    sess.run(tf.global_variables_initializer())
-    
-    with Timer():
+            with tf.name_scope('CGMD_model'):
+                with tf.name_scope('model_parameters'):
+                    self.weights = tf.nn.softmax(self.a, name='weights')
+                    self.sigma = tf.nn.softplus(self.zeta, name='sigma')
+                with tf.name_scope('categorical'):
+                    cat = Categorical(probs=self.weights)
+                with tf.name_scope('Gaussian'):
+                    components = [
+                        MultivariateNormalDiag(
+                            loc=self.mu[i],
+                            scale_diag=self.sigma[i])
+                        for i in range(self.get_num_peaks())]
+                with tf.name_scope('mixture'):
+                    self.cgmd = Mixture(cat=cat, components=components, name='CGMD')
+                
+            with tf.name_scope('sampling'):
+                thetae = self.cgmd.sample(self.get_num_samples(), name='thetae')
+                    
+            with tf.name_scope('ELBO'):
+                mc_integrand = self.cgmd.log_prob(thetae) - log_post(thetae)
+                self.elbo = tf.reduce_mean(mc_integrand, name='ELBO')
         
-        for step in range(6000):
-       
-           elbo_val, _, summary_val = sess.run([elbo, optimize, summary])
-           writer.add_summary(summary_val, global_step=step)
-
-           if step % 100 == 0:
-               print('step: {0}'.format(step))
-               print('elbo: {0}'.format(elbo_val))
-               print('theta sample: {0}'.format(sess.run(thetae)[0]))
-               print('-----------------------\n')
-               
-    weights_val, mu_val, sigma_val = sess.run([weights, mu, sigma])
-    print('weights: {0}'.format(weights_val))
-    print('mu: {0}'.format(mu_val))
-    print('sigma: {0}'.format(sigma_val))
+            with tf.name_scope('optimize'):
+                optimizer = tf.train.GradientDescentOptimizer(learning_rate)
+                self.optimize = optimizer.minimize(self.elbo)
+            
+            with tf.name_scope('summary'):
+                tf.summary.scalar('ELBO', self.elbo)
+                tf.summary.histogram('histogram_ELBO', self.elbo)
+                self.summary = tf.summary.merge_all()
+                
+    
+    # --- Get-Functions ---
+                
+    def get_num_peaks(self):
+        return self._num_peaks
+    
+    def get_dim(self):
+        return self._dim
+    
+    def get_num_samples(self):
+        return self._num_samples
