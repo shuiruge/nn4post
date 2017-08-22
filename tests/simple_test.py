@@ -60,7 +60,7 @@ with tf.Session(graph=pnn.graph) as sess:
     
     with Timer():
         
-        print('Start training ......')
+        print('Start fitting ......')
         
         for step in range(6000):
        
