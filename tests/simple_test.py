@@ -11,9 +11,9 @@ from tools import Timer
 import tensorflow as tf
 import numpy as np
 
-NUM_PEAKS = 3
+NUM_PEAKS = 10
 DIM = 1
-NUM_SAMPLES = 1000
+NUM_SAMPLES = 10 ** 4
 
 
 # --- Generate Posterior from Generic Model `f` ---
@@ -28,35 +28,46 @@ def f(x, theta):
     return x * theta
 
 num_data = 100
+noise_scale = 0.05
 xs = np.linspace(-1, 1, num_data)
-ys = xs
-y_sigmas = np.square(np.random.normal(scale=0.1, size=num_data))
+ys = 2 * xs
+ys += noise_scale * np.random.normal(size=num_data)
+y_sigmas = noise_scale * np.ones(shape=(num_data))
 data = (xs, ys, y_sigmas)
 
 def log_likelihood(theta):
     noises = [ys[i] - f(xs[i], theta) for i in range(num_data)]
     return np.sum([log_phi(noises[i], y_sigmas[i]) for i in range(num_data)])
     
-def log_post(thetae):
-    num_theta = thetae.shape[0]
-    return np.sum([log_likelihood(thetae[i,0]) for i in range(num_theta)])
-
 #def log_post(thetae):
-#    return -0.5 * np.square(thetae - 100)
+#    num_theta = thetae.shape[0]
+#    return np.array([log_likelihood(thetae[i,0]) for i in range(num_theta)],
+#                     dtype=np.float32)
+
+def log_post(thetae):
+    return -0.5 * np.square(thetae - 100)
     
+
 
 
 # -- Test
 
 pnn = PostNN(NUM_PEAKS, DIM)
-print('haha')
+print('Model setup')
 pnn.compile(log_post, learning_rate=0.01)
-print('hahaha')
+print('Model compiled.')
 
 with tf.Session(graph=pnn.graph) as sess:
     
     writer = tf.summary.FileWriter('../dat/graphs', pnn.graph)
     sess.run(tf.global_variables_initializer())
+    
+    mean_theta = tf.reduce_mean(pnn.cgmd.sample(pnn.get_num_samples()),
+                                axis=0)
+    
+    # test!
+    #grads = tf.gradients(pnn.log_post_op, tf.all_variables())
+    #print(grads)
     
     with Timer():
         
@@ -70,6 +81,7 @@ with tf.Session(graph=pnn.graph) as sess:
            if step % 100 == 0:
                print('step: {0}'.format(step))
                print('elbo: {0}'.format(elbo_val))
+               print('theta: {0}'.format(mean_theta.eval()))
                print('-----------------------\n')
                
     weights_val, mu_val, sigma_val = sess.run([pnn.weights, pnn.mu, pnn.sigma])

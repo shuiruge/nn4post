@@ -29,7 +29,8 @@ class PostNN(object):
         Args:
             log_post: Map(np.array(shape=[None, self.get_dim()],
                                    dtype=float32),
-                          float)
+                          np.array(shape=[None], dtype=float32))
+                where the two `None`s shall be the same number in practice.
             learning_rate: float
         """
         
@@ -38,16 +39,19 @@ class PostNN(object):
         with self.graph.as_default():
         
             with tf.name_scope('trainable_variables'):
-                self.a = tf.Variable(tf.ones([self.get_num_peaks()]),
-                                dtype=tf.float32,
-                                name='a')
-                self.mu = tf.Variable(tf.zeros([self.get_num_peaks(), self.get_dim()]),
-                                 dtype=tf.float32,
-                                 name='mu')
-                self.zeta = tf.Variable(softplus_inverse(
-                                       tf.ones([self.get_num_peaks(), self.get_dim()])),
-                                   dtype=tf.float32,
-                                   name='zeta')
+                self.a = tf.Variable(
+                    tf.ones([self.get_num_peaks()]),
+                    dtype=tf.float32,
+                    name='a')
+                self.mu = tf.Variable(
+                    tf.zeros([self.get_num_peaks(), self.get_dim()]),
+                    dtype=tf.float32,
+                    name='mu')
+                self.zeta = tf.Variable(
+                    softplus_inverse(
+                        tf.ones([self.get_num_peaks(), self.get_dim()])),
+                    dtype=tf.float32,
+                    name='zeta')
             
             with tf.name_scope('CGMD_model'):
                 with tf.name_scope('model_parameters'):
@@ -62,17 +66,27 @@ class PostNN(object):
                             scale_diag=self.sigma[i])
                         for i in range(self.get_num_peaks())]
                 with tf.name_scope('mixture'):
-                    self.cgmd = Mixture(cat=cat, components=components, name='CGMD')
+                    self.cgmd = Mixture(cat=cat, components=components,
+                                        name='CGMD')
                 
             with tf.name_scope('sampling'):
                 thetae = self.cgmd.sample(self.get_num_samples(), name='thetae')
-                    
+                self.thetae = thetae  # test!
+                self.log_post_op = tf.py_func(log_post, [thetae], tf.float32, False)  # test!
+
             with tf.name_scope('ELBO'):
-                mc_integrand = self.cgmd.log_prob(thetae) - log_post(thetae)
+                # shape: [self.get_num_samples()]
+                log_post_op = tf.py_func(log_post, [thetae], tf.float32,
+                                         name='log_post')
+                mc_integrand = tf.subtract(
+                    self.cgmd.log_prob(thetae),
+                    log_post_op,
+                    #log_post(thetae),
+                    name='mc_integrand')
                 self.elbo = tf.reduce_mean(mc_integrand, name='ELBO')
         
             with tf.name_scope('optimize'):
-                optimizer = tf.train.GradientDescentOptimizer(learning_rate)
+                optimizer = tf.train.AdamOptimizer(learning_rate)
                 self.optimize = optimizer.minimize(self.elbo)
             
             with tf.name_scope('summary'):
