@@ -11,17 +11,38 @@ from tools import Timer
 import tensorflow as tf
 import numpy as np
 
+
+# --- Parameters ---
+
 NUM_PEAKS = 10
-DIM = 1
 NUM_SAMPLES = 10 ** 4
 
+SKIP_STEPS = 1
 
-    
 
-# -- For instance
+# --- Model ---
+## -- For instance 1
+#DIM = 1
+#def model(x, theta):
+#    return theta * x
+
+
+## -- For instance 2
+#DIM = 2
+#def model(x, theta):
+#    a, b = tf.unstack(theta)
+#    return a * x + b * tf.square(x, 2)
+
+
+# -- For instance 3
+DIM = 3
 def model(x, theta):
-    return tf.multiply(x, theta)
+    a, b, c = tf.unstack(theta)
+    return a * x + b * tf.pow(x, 2) + c * tf.pow(x, 3)
 
+
+
+# --- Data ---
 
 num_data = 100
 noise_scale = 0.05
@@ -39,7 +60,7 @@ y_errors.astype(np.float32)
 
 
 
-# -- Test
+# --- Test ---
 
 pnn = PostNN(NUM_PEAKS, DIM)
 print('Model setup')
@@ -51,7 +72,9 @@ with Timer():
     print('Model compiled.')
     
 
-with tf.Session(graph=pnn.graph) as sess:
+sess = tf.Session(graph=pnn.graph)
+
+with sess:
     
     writer = tf.summary.FileWriter('../dat/graphs', pnn.graph)
     sess.run(tf.global_variables_initializer())
@@ -76,13 +99,8 @@ with tf.Session(graph=pnn.graph) as sess:
                     feed_dict=feed_dict)
             writer.add_summary(summary_val, global_step=step)
 
-            if step % 1 == 0:
+            if step % SKIP_STEPS == 0:
                 print('step: {0}'.format(step))
                 print('loss: {0}'.format(loss_val))
                 print('theta: {0}'.format(mean_theta.eval()))
                 print('-----------------------\n')
-               
-#    weights_val, mu_val, sigma_val = sess.run([pnn.weights, pnn.mu, pnn.sigma])
-#    print('weights: {0}'.format(weights_val))
-#    print('mu: {0}'.format(mu_val))
-#    print('sigma: {0}'.format(sigma_val))
