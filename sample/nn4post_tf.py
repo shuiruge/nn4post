@@ -35,6 +35,7 @@ class PostNN(object):
         
     TODO: complete it.
     TODO: write `self.fit()`.
+    TODO: write `self.inference()`.
     """
     
     def __init__(self, num_peaks, dim, num_samples=1000):
@@ -51,19 +52,21 @@ class PostNN(object):
     
     @staticmethod
     def _chi_square(model, data_x, data_y, data_y_error, param):
-        """ Denote :math:`f` as the `model`, :math:`\theta` as the `param`, and
-            :math:`\sigma` as the `data_y_error`, we have
+        """ Denote :math:`f` as the `model`, :math:`\theta` as the `param`,
+            and :math:`\sigma` as the `data_y_error`, we have
             
         ```math
         
-        \chi^2 = -\frac{1}{2 N}
+        \chi^2 = -\frac{1}{2}
             \sum_i^N (\frac{y_i - f(x_i, \theta)}{\sigma_i})^2
         ```
         
-        NOTE:
-            using `tf.reduce_mean()` rather than `tf.reduce_sum()` makes things
-            better?
-        
+        TODO:
+            Self-adaptively add some constant (like `prob(data)`) so that the
+            uppder of `_chi_square()` can be bounded, as the number of data
+            increases, for avoiding overflow of `_chi_square()`, thus the
+            `elbo` in blow.
+                        
         Args:
             model:
                 Callable, mapping from `(x, theta)` to `y`; wherein `x` is a
@@ -87,7 +90,7 @@ class PostNN(object):
         
         noise = tf.subtract(data_y, model(data_x, param))
         
-        return tf.reduce_mean(-0.5 * tf.square( noise / data_y_error ))
+        return tf.reduce_sum(-0.5 * tf.square( noise / data_y_error ))
     
     
     def compile(self, model, learning_rate,
@@ -129,7 +132,8 @@ class PostNN(object):
             with tf.name_scope('log_p'):
                 
                 def chi_square(theta):
-                    """
+                    """ Chi-square based on the data from 'data_source'.
+                    
                     Args:
                         theta: `Tensor` with shape `[self.get_dim()]` and dtype
                                `self._float`.

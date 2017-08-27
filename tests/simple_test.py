@@ -14,7 +14,7 @@ import numpy as np
 
 # --- Parameters ---
 
-NUM_PEAKS = 10
+NUM_PEAKS = 100
 NUM_SAMPLES = 10 ** 4
 
 SKIP_STEPS = 1
@@ -34,20 +34,27 @@ SKIP_STEPS = 1
 #    return a * x + b * tf.square(x, 2)
 
 
+## -- For instance 3
+#DIM = 3
+#def model(x, theta):
+#    a, b, c = tf.unstack(theta)
+#    return a * x + b * tf.pow(x, 2) + c * tf.pow(x, 3)
+
+
 # -- For instance 3
 DIM = 3
 def model(x, theta):
     a, b, c = tf.unstack(theta)
-    return a * x + b * tf.pow(x, 2) + c * tf.pow(x, 3)
+    return a * x + tf.tanh(b * tf.pow(x, 2) + c * tf.pow(x, 3))
 
 
 
 # --- Data ---
 
 num_data = 100
-noise_scale = 0.05
+noise_scale = 0.1
 
-xs = np.linspace(-1, 1, num_data)
+xs = np.linspace(-10, 10, num_data)
 xs = np.expand_dims(xs, -1)
 xs.astype(np.float32)
 
