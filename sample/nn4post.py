@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-TensorFlow version.
+Description
+-----------
+
 """
 
 
 import tensorflow as tf
+# -- `contrib` module in TensorFlow version: 1.2
 from tensorflow.contrib.distributions import \
     Categorical, Mixture, MultivariateNormalDiag
 from tensorflow.contrib.distributions import softplus_inverse
@@ -93,10 +96,18 @@ class PostNN(object):
         return tf.reduce_sum(-0.5 * tf.square( noise / data_y_error ))
     
     
-    def compile(self, model, learning_rate,
-                log_prior=lambda theta: 0.0
+    def compile(self,
+                model,
+                log_prior=lambda theta: 0.0,
+                learning_rate=0.01,
+                optimizer=tf.train.RMSPropOptimizer
                 ):
         """ Set up the (TensorFlow) computational graph.
+        
+        CAUTION ERROR:
+            Using `GradientDescentOptimizer` will increase the loss and
+            raise an ERROR after several training-steps. However, e.g.
+            `AdamOptimizer` and `RMSPropOptimizer` naturally saves this.
         
         Args:
             model:
@@ -105,14 +116,17 @@ class PostNN(object):
                 shape `[batch_size, ...]` (`...` is for any sequence of `int`)
                 and any dtype, so is the `y`; however, the `theta` must have
                 the shape `[self.get_dim()]` and dtype `self._float`.
-
-            learning_rate:
-                `float`, the learning rate of optimizer `self.optimize`.
                 
             log_prior:
                 Callable, mapping from `theta` to `self._float`, wherein
                 `theta` is a `Tensor` which must have the shape shape
                 `[self.get_dim()]` and dtype `self._float`.
+                
+            optimizer:
+                Optimizer object of module `tf.train`, c.f. the "CAUTION ERROR".
+                
+            learning_rate:
+                `float`, the learning rate of the `optimizer`.
         """
         
         with self.graph.as_default():
@@ -234,12 +248,7 @@ class PostNN(object):
         
             with tf.name_scope('optimize'):
                 
-                # CAUTION ERROR:
-                # Using `GradientDescentOptimizer` will increase the loss and
-                # raise an ERROR after several training-steps. However, e.g.
-                # `AdamOptimizer` and `RMSPropOptimizer` naturally saves this.
-                optimizer = tf.train.RMSPropOptimizer(learning_rate)
-                self.optimize = optimizer.minimize(self.loss)
+                self.optimize = optimizer(learning_rate).minimize(self.loss)
             
             with tf.name_scope('summary'):
                 

@@ -6,7 +6,7 @@ Simple test.
 
 import sys
 sys.path.append('../sample/')
-from nn4post_tf import PostNN
+from nn4post import PostNN
 from tools import Timer
 import tensorflow as tf
 import numpy as np
@@ -15,6 +15,7 @@ import numpy as np
 # --- Parameters ---
 
 NUM_PEAKS = 100
+#NUM_PEAKS = 1  # reduce to mean-field variational inference.
 NUM_SAMPLES = 10 ** 4
 
 SKIP_STEPS = 1
@@ -75,11 +76,17 @@ print('Model setup')
 
 with Timer():
     learning_rate=0.05
-    pnn.compile(model, learning_rate=learning_rate)
+    pnn.compile(model=model,
+                learning_rate=learning_rate)
     print('Model compiled.')
     
 
 sess = tf.Session(graph=pnn.graph)
+
+# test! for debug
+#from tensorflow.python import debug as tf_debug
+#sess = tf_debug.LocalCLIDebugWrapperSession(sess)
+#sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
 
 with sess:
     
