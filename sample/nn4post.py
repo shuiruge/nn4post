@@ -291,13 +291,15 @@ class PostNN(object):
             
             sess.run(tf.global_variables_initializer())
             
+            loss_log = []
+
             for step in range(epochs):
                 
                 x, y, y_error = batch_generator.gen()
                 feed_dict = {self.x: x, self.y: y, self.y_error: y_error}
                 
                 if logdir == None:
-                    _, loss_value = sess.run(
+                    _, loss_val = sess.run(
                             [self.optimize, self.loss],
                             feed_dict=feed_dict)
                     
@@ -306,6 +308,8 @@ class PostNN(object):
                             [self.optimize, self.loss, self.summary],
                             feed_dict=feed_dict)
                     self._writer.add_summary(summary_val, global_step=step)
+                
+                loss_log.append(loss_val)
                 
                 if verbose:
                     if (step+1) % skip_steps == 0:
@@ -316,13 +320,7 @@ class PostNN(object):
             self._a_val, self._mu_val, self._zeta_val = \
                 sess.run([self.a, self.mu, self.zeta])
         
-        return_dict = {
-            'a': self._a_val,
-            'mu': self._mu_val,
-            'zeta': self._zeta_val,
-            'loss': self._loss_val,
-            }
-        return return_dict
+        return loss_log
     
     
     def inference(self, num_samples):
