@@ -12,6 +12,9 @@ import tensorflow as tf
 import numpy as np
 
 
+tf.set_random_seed(1234)  # for debugging.
+
+
 # --- Parameters ---
 
 NUM_PEAKS = 100
@@ -82,15 +85,18 @@ with Timer():
     
 
 sess = tf.Session(graph=pnn.graph)
+debug = False
 
-# test! for debug
-#from tensorflow.python import debug as tf_debug
-#sess = tf_debug.LocalCLIDebugWrapperSession(sess)
-#sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
+if debug:
+    from tensorflow.python import debug as tf_debug
+    sess = tf_debug.LocalCLIDebugWrapperSession(
+        sess, thread_name_filter='MainThread$')
+    sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
 
 with sess:
     
-    writer = tf.summary.FileWriter('../dat/graphs', pnn.graph)
+    logdir = '../dat/graphs'
+    writer = tf.summary.FileWriter(logdir, pnn.graph)
     sess.run(tf.global_variables_initializer())
     
     mean_theta = tf.reduce_mean(pnn.cgmd.sample(pnn.get_num_samples()),

@@ -60,8 +60,8 @@ class PostNN(object):
             
         ```math
         
-        \chi^2 = -\frac{1}{2}
-            \sum_i^N (\frac{y_i - f(x_i, \theta)}{\sigma_i})^2
+        \chi^2 \left( (x, y, \sigma), \theta \right) = -\frac{1}{2}
+            \sum_i^N \left( \frac{y_i - f(x_i, \theta)}{\sigma_i} \right)^2
         ```
         
         TODO:
@@ -98,6 +98,7 @@ class PostNN(object):
     
     def compile(self,
                 model,
+                init_vars=None,
                 log_prior=lambda theta: 0.0,
                 learning_rate=0.01,
                 optimizer=tf.train.RMSPropOptimizer
@@ -131,7 +132,7 @@ class PostNN(object):
         
         with self.graph.as_default():
             
-            with tf.name_scope('data_source'):
+            with tf.name_scope('data'):
             
                 # shape: [batch_size, *model_input]
                 self.x = tf.placeholder(dtype=self._float,
@@ -145,7 +146,7 @@ class PostNN(object):
             
             with tf.name_scope('log_p'):
                 
-                def chi_square(theta):
+                def chi_square_on_data(theta):
                     """ Chi-square based on the data from 'data_source'.
                     
                     Args:
@@ -163,7 +164,7 @@ class PostNN(object):
                         \ln\textrm{posterior} = \chi^2 + \ln\textrm{prior}
                         ```
                     """
-                    return chi_square(theta) + log_prior(theta)
+                    return chi_square_on_data(theta) + log_prior(theta)
                                    
                 def log_p(thetas):
                     """ Vectorized `log_posterior()`.
@@ -183,20 +184,28 @@ class PostNN(object):
             with tf.name_scope('trainable_variables'):
                 
                 a_shape = [self.get_num_peaks()]
+                mu_shape = [self.get_num_peaks(), self.get_dim()]
+                zeta_shape = [self.get_num_peaks(), self.get_dim()]
+                
+                if init_vars == None:
+                    init_a = tf.ones(a_shape)
+                    init_mu = tf.zeros(mu_shape)
+                    init_zeta = softplus_inverse(tf.ones(zeta_shape))
+                else:
+                    init_a, init_mu, init_zera = init_vars
+                                    
                 self.a = tf.Variable(
-                    initial_value=tf.ones(a_shape),
+                    initial_value=init_a,
                     dtype=self._float,
                     name='a')
                 
-                mu_shape = [self.get_num_peaks(), self.get_dim()]
                 self.mu = tf.Variable(
-                    initial_value=tf.zeros(mu_shape),
+                    initial_value=init_mu,
                     dtype=self._float,
                     name='mu')
                 
-                zeta_shape = [self.get_num_peaks(), self.get_dim()]
                 self.zeta = tf.Variable(
-                    initial_value=softplus_inverse(tf.ones(zeta_shape)),
+                    initial_value=init_zeta,
                     dtype=self._float,
                     name='zeta')
             
@@ -216,10 +225,8 @@ class PostNN(object):
                 
                 with tf.name_scope('Gaussian'):
                     
-                    mu_list = tf.unstack(self.mu,
-                                         name='mu_list')
-                    sigma_list = tf.unstack(self.sigma,
-                                            name='sigma_list')
+                    mu_list = tf.unstack(self.mu, name='mu_list')
+                    sigma_list = tf.unstack(self.sigma, name='sigma_list')
                     components = [
                         MultivariateNormalDiag(
                             loc=mu_list[i],
@@ -259,9 +266,79 @@ class PostNN(object):
         print('INFO - Model compiled.')
                 
     
-    def fit(self):
-        return
+    def fit(self,
+            batch_generator,
+            epochs,
+            logdir=None,
+            verbose=False,
+            skip_steps=100,
+            debug=False):
+        """
+        TODO: complete docstring.  
+        """
+        
+        sess = tf.Session(graph=self.graph)
+        if debug:
+            from tensorflow.python import debug as tf_debug
+            sess = tf_debug.LocalCLIDebugWrapperSession(
+                sess, thread_name_filter='MainThread$')
+            sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
+                    
+        if logdir != None:
+            self._writer = tf.summary.FileWriter(logdir, self.graph)
+        
+        with sess:
+            
+            sess.run(tf.global_variables_initializer())
+            
+            for step in range(epochs):
                 
+                x, y, y_error = batch_generator.gen()
+                feed_dict = {self.x: x, self.y: y, self.y_error: y_error}
+                
+                if logdir == None:
+                    _, loss_value = sess.run(
+                            [self.optimize, self.loss],
+                            feed_dict=feed_dict)
+                    
+                else:
+                    _, loss_val, summary_val = sess.run(
+                            [self.optimize, self.loss, self.summary],
+                            feed_dict=feed_dict)
+                    self._writer.add_summary(summary_val, global_step=step)
+                
+                if verbose:
+                    if (step+1) % skip_steps == 0:
+                        print('step: {0}'.format(step+1))
+                        print('loss: {0}'.format(loss_val))
+                        print('-----------------------\n')
+                        
+            self._a_val, self._mu_val, self._zeta_val = \
+                sess.run([self.a, self.mu, self.zeta])
+        
+        return_dict = {
+            'a': self._a_val,
+            'mu': self._mu_val,
+            'zeta': self._zeta_val,
+            'loss': self._loss_val,
+            }
+        return return_dict
+    
+    
+    def inference(self, num_samples):
+        """
+        TODO: complete docstring.  
+        """
+        
+        sess = tf.Session(graph=self.graph)
+        
+        with sess:
+            
+            theta_vals = sess.run(tf.unstack(self.cgmd.sample(num_samples)))
+            
+        return theta_vals
+    
+    
     
     # -- Get-Functions
                 
@@ -273,3 +350,12 @@ class PostNN(object):
     
     def get_num_samples(self):
         return self._num_samples
+    
+    def get_a(self):
+        return self._a_val
+    
+    def get_mu(self):
+        return self._mu_val
+    
+    def get_zeta(self):
+        return self._zeta_val
