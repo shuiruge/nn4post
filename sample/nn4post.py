@@ -54,8 +54,8 @@ class PostNN(object):
         
     
     @staticmethod
-    def _chi_square(model, data_x, data_y, data_y_error, param):
-        """ Denote :math:`f` as the `model`, :math:`\theta` as the `param`,
+    def _chi_square(model, data_x, data_y, data_y_error, params):
+        """ Denote :math:`f` as the `model`, :math:`\theta` as the `params`,
             and :math:`\sigma` as the `data_y_error`, we have
             
         ```math
@@ -84,24 +84,23 @@ class PostNN(object):
             
             data_y_error: `Tensor` as `data_y`.
             
-            theta:
+            params:
                 `Tensor` with shape `[self.get_dim()]` and dtype `self._float`.
             
         Returns:
             `Tensor` with shape `[]` and dtype `self._float`.
         """
         
-        noise = tf.subtract(data_y, model(data_x, param))
+        noise = tf.subtract(data_y, model(data_x, params))
         
         return tf.reduce_sum(-0.5 * tf.square( noise / data_y_error ))
     
     
     def compile(self,
                 model,
-                init_vars=None,
                 log_prior=lambda theta: 0.0,
+                optimizer=tf.train.RMSPropOptimizer,
                 learning_rate=0.01,
-                optimizer=tf.train.RMSPropOptimizer
                 ):
         """ Set up the (TensorFlow) computational graph.
         
@@ -128,6 +127,15 @@ class PostNN(object):
                 
             learning_rate:
                 `float`, the learning rate of the `optimizer`.
+
+        NOTE:
+            To generate the `model`, you shall first write the model in
+            TensorFlow without caring about its `params` argument. Then you can
+            write a `parse_params()` helper function, which parse a 1-D `Tensor`
+            to a list of `Tensor`s with the correspoinding shapes. This can be
+            established directly by `tf.split()` and `tf.reshape()`, as long as
+            you have patiently find out the correct shapes for each `Tensor` in
+            the parsed list.
         """
         
         with self.graph.as_default():
@@ -157,7 +165,7 @@ class PostNN(object):
                     """
                     return self._chi_square(
                         model=model, data_x=self.x, data_y=self.y,
-                        data_y_error=self.y_error, param=theta)
+                        data_y_error=self.y_error, params=theta)
                 
                 def log_posterior(theta):
                     """ ```math
@@ -182,30 +190,22 @@ class PostNN(object):
                                      name='log_p_as_vectorized')
             
             with tf.name_scope('trainable_variables'):
-                
-                a_shape = [self.get_num_peaks()]
-                mu_shape = [self.get_num_peaks(), self.get_dim()]
-                zeta_shape = [self.get_num_peaks(), self.get_dim()]
-                
-                if init_vars == None:
-                    init_a = tf.ones(a_shape)
-                    init_mu = tf.zeros(mu_shape)
-                    init_zeta = softplus_inverse(tf.ones(zeta_shape))
-                else:
-                    init_a, init_mu, init_zera = init_vars
                                     
+                a_shape = [self.get_num_peaks()]
                 self.a = tf.Variable(
-                    initial_value=init_a,
+                    initial_value=tf.ones(a_shape),
                     dtype=self._float,
                     name='a')
                 
+                mu_shape = [self.get_num_peaks(), self.get_dim()]
                 self.mu = tf.Variable(
-                    initial_value=init_mu,
+                    initial_value=tf.zeros(mu_shape),
                     dtype=self._float,
                     name='mu')
                 
+                zeta_shape = [self.get_num_peaks(), self.get_dim()]
                 self.zeta = tf.Variable(
-                    initial_value=init_zeta,
+                    initial_value=softplus_inverse(tf.ones(zeta_shape)),
                     dtype=self._float,
                     name='zeta')
             
@@ -275,9 +275,11 @@ class PostNN(object):
             debug=False):
         """
         TODO: complete docstring.  
+        TODO: add `tf.train.Saver()`, `global_step`, etc.
         """
         
         sess = tf.Session(graph=self.graph)
+        
         if debug:
             from tensorflow.python import debug as tf_debug
             sess = tf_debug.LocalCLIDebugWrapperSession(
@@ -291,11 +293,9 @@ class PostNN(object):
             
             sess.run(tf.global_variables_initializer())
             
-            loss_log = []
-
             for step in range(epochs):
                 
-                x, y, y_error = batch_generator.gen()
+                x, y, y_error = next(batch_generator)
                 feed_dict = {self.x: x, self.y: y, self.y_error: y_error}
                 
                 if logdir == None:
@@ -308,9 +308,7 @@ class PostNN(object):
                             [self.optimize, self.loss, self.summary],
                             feed_dict=feed_dict)
                     self._writer.add_summary(summary_val, global_step=step)
-                
-                loss_log.append(loss_val)
-                
+                                
                 if verbose:
                     if (step+1) % skip_steps == 0:
                         print('step: {0}'.format(step+1))
@@ -319,9 +317,7 @@ class PostNN(object):
                         
             self._a_val, self._mu_val, self._zeta_val = \
                 sess.run([self.a, self.mu, self.zeta])
-        
-        return loss_log
-    
+            
     
     def inference(self, num_samples):
         """
@@ -349,11 +345,9 @@ class PostNN(object):
     def get_num_samples(self):
         return self._num_samples
     
-    def get_a(self):
-        return self._a_val
-    
-    def get_mu(self):
-        return self._mu_val
-    
-    def get_zeta(self):
-        return self._zeta_val
+    def get_variables(self):
+        variables = [self.a, self.mu, self.zeta]
+        sess = tf.Session(graph=self.graph)
+        with sess:
+            variable_values = sess.run(variables)
+        return variable_values

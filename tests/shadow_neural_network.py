@@ -4,7 +4,7 @@
 Description
 -----------
 
-Simple test.
+Test on a shadow neural network.
 """
 
 import sys
@@ -20,53 +20,47 @@ tf.set_random_seed(1234)
 np.random.seed(1234)
 
 
-# --- Parameters ---
-
-NUM_PEAKS = 100
-#NUM_PEAKS = 1  # reduce to mean-field variational inference.
-NUM_SAMPLES = 10 ** 4
-
-
-
 # --- Model ---
-## -- For instance 1
-#DIM = 1
-#def model(x, theta):
-#    return theta * x
 
+NUM_HIDDEN = 10
+DIM = NUM_HIDDEN * 3 + 1
 
-## -- For instance 2
-#DIM = 2
-#def model(x, theta):
-#    a, b = tf.unstack(theta)
-#    return a * x + b * tf.square(x, 2)
-
-
-## -- For instance 3
-#DIM = 3
-#def model(x, theta):
-#    a, b, c = tf.unstack(theta)
-#    return a * x + b * tf.pow(x, 2) + c * tf.pow(x, 3)
-
-
-# -- For instance 3
-DIM = 3
-def model(x, params):
-    a, b, c = tf.unstack(params)
-    return a * x + tf.tanh(b * tf.pow(x, 2) + c * tf.pow(x, 3))
+def parse_params(params):
+    
+    w_h, w_a, b_h, b_a = tf.split(
+        value=params,
+        num_or_size_splits=[NUM_HIDDEN, NUM_HIDDEN, NUM_HIDDEN, 1])
+    
+    # shape: [1, num_hidden]
+    w_h = tf.expand_dims(w_h, axis=0)
+    # shape: [num_hidden, 1]
+    w_a = tf.expand_dims(w_a, axis=1)
+    
+    return w_h, w_a, b_h, b_a
+    
+def shadow_neural_network(x, params):
+    
+    w_h, w_a, b_h, b_a = parse_params(params)
+    
+    # shape: [None, num_hidden]
+    h = tf.nn.relu(tf.add(tf.matmul(x, w_h), b_h))
+    # shape: [None, 1]
+    a = tf.nn.relu(tf.add(tf.matmul(h, w_a), b_a))
+    
+    return a
 
 
 
 # --- Data ---
 
 def target_func(x):
-    return 2 * x
+    return np.sin(x)
 
 num_data = 100
 noise_scale = 0.1
 
 x = np.linspace(-10, 10, num_data)
-x = np.expand_dims(x, -1)
+x = np.expand_dims(x, -1)  # shape: [num_data, 1]
 x.astype(np.float32)
 
 y = target_func(x)
@@ -95,12 +89,17 @@ batch_generator = BatchGenerator(x, y, y_error)
 
 # --- Test ---
 
+#NUM_PEAKS = 1  # reduce to mean-field variational inference.
+#NUM_PEAKS = 10
+Num_PEAKS = 100
+
+
 pnn = PostNN(NUM_PEAKS, DIM)
 print('Model setup')
 
 
 with Timer():
-    pnn.compile(model=model,
+    pnn.compile(model=shadow_neural_network,
                 learning_rate=0.05)
     print('Model compiled.')
     
