@@ -3,7 +3,12 @@
 """
 Description
 -----------
+Implementation of the model illustrated in '../docs/nn4post.pdf', via
+TensorFlow.
 
+Documentation
+-------------
+C.f. '../docs/nn4post.pdf'.
 """
 
 
@@ -22,6 +27,9 @@ from tensorflow.contrib.bayesflow import entropy
 
 class PostNN(object):
     """ Main class of "neural network for posterior" ("nn4post" for short).
+    
+    DOCUMENTATION:
+        'nn4post/docs/nn4post.pdf'.
     
     Args:
         num_peaks: int
