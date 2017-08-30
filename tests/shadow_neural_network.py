@@ -91,7 +91,7 @@ batch_generator = BatchGenerator(x, y, y_error)
 
 #NUM_PEAKS = 1  # reduce to mean-field variational inference.
 #NUM_PEAKS = 10
-Num_PEAKS = 100
+NUM_PEAKS = 100
 
 
 pnn = PostNN(NUM_PEAKS, DIM)

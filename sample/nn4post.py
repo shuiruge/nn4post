@@ -8,6 +8,7 @@ Description
 
 
 import tensorflow as tf
+import numpy as np
 # -- `contrib` module in TensorFlow version: 1.2
 from tensorflow.contrib.distributions import \
     Categorical, Mixture, MultivariateNormalDiag
@@ -49,10 +50,64 @@ class PostNN(object):
         
         self.graph = tf.Graph()
         
-        # -- Parameters
+        # --- Parameters ---
+        
         self._float = tf.float32
         
+        self._a_shape = [self.get_num_peaks()]
+        self._mu_shape = [self.get_num_peaks(), self.get_dim()]
+        self._zeta_shape = [self.get_num_peaks(), self.get_dim()]
+        
+        # -- Default initial values of variables.
+        self._default_init_a = np.ones(self._a_shape)
+        self._default_init_mu = np.random.normal(scale=1.0,
+                                                 size=self._mu_shape)
+        # To make `softplus(self._init_zeta) == np.ones(self._zeta_shape)`
+        self._default_init_zeta = np.log((np.e-1) * np.ones(self._zeta_shape))
+        
+        
+    def _check_var_shape(self, a, mu, zeta):
+        """ Check the shape of varialbes (i.e. `a`, `mu`, and `zeta`). """
+        
+        # -- Check Shape
+        shape_error_msg = 'ERROR: {0} expects the shape {2}, but given {1}.'        
+        assert a.shape == self._a_shape, \
+            shape_error_msg.format('a', a.shape, self._a_shape)
+        assert mu.shape == self._mu_shape, \
+            shape_error_msg.format('mu', mu.shape, self._mu_shape)
+        assert zeta.shape == self._zeta_shape, \
+            shape_error_msg.format('zeta', zeta.shape, self._zeta_shape)
+        
+        # -- Check Dtype
+        dtype_error_msg = 'ERROR: {0} expects the dtype {2}, but given {1}.'
+        assert a.dtype == self._float, \
+            dtype_error_msg.format('a', a.dtype, self._float)
+        assert mu.dtype == self._float, \
+            dtype_error_msg.format('mu', mu.dtype, self._float)
+        assert zeta.dtype == self._float, \
+            dtype_error_msg.format('zeta', zeta.dtype, self._float)        
+            
     
+    def _get_init_vars(self, init_vars):
+        """ Get initalized variables in a tuple of numpy arraies.
+        
+        Args:
+            init_vars: list of numpy array or `None`.
+            
+        Returns:
+            list of numpy array
+        """
+        
+        if init_vars == None:
+            return (self._default_init_a,
+                    self._default_init_mu,
+                    self._default_init_zeta)
+            
+        else:
+            self._check_var_shape(*init_vars)
+            return init_vars
+        
+
     @staticmethod
     def _chi_square(model, data_x, data_y, data_y_error, params):
         """ Denote :math:`f` as the `model`, :math:`\theta` as the `params`,
@@ -101,6 +156,7 @@ class PostNN(object):
                 log_prior=lambda theta: 0.0,
                 optimizer=tf.train.RMSPropOptimizer,
                 learning_rate=0.01,
+                init_vars=None,
                 ):
         """ Set up the (TensorFlow) computational graph.
         
@@ -127,6 +183,14 @@ class PostNN(object):
                 
             learning_rate:
                 `float`, the learning rate of the `optimizer`.
+                
+            init_vars:
+                "Initial value of variables (i.e. `a`, `mu`, and `zeta`)", as
+                a tuple of numpy array or `None`. If `None`, use default values.
+                If not `None`, then they shall be the numpy arries with the
+                shapes of `self.get_a_shape()`, `self.get_mu_shape()`,
+                and `self.get_zeta_shape()` respectively, and dtypes of
+                `self.get_var_dtype()` uniformly.
 
         NOTE:
             To generate the `model`, you shall first write the model in
@@ -138,6 +202,10 @@ class PostNN(object):
             the parsed list.
         """
         
+        self._model = model
+        self._log_prior = log_prior
+        
+        # --- Construct TensorFlow Graph ---
         with self.graph.as_default():
             
             with tf.name_scope('data'):
@@ -164,7 +232,7 @@ class PostNN(object):
                         `self._float`.
                     """
                     return self._chi_square(
-                        model=model, data_x=self.x, data_y=self.y,
+                        model=self._model, data_x=self.x, data_y=self.y,
                         data_y_error=self.y_error, params=theta)
                 
                 def log_posterior(theta):
@@ -172,7 +240,7 @@ class PostNN(object):
                         \ln\textrm{posterior} = \chi^2 + \ln\textrm{prior}
                         ```
                     """
-                    return chi_square_on_data(theta) + log_prior(theta)
+                    return chi_square_on_data(theta) + self._log_prior(theta)
                                    
                 def log_p(thetas):
                     """ Vectorized `log_posterior()`.
@@ -190,22 +258,21 @@ class PostNN(object):
                                      name='log_p_as_vectorized')
             
             with tf.name_scope('trainable_variables'):
+                
+                init_a, init_mu, init_zeta = self._get_init_vars(init_vars)
                                     
-                a_shape = [self.get_num_peaks()]
                 self.a = tf.Variable(
-                    initial_value=tf.ones(a_shape),
+                    initial_value=init_a,
                     dtype=self._float,
                     name='a')
                 
-                mu_shape = [self.get_num_peaks(), self.get_dim()]
                 self.mu = tf.Variable(
-                    initial_value=tf.zeros(mu_shape),
+                    initial_value=init_mu,
                     dtype=self._float,
                     name='mu')
                 
-                zeta_shape = [self.get_num_peaks(), self.get_dim()]
                 self.zeta = tf.Variable(
-                    initial_value=softplus_inverse(tf.ones(zeta_shape)),
+                    initial_value=init_zeta,
                     dtype=self._float,
                     name='zeta')
             
@@ -317,20 +384,16 @@ class PostNN(object):
                         
             self._a_val, self._mu_val, self._zeta_val = \
                 sess.run([self.a, self.mu, self.zeta])
-            
+
+            self._weight_val, self._sigma_val = \
+                sess.run([self.weight, self.sigma])                
+    
     
     def inference(self, num_samples):
         """
-        TODO: complete docstring.  
+        TODO: complete this.  
         """
-        
-        sess = tf.Session(graph=self.graph)
-        
-        with sess:
-            
-            theta_vals = sess.run(tf.unstack(self.cgmd.sample(num_samples)))
-            
-        return theta_vals
+        return
     
     
     
@@ -346,8 +409,27 @@ class PostNN(object):
         return self._num_samples
     
     def get_variables(self):
-        variables = [self.a, self.mu, self.zeta]
-        sess = tf.Session(graph=self.graph)
-        with sess:
-            variable_values = sess.run(variables)
-        return variable_values
+        """ Get tuple of numerical values (as numpy arraies) of variables,
+            including `a`, `mu`, and `zeta`.
+        
+        CAUTION:
+            Can only be called after an `self.fit()`.
+            
+        Returns:
+            Tuple of numpy arraies, being the numerical values of `a`, `mu`,
+            and `zeta`.
+        """
+        return (self._a_val, self._mu_val, self._zeta_val)
+    
+    def get_cgmd_params(self):
+        """ Get tuple of numerical values (as numpy arraries) of CGMD
+        parameters, including `weight`, `mu`, and `sigma`.
+        
+        CAUTION:
+            Can only be called after an `self.fit()`.
+            
+        Returns:
+            Tuple of numpy arraies, being the numerical values of `weight`,
+            `mu`, and `sigma`.
+        """
+        return (self._weight_val, self._mu_val, self._sigma_val)
