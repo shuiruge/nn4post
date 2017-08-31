@@ -17,7 +17,6 @@ import numpy as np
 # -- `contrib` module in TensorFlow version: 1.2
 from tensorflow.contrib.distributions import \
     Categorical, Mixture, MultivariateNormalDiag
-from tensorflow.contrib.distributions import softplus_inverse
 from tensorflow.contrib.bayesflow import entropy
 
 
@@ -33,13 +32,45 @@ class PostNN(object):
     
     Args:
         num_peaks: int
+            Number of Gaussian peaks, that is, the number of categories in the
+            categorical distribution (i.e. the :math:`N_c` in documentation).
         
         dim: int
-        
+            The dimension of parameter-space. (I.e. the :math:`d` in
+            documentation.)
+                
+        model:
+            Callable, mapping from `(x, theta)` to `y`; wherein `x` is a
+            `Tensor` representing the input data to the `model`, having
+            shape `[batch_size, ...]` (`...` is for any sequence of `int`)
+            and any dtype, so is the `y`; however, the `theta` must have
+            the shape `[self.get_dim()]` and dtype `self._float`. (I.e. the
+            :math:`f` in documentation.)
+            
+            To generate the `model`, you shall first write the model in
+            TensorFlow without caring about its `params` argument. Then you can
+            write a `parse_params()` helper function, which parse a 1-D `Tensor`
+            to a list of `Tensor`s with the correspoinding shapes. This can be
+            established directly by `tf.split()` and `tf.reshape()`, as long as
+            you have patiently find out the correct shapes for each `Tensor` in
+            the parsed list.
+            
+        log_prior:
+            Callable, mapping from `theta` to `self._float`, wherein
+            `theta` is a `Tensor` which must have the shape shape
+            `[self.get_dim()]` and dtype `self._float`. (I.e. the
+            :math:`\ln p(\theta)` in documentation.)
+            
         num_samples: int
         
     Attributes:
-        graph: tf.Graph()
+        tgraph: tf.Graph()
+            Computational graph for training `PostNN()`. Compiled after calling
+            `self.compile()`.
+            
+        igraph: tf.Graph()
+            Computational graph for inference. Compiled and run after calling
+            inference.
         
     Method:
         compile
@@ -50,13 +81,21 @@ class PostNN(object):
     TODO: write `self.inference()`.
     """
     
-    def __init__(self, num_peaks, dim, num_samples=1000):
+    def __init__(self,
+                 num_peaks,
+                 dim,
+                 model,
+                 log_prior=lambda x: 0.0,
+                 num_samples=1000):
         
         self._num_peaks = num_peaks
         self._dim = dim
+        self._model = model
+        self._log_prior = log_prior
         self._num_samples = num_samples
         
-        self.graph = tf.Graph()
+        self.tgraph = tf.Graph()
+        
         
         # --- Parameters ---
         
@@ -65,6 +104,7 @@ class PostNN(object):
         self._a_shape = [self.get_num_peaks()]
         self._mu_shape = [self.get_num_peaks(), self.get_dim()]
         self._zeta_shape = [self.get_num_peaks(), self.get_dim()]
+        
         
         # -- Default initial values of variables.
         self._default_init_a = np.ones(self._a_shape)
@@ -75,7 +115,11 @@ class PostNN(object):
         
         
     def _check_var_shape(self, a, mu, zeta):
-        """ Check the shape of varialbes (i.e. `a`, `mu`, and `zeta`). """
+        """ Check the shape of varialbes (i.e. `a`, `mu`, and `zeta`).
+        
+        Args:
+            a, mu, zeta: array-like.
+        """
         
         # -- Check Shape
         shape_error_msg = 'ERROR: {0} expects the shape {2}, but given {1}.'        
@@ -156,12 +200,10 @@ class PostNN(object):
         
         noise = tf.subtract(data_y, model(data_x, params))
         
-        return tf.reduce_sum(-0.5 * tf.square( noise / data_y_error ))
+        return tf.reduce_sum( -0.5 * tf.square(noise/data_y_error) )
     
     
     def compile(self,
-                model,
-                log_prior=lambda theta: 0.0,
                 optimizer=tf.train.RMSPropOptimizer,
                 learning_rate=0.01,
                 init_vars=None,
@@ -173,19 +215,7 @@ class PostNN(object):
             raise an ERROR after several training-steps. However, e.g.
             `AdamOptimizer` and `RMSPropOptimizer` naturally saves this.
         
-        Args:
-            model:
-                Callable, mapping from `(x, theta)` to `y`; wherein `x` is a
-                `Tensor` representing the input data to the `model`, having
-                shape `[batch_size, ...]` (`...` is for any sequence of `int`)
-                and any dtype, so is the `y`; however, the `theta` must have
-                the shape `[self.get_dim()]` and dtype `self._float`.
-                
-            log_prior:
-                Callable, mapping from `theta` to `self._float`, wherein
-                `theta` is a `Tensor` which must have the shape shape
-                `[self.get_dim()]` and dtype `self._float`.
-                
+        Args:                
             optimizer:
                 Optimizer object of module `tf.train`, c.f. the "CAUTION ERROR".
                 
@@ -199,22 +229,10 @@ class PostNN(object):
                 shapes of `self.get_a_shape()`, `self.get_mu_shape()`,
                 and `self.get_zeta_shape()` respectively, and dtypes of
                 `self.get_var_dtype()` uniformly.
-
-        NOTE:
-            To generate the `model`, you shall first write the model in
-            TensorFlow without caring about its `params` argument. Then you can
-            write a `parse_params()` helper function, which parse a 1-D `Tensor`
-            to a list of `Tensor`s with the correspoinding shapes. This can be
-            established directly by `tf.split()` and `tf.reshape()`, as long as
-            you have patiently find out the correct shapes for each `Tensor` in
-            the parsed list.
         """
         
-        self._model = model
-        self._log_prior = log_prior
-        
         # --- Construct TensorFlow Graph ---
-        with self.graph.as_default():
+        with self.tgraph.as_default():
             
             with tf.name_scope('data'):
             
@@ -227,6 +245,7 @@ class PostNN(object):
                 # shape: [batch_size, *model_output]
                 self.y_error = tf.placeholder(dtype=self._float,
                                               name='y_error')
+                
             
             with tf.name_scope('log_p'):
                 
@@ -236,19 +255,25 @@ class PostNN(object):
                     Args:
                         theta: `Tensor` with shape `[self.get_dim()]` and dtype
                                `self._float`.
+                               
                     Returns:
-                        `self._float`.
+                        `Tensor` with shape `[]` and dtype `self._float`.
                     """
                     return self._chi_square(
                         model=self._model, data_x=self.x, data_y=self.y,
                         data_y_error=self.y_error, params=theta)
+                    
                 
                 def log_posterior(theta):
                     """ ```math
-                        \ln\textrm{posterior} = \chi^2 + \ln\textrm{prior}
+                    
+                        \ln \textrm{posterior} = \chi^2 + \ln \textrm{prior}
                         ```
+                        
+                    I.e. the :math:`\ln p(\theta \| D)` in documentation.
                     """
                     return chi_square_on_data(theta) + self._log_prior(theta)
+                
                                    
                 def log_p(thetas):
                     """ Vectorized `log_posterior()`.
@@ -264,6 +289,7 @@ class PostNN(object):
                     """
                     return tf.map_fn(log_posterior, thetas,
                                      name='log_p_as_vectorized')
+                    
             
             with tf.name_scope('trainable_variables'):
                 
@@ -283,6 +309,7 @@ class PostNN(object):
                     initial_value=init_zeta,
                     dtype=self._float,
                     name='zeta')
+                
             
             with tf.name_scope('CGMD_model'):
                 
@@ -292,11 +319,13 @@ class PostNN(object):
                                                 name='weight')
                     self.sigma = tf.nn.softplus(self.zeta,
                                                 name='sigma')
+                    
                 
                 with tf.name_scope('categorical'):
                     
                     cat = Categorical(probs=self.weight,
                                       name='cat')
+                    
                 
                 with tf.name_scope('Gaussian'):
                     
@@ -308,12 +337,14 @@ class PostNN(object):
                             scale_diag=sigma_list[i],
                             name='Gaussian_{0}'.format(i))
                         for i in range(self.get_num_peaks())]
+                    
                 
                 with tf.name_scope('mixture'):
                     
                     self.cgmd = Mixture(cat=cat,
                                         components=components,
                                         name='CGMD')
+                    
                             
             with tf.name_scope('loss'):
                 
@@ -327,16 +358,19 @@ class PostNN(object):
                 # `-1 * elbo`
                 self.loss = tf.multiply(-1.0, elbo,
                                         name='loss')
+                
         
             with tf.name_scope('optimize'):
                 
                 self.optimize = optimizer(learning_rate).minimize(self.loss)
+                
             
             with tf.name_scope('summary'):
                 
                 tf.summary.scalar('loss', self.loss)
                 tf.summary.histogram('histogram_loss', self.loss)
                 self.summary = tf.summary.merge_all()
+                
                    
         print('INFO - Model compiled.')
                 
@@ -353,7 +387,7 @@ class PostNN(object):
         TODO: add `tf.train.Saver()`, `global_step`, etc.
         """
         
-        sess = tf.Session(graph=self.graph)
+        sess = tf.Session(graph=self.tgraph)
         
         if debug:
             from tensorflow.python import debug as tf_debug
@@ -362,7 +396,7 @@ class PostNN(object):
             sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
                     
         if logdir != None:
-            self._writer = tf.summary.FileWriter(logdir, self.graph)
+            self._writer = tf.summary.FileWriter(logdir, self.tgraph)
         
         with sess:
             
@@ -401,6 +435,11 @@ class PostNN(object):
         """
         TODO: complete this.  
         """
+        
+        self.igraph = tf.Graph()
+        
+        a_val, mu_val, zeta_val = self.get_cgmd_params()
+        
         return
     
     

@@ -95,13 +95,12 @@ batch_generator = BatchGenerator(x, y, y_error)
 
 # --- Test ---
 
-pnn = PostNN(NUM_PEAKS, DIM)
+pnn = PostNN(NUM_PEAKS, DIM, model=model)
 print('Model setup')
 
 
 with Timer():
-    pnn.compile(model=model,
-                learning_rate=0.05)
+    pnn.compile(learning_rate=0.05)
     print('Model compiled.')
     
 
