@@ -63,16 +63,19 @@ class PostNN(object):
             
         num_samples: int
         
+        debug: bool
+            If `True`, then employ the `tfdbg`.
+        
     Attributes:
-        tgraph: tf.Graph()
-            Computational graph for training `PostNN()`. Compiled after calling
+        graph: tf.Graph()
+            Computational graph of `PostNN()`. Compiled after calling
             `self.compile()`.
             
-        igraph: tf.Graph()
-            Computational graph for inference. Compiled and run after calling
-            inference.
+        `Tensor`s within `self.graph`.
+
         
     Method:
+        set_vars
         compile
         fit
         
@@ -86,15 +89,17 @@ class PostNN(object):
                  dim,
                  model,
                  log_prior=lambda x: 0.0,
-                 num_samples=1000):
+                 num_samples=1000,
+                 debug=False):
         
         self._num_peaks = num_peaks
         self._dim = dim
         self._model = model
         self._log_prior = log_prior
         self._num_samples = num_samples
+        self._debug = debug
         
-        self.tgraph = tf.Graph()
+        self.graph = tf.Graph()
         
         
         # --- Parameters ---
@@ -106,12 +111,12 @@ class PostNN(object):
         self._zeta_shape = [self.get_num_peaks(), self.get_dim()]
         
         
-        # -- Default initial values of variables.
-        self._default_init_a = np.ones(self._a_shape)
-        self._default_init_mu = np.random.normal(scale=1.0,
-                                                 size=self._mu_shape)
+        # -- initialize the values of variables of CGMD.
+        self._a_val = np.ones(self._a_shape)
+        self._mu_val = np.random.normal(scale=1.0,
+                                        size=self._mu_shape)
         # To make `softplus(self._init_zeta) == np.ones(self._zeta_shape)`
-        self._default_init_zeta = np.log((np.e-1) * np.ones(self._zeta_shape))
+        self._zeta_val = np.log((np.e-1) * np.ones(self._zeta_shape))
         
         
     def _check_var_shape(self, a, mu, zeta):
@@ -122,42 +127,24 @@ class PostNN(object):
         """
         
         # -- Check Shape
-        shape_error_msg = 'ERROR: {0} expects the shape {2}, but given {1}.'        
-        assert a.shape == self._a_shape, \
-            shape_error_msg.format('a', a.shape, self._a_shape)
-        assert mu.shape == self._mu_shape, \
-            shape_error_msg.format('mu', mu.shape, self._mu_shape)
-        assert zeta.shape == self._zeta_shape, \
-            shape_error_msg.format('zeta', zeta.shape, self._zeta_shape)
+        shape_error_msg = 'ERROR: {0} expects the shape {2}, but given {1}.' 
+        a_shape, mu_shape, zeta_shape = self.get_var_shapes()
+        assert a.shape == a_shape, \
+            shape_error_msg.format('a', a.shape, a_shape)
+        assert mu.shape == mu_shape, \
+            shape_error_msg.format('mu', mu.shape, mu_shape)
+        assert zeta.shape == zeta_shape, \
+            shape_error_msg.format('zeta', zeta.shape, zeta_shape)
         
         # -- Check Dtype
         dtype_error_msg = 'ERROR: {0} expects the dtype {2}, but given {1}.'
+        var_dtype = self.get_var_dtype()
         assert a.dtype == self._float, \
-            dtype_error_msg.format('a', a.dtype, self._float)
+            dtype_error_msg.format('a', a.dtype, var_dtype)
         assert mu.dtype == self._float, \
-            dtype_error_msg.format('mu', mu.dtype, self._float)
+            dtype_error_msg.format('mu', mu.dtype, var_dtype)
         assert zeta.dtype == self._float, \
-            dtype_error_msg.format('zeta', zeta.dtype, self._float)        
-            
-    
-    def _get_init_vars(self, init_vars):
-        """ Get initalized variables in a tuple of numpy arraies.
-        
-        Args:
-            init_vars: list of numpy array or `None`.
-            
-        Returns:
-            list of numpy array
-        """
-        
-        if init_vars == None:
-            return (self._default_init_a,
-                    self._default_init_mu,
-                    self._default_init_zeta)
-            
-        else:
-            self._check_var_shape(*init_vars)
-            return init_vars
+            dtype_error_msg.format('zeta', zeta.dtype, var_dtype)
         
 
     @staticmethod
@@ -203,6 +190,26 @@ class PostNN(object):
         return tf.reduce_sum( -0.5 * tf.square(noise/data_y_error) )
     
     
+    def _create_session(self):
+        """ Create a `tf.Session()` object that runs the `self.graph`.
+        
+        NOTE: can only be called after `self.compile()`.
+        
+        Returns:
+            `tf.Session()` object that runs the `self.graph`.
+        """
+        
+        sess = tf.Session(graph=self.graph)
+        
+        if self._debug:
+            from tensorflow.python import debug as tf_debug
+            sess = tf_debug.LocalCLIDebugWrapperSession(
+                sess, thread_name_filter='MainThread$')
+            sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
+            
+        return sess
+    
+    
     def compile(self,
                 optimizer=tf.train.RMSPropOptimizer,
                 learning_rate=0.01,
@@ -229,21 +236,26 @@ class PostNN(object):
                 shapes of `self.get_a_shape()`, `self.get_mu_shape()`,
                 and `self.get_zeta_shape()` respectively, and dtypes of
                 `self.get_var_dtype()` uniformly.
+                
+        Modifies:
+            `self.graph` and `self.*` therein; `self._sess`
         """
         
         # --- Construct TensorFlow Graph ---
-        with self.tgraph.as_default():
-            
+        with self.graph.as_default():
+                                    
             with tf.name_scope('data'):
-            
+                
+                var_dtype = self.get_var_dtype()
+                
                 # shape: [batch_size, *model_input]
-                self.x = tf.placeholder(dtype=self._float,
+                self.x = tf.placeholder(dtype=var_dtype,
                                         name='x')
                 # shape: [batch_size, *model_output]
-                self.y = tf.placeholder(dtype=self._float,
+                self.y = tf.placeholder(dtype=var_dtype,
                                         name='y')
                 # shape: [batch_size, *model_output]
-                self.y_error = tf.placeholder(dtype=self._float,
+                self.y_error = tf.placeholder(dtype=var_dtype,
                                               name='y_error')
                 
             
@@ -259,8 +271,9 @@ class PostNN(object):
                     Returns:
                         `Tensor` with shape `[]` and dtype `self._float`.
                     """
+                    model = self.get_model()
                     return self._chi_square(
-                        model=self._model, data_x=self.x, data_y=self.y,
+                        model=model, data_x=self.x, data_y=self.y,
                         data_y_error=self.y_error, params=theta)
                     
                 
@@ -272,7 +285,8 @@ class PostNN(object):
                         
                     I.e. the :math:`\ln p(\theta \| D)` in documentation.
                     """
-                    return chi_square_on_data(theta) + self._log_prior(theta)
+                    log_prior = self.get_log_prior()
+                    return chi_square_on_data(theta) + log_prior(theta)
                 
                                    
                 def log_p(thetas):
@@ -293,21 +307,22 @@ class PostNN(object):
             
             with tf.name_scope('trainable_variables'):
                 
-                init_a, init_mu, init_zeta = self._get_init_vars(init_vars)
-                                    
+                init_a, init_mu, init_zeta = self.get_vars()
+                var_dtype = self.get_var_dtype()
+                                                    
                 self.a = tf.Variable(
                     initial_value=init_a,
-                    dtype=self._float,
+                    dtype=var_dtype,
                     name='a')
                 
                 self.mu = tf.Variable(
                     initial_value=init_mu,
-                    dtype=self._float,
+                    dtype=var_dtype,
                     name='mu')
                 
                 self.zeta = tf.Variable(
                     initial_value=init_zeta,
-                    dtype=self._float,
+                    dtype=var_dtype,
                     name='zeta')
                 
             
@@ -364,6 +379,15 @@ class PostNN(object):
                 
                 self.optimize = optimizer(learning_rate).minimize(self.loss)
                 
+                
+            with tf.name_scope('model_output'):
+                
+                self.model_output = tf.reduce_mean(
+                    tf.map_fn(lambda theta: self._model(self.x, theta),
+                              theta_samples),
+                    axis=0,
+                    name='model_output')
+                
             
             with tf.name_scope('summary'):
                 
@@ -371,43 +395,41 @@ class PostNN(object):
                 tf.summary.histogram('histogram_loss', self.loss)
                 self.summary = tf.summary.merge_all()
                 
-                   
-        print('INFO - Model compiled.')
                 
+            with tf.name_scope('other_ops'):
+                
+                self.init = tf.global_variables_initializer()
+                
+        
+        print('INFO - Model compiled.')   
+             
     
     def fit(self,
             batch_generator,
             epochs,
             logdir=None,
             verbose=False,
-            skip_steps=100,
-            debug=False):
+            skip_steps=100):
         """
         TODO: complete docstring.  
         TODO: add `tf.train.Saver()`, `global_step`, etc.
         """
         
-        sess = tf.Session(graph=self.tgraph)
+        if logdir is not None:
+            self._writer = tf.summary.FileWriter(logdir, self.graph)
         
-        if debug:
-            from tensorflow.python import debug as tf_debug
-            sess = tf_debug.LocalCLIDebugWrapperSession(
-                sess, thread_name_filter='MainThread$')
-            sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
-                    
-        if logdir != None:
-            self._writer = tf.summary.FileWriter(logdir, self.tgraph)
-        
-        with sess:
+        sess = self.get_session()
+
+        with sess.as_default():
             
-            sess.run(tf.global_variables_initializer())
+            sess.run(self.init)
             
             for step in range(epochs):
                 
                 x, y, y_error = next(batch_generator)
                 feed_dict = {self.x: x, self.y: y, self.y_error: y_error}
                 
-                if logdir == None:
+                if logdir is None:
                     _, loss_val = sess.run(
                             [self.optimize, self.loss],
                             feed_dict=feed_dict)
@@ -423,25 +445,44 @@ class PostNN(object):
                         print('step: {0}'.format(step+1))
                         print('loss: {0}'.format(loss_val))
                         print('-----------------------\n')
-                        
+            
+            # Update the values of varialbes of CGMD
             self._a_val, self._mu_val, self._zeta_val = \
                 sess.run([self.a, self.mu, self.zeta])
-
+            
+            # For convienence
             self._weight_val, self._sigma_val = \
-                sess.run([self.weight, self.sigma])                
+                sess.run([self.weight, self.sigma])
     
     
-    def inference(self, num_samples):
+    def predict(self, x):
         """
         TODO: complete this.  
         """
         
-        self.igraph = tf.Graph()
+        sess = self.get_session()
         
-        a_val, mu_val, zeta_val = self.get_cgmd_params()
+        with sess.as_default():
         
-        return
+            output_val = sess.run(self.model_output,
+                                  feed_dict={self.x: x})
+        
+        return output_val
     
+    
+    def finalize(self):
+        """ Release the deployed resource by TensorFlow. """
+        
+        try:
+            # Write the summaries to disk
+            self._writer.flush()
+            # Close the SummaryWriter
+            self._writer.close()
+        except:
+            print('INFO - No `SummaryWriter` to close.')
+        # Close the Session
+        self._sess.close()
+
     
     
     # -- Get-Functions
@@ -454,8 +495,41 @@ class PostNN(object):
     
     def get_num_samples(self):
         return self._num_samples
+        
+    def get_var_shapes(self):
+        """ Get the tensor-shape of the variables `a`, `mu`, and `zeta`.
+        
+        Returns:
+            Tuple of lists, wherein each list represents a tensor-shape.
+        """
+        return (self._a_shape, self._mu_shape, self._zeta_shape)
     
-    def get_variables(self):
+    def get_var_dtype(self):
+        """ Get the dtype of the variables `a`, `mu`, and `zeta`. All of them
+            share the same dtype as convention.
+            
+        Returns:
+            `tf.Dtype` object.
+        """
+        return self._float
+    
+    def get_model(self):
+        """ Get the model (whose posteior is to be fitted by CGMD).
+        
+        Returns:
+            Callable, as the model is.
+        """
+        return self._model
+    
+    def get_log_prior(self):
+        """ Get the log_prior.
+        
+        Returns:
+            Callable, as the log_prior is.
+        """
+        return self._log_prior
+    
+    def get_vars(self):
         """ Get tuple of numerical values (as numpy arraies) of variables,
             including `a`, `mu`, and `zeta`.
         
@@ -480,3 +554,37 @@ class PostNN(object):
             `mu`, and `sigma`.
         """
         return (self._weight_val, self._mu_val, self._sigma_val)
+    
+    def get_session(self):
+        """ Get the `tf.Session()` that runs `self.graph`. No session has been
+            created yet, then create and return one.
+        
+        Returns:
+            `tf.Session()` object.
+        """
+        try:
+            return self._sess
+        except:
+            print('INFO - created a `tf.Session()` object.')
+            self._sess = self._create_session()
+            return self._sess
+        
+    
+    # -- Set-Functions
+    def set_vars(self, vars_val):
+        """ Set the values of variables of CMBD. This setting or re-setting can
+            not work without re-calling the `self.compile()`.
+
+        Args:
+            vars_val:
+                list of numpy array or `None`, as the values of the variables
+                of CGMD.
+                
+        Modifies:
+            `self._a_val`, `self._mu_val`, and `self._zeta_val`.
+        """
+        
+        self._check_var_shape(*vars_val)
+        
+        # If passed this check without raising
+        self._a_val, self._mu_val, self._zeta_val = vars_val

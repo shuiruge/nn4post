@@ -22,7 +22,7 @@ np.random.seed(1234)
 
 # --- Model ---
 
-NUM_HIDDEN = 10
+NUM_HIDDEN = 32
 DIM = NUM_HIDDEN * 3 + 1
 
 def parse_params(params):
@@ -39,6 +39,13 @@ def parse_params(params):
     return w_h, w_a, b_h, b_a
     
 def shadow_neural_network(x, params):
+    """
+    Args:
+        x: `Tensor` with shape `[None, 1]`
+        params: `Tensor`
+    Returns:
+        `Tensor` with shape `[None, 1]`.
+    """
     
     w_h, w_a, b_h, b_a = parse_params(params)
     
@@ -90,8 +97,8 @@ batch_generator = BatchGenerator(x, y, y_error)
 # --- Test ---
 
 #NUM_PEAKS = 1  # reduce to mean-field variational inference.
-#NUM_PEAKS = 10
-NUM_PEAKS = 100
+NUM_PEAKS = 10
+#NUM_PEAKS = 100
 
 
 pnn = PostNN(NUM_PEAKS, DIM, model=shadow_neural_network)
@@ -105,5 +112,14 @@ with Timer():
 
 with Timer():
     
-    pnn.fit(batch_generator, 300, verbose=True, skip_steps=10)    
-        
+    pnn.fit(batch_generator, 300, verbose=True, skip_steps=10)
+
+test = np.linspace(-5, 5, 100).astype('float32')
+predicted = pnn.predict(np.expand_dims(test, axis=-1))
+
+import matplotlib.pyplot as plt
+plt.plot(test, np.sin(test))
+plt.plot(test, predicted.reshape(-1))
+plt.show()
+    
+pnn.finalize()

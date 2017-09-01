@@ -22,17 +22,18 @@ np.random.seed(1234)
 
 # --- Parameters ---
 
-NUM_PEAKS = 100
+NUM_PEAKS = 10
 #NUM_PEAKS = 1  # reduce to mean-field variational inference.
 NUM_SAMPLES = 10 ** 4
 
 
 
 # --- Model ---
-## -- For instance 1
-#DIM = 1
-#def model(x, theta):
-#    return theta * x
+
+# -- For instance 1
+DIM = 1
+def model(x, theta):
+    return theta * x
 
 
 ## -- For instance 2
@@ -49,11 +50,11 @@ NUM_SAMPLES = 10 ** 4
 #    return a * x + b * tf.pow(x, 2) + c * tf.pow(x, 3)
 
 
-# -- For instance 3
-DIM = 3
-def model(x, params):
-    a, b, c = tf.unstack(params)
-    return a * x + tf.tanh(b * tf.pow(x, 2) + c * tf.pow(x, 3))
+## -- For instance 3
+#DIM = 3
+#def model(x, params):
+#    a, b, c = tf.unstack(params)
+#    return a * x + tf.tanh(b * tf.pow(x, 2) + c * tf.pow(x, 3))
 
 
 
@@ -107,4 +108,8 @@ with Timer():
 with Timer():
     
     pnn.fit(batch_generator, 300, verbose=True, skip_steps=10)    
-        
+    
+x = np.array([11.0], dtype='float32')
+print(pnn.predict(x))
+
+pnn.finalize()
