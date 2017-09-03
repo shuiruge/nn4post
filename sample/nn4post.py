@@ -61,7 +61,10 @@ class PostNN(object):
             `[self.get_dim()]` and dtype `self._float`. (I.e. the
             :math:`\ln p(\theta)` in documentation.)
 
+            Default is uniform prior.
+
         num_samples: int
+            Number of samples in the Monte Carlo integrals herein.
 
         debug: bool
             If `True`, then employ the `tfdbg`.
@@ -98,7 +101,7 @@ class PostNN(object):
                  num_peaks,
                  dim,
                  model,
-                 log_prior=lambda x: 0.0,
+                 log_prior,
                  num_samples=10**2,
                  debug=False):
 
@@ -127,91 +130,6 @@ class PostNN(object):
                                         size=self._mu_shape)
         # To make `softplus(self._init_zeta) == np.ones(self._zeta_shape)`
         self._zeta_val = np.log((np.e-1) * np.ones(self._zeta_shape))
-
-
-    def _check_var_shape(self, a, mu, zeta):
-        """ Check the shape of varialbes (i.e. `a`, `mu`, and `zeta`).
-
-        Args:
-            a, mu, zeta: array-like.
-        """
-
-        # -- Check Shape
-        shape_error_msg = 'ERROR: {0} expects the shape {2}, but given {1}.' 
-        a_shape, mu_shape, zeta_shape = self.get_var_shapes()
-        assert a.shape == a_shape, \
-            shape_error_msg.format('a', a.shape, a_shape)
-        assert mu.shape == mu_shape, \
-            shape_error_msg.format('mu', mu.shape, mu_shape)
-        assert zeta.shape == zeta_shape, \
-            shape_error_msg.format('zeta', zeta.shape, zeta_shape)
-
-        # -- Check Dtype
-        dtype_error_msg = 'ERROR: {0} expects the dtype {2}, but given {1}.'
-        var_dtype = self.get_var_dtype()
-        assert a.dtype == self._float, \
-            dtype_error_msg.format('a', a.dtype, var_dtype)
-        assert mu.dtype == self._float, \
-            dtype_error_msg.format('mu', mu.dtype, var_dtype)
-        assert zeta.dtype == self._float, \
-            dtype_error_msg.format('zeta', zeta.dtype, var_dtype)
-
-
-    @staticmethod
-    def _chi_square(model, data_x, data_y, data_y_error, params):
-        """ Denote :math:`f` as the `model`, :math:`\theta` as the `params`,
-            and :math:`\sigma` as the `data_y_error`, we have
-
-        ```math
-
-        \chi^2 \left( (x, y, \sigma), \theta \right) = -\frac{1}{2}
-            \sum_i^N \left( \frac{y_i - f(x_i, \theta)}{\sigma_i} \right)^2
-        ```
-
-        Args:
-            model:
-                Callable, mapping from `(x, theta)` to `y`; wherein `x` is a
-                `Tensor` representing the input data to the `model`, having
-                shape `[batch_size, ...]` (`...` is for any sequence of `int`)
-                and any dtype, so is the `y`; however, the `theta` must have
-                the shape `[self.get_dim()]` and dtype `self._float`.
-
-            data_x: `Tensor` described as above.
-
-            data_y: `Tensor` described as above.
-
-            data_y_error: `Tensor` as `data_y`.
-
-            params:
-                `Tensor` with shape `[self.get_dim()]` and dtype `self._float`.
-
-        Returns:
-            `Tensor` with shape `[]` and dtype `self._float`.
-        """
-
-        noise = tf.subtract(data_y, model(data_x, params))
-
-        return tf.reduce_sum( -0.5 * tf.square(noise/data_y_error) )
-
-
-    def _create_session(self):
-        """ Create a `tf.Session()` object that runs the `self.graph`.
-
-        NOTE: can only be called after `self.compile()`.
-
-        Returns:
-            `tf.Session()` object that runs the `self.graph`.
-        """
-
-        sess = tf.Session(graph=self.graph)
-
-        if self._debug:
-            from tensorflow.python import debug as tf_debug
-            sess = tf_debug.LocalCLIDebugWrapperSession(
-                sess, thread_name_filter='MainThread$')
-            sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
-
-        return sess
 
 
     def compile(self,
@@ -400,7 +318,7 @@ class PostNN(object):
                 self.summary = tf.summary.merge_all()
 
 
-            with tf.name_scope('other_ops'):
+            with tf.name_scope('auxiliary_ops'):
 
                 self.init = tf.global_variables_initializer()
 
@@ -486,6 +404,95 @@ class PostNN(object):
             print('INFO - finalizing: no `SummaryWriter` to close.')
         # Close the Session
         self._sess.close()
+
+
+
+    # -- Helper-Functions
+
+
+    def _check_var_shape(self, a, mu, zeta):
+        """ Check the shape of varialbes (i.e. `a`, `mu`, and `zeta`).
+
+        Args:
+            a, mu, zeta: array-like.
+        """
+
+        # -- Check Shape
+        shape_error_msg = 'ERROR: {0} expects the shape {2}, but given {1}.' 
+        a_shape, mu_shape, zeta_shape = self.get_var_shapes()
+        assert a.shape == a_shape, \
+            shape_error_msg.format('a', a.shape, a_shape)
+        assert mu.shape == mu_shape, \
+            shape_error_msg.format('mu', mu.shape, mu_shape)
+        assert zeta.shape == zeta_shape, \
+            shape_error_msg.format('zeta', zeta.shape, zeta_shape)
+
+        # -- Check Dtype
+        dtype_error_msg = 'ERROR: {0} expects the dtype {2}, but given {1}.'
+        var_dtype = self.get_var_dtype()
+        assert a.dtype == self._float, \
+            dtype_error_msg.format('a', a.dtype, var_dtype)
+        assert mu.dtype == self._float, \
+            dtype_error_msg.format('mu', mu.dtype, var_dtype)
+        assert zeta.dtype == self._float, \
+            dtype_error_msg.format('zeta', zeta.dtype, var_dtype)
+
+
+    @staticmethod
+    def _chi_square(model, data_x, data_y, data_y_error, params):
+        """ Denote :math:`f` as the `model`, :math:`\theta` as the `params`,
+            and :math:`\sigma` as the `data_y_error`, we have
+
+        ```math
+
+        \chi^2 \left( (x, y, \sigma), \theta \right) = -\frac{1}{2}
+            \sum_i^N \left( \frac{y_i - f(x_i, \theta)}{\sigma_i} \right)^2
+        ```
+
+        Args:
+            model:
+                Callable, mapping from `(x, theta)` to `y`; wherein `x` is a
+                `Tensor` representing the input data to the `model`, having
+                shape `[batch_size, ...]` (`...` is for any sequence of `int`)
+                and any dtype, so is the `y`; however, the `theta` must have
+                the shape `[self.get_dim()]` and dtype `self._float`.
+
+            data_x: `Tensor` described as above.
+
+            data_y: `Tensor` described as above.
+
+            data_y_error: `Tensor` as `data_y`.
+
+            params:
+                `Tensor` with shape `[self.get_dim()]` and dtype `self._float`.
+
+        Returns:
+            `Tensor` with shape `[]` and dtype `self._float`.
+        """
+
+        noise = tf.subtract(data_y, model(data_x, params))
+
+        return tf.reduce_sum( -0.5 * tf.square(noise/data_y_error) )
+
+
+    def _create_session(self):
+        """ Create a `tf.Session()` object that runs the `self.graph`.
+
+        NOTE: can only be called after `self.compile()`.
+
+        Returns:
+            `tf.Session()` object that runs the `self.graph`.
+        """
+
+        sess = tf.Session(graph=self.graph)
+
+        if self._debug:
+            from tensorflow.python import debug as tf_debug
+            sess = tf_debug.LocalCLIDebugWrapperSession(
+                sess, thread_name_filter='MainThread$')
+            sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
+
+        return sess
 
 
 

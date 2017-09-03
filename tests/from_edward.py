@@ -4,7 +4,7 @@
 Description
 -----------
 
-Test on a shadow neural network.
+Test on the example provided by `edward`, at [here](http://edwardlib.org/tutorials/bayesian-neural-network).
 """
 
 import sys
@@ -64,14 +64,30 @@ def shadow_neural_network(x, params):
     # shape: [None, num_hidden_2]
     h_2 = tf.tanh(tf.matmul(h_1, w_2) + b_2)
 
-
     # -- Output Layer
     # shape: [None, 1]
     a = tf.tanh(tf.matmul(h_2, w_a) + b_a)
 
     return a
 
-DIM = int(sum(split_shapes))
+DIM = int(sum(split_shapes))  # dimension of parameter-space.
+
+
+def log_prior(theta):
+    """
+    ```math
+
+    p(\theta) = \prod_i^d \exp \left( -1/2 theta_i^2 \right)
+    ````
+
+    Args:
+        theta: `Tensor` with the shape `[None]`.
+
+    Returns:
+        `Tensor` with the shape `[]`.
+    """
+
+    return -0.5 * tf.reduce_sum(tf.square(theta))
 
 
 # --- Data ---
@@ -130,7 +146,10 @@ batch_generator = BatchGenerator(x, y, y_error, batch_size=None)
 NUM_PEAKS = 25
 
 
-pnn = PostNN(NUM_PEAKS, DIM, model=shadow_neural_network)
+pnn = PostNN(num_peaks=NUM_PEAKS,
+             dim=DIM,
+             model=shadow_neural_network,
+             log_prior=log_prior)
 print('Model setup')
 
 
@@ -139,18 +158,46 @@ with Timer():
     print('Model compiled.')
 
 
+print('--- Parameters:\n\t--- NUM_PEAKS: {0},  learning_rate: {1}'
+      .format(NUM_PEAKS, learning_rate))
+
+
 with Timer():
+    pnn.fit(batch_generator, 3000, verbose=True, skip_steps=10)
 
-    pnn.fit(batch_generator, 2000, verbose=True, skip_steps=10)
 
+# Show the inference result in a wider range of domain
+x_wider = np.linspace(-5, 5, num=num_data*2)
+x_wider = x_wider.reshape([-1, 1])
+x_wider.astype('float32')
+predicted = pnn.predict(x_wider)
 
-predicted = pnn.predict(x)
-
+# Plot the result out
 import matplotlib.pyplot as plt
-plt.plot(x, target_func(x), '-')
-plt.plot(x, predicted.reshape(-1), '--')
+plt.plot(x_wider, target_func(x_wider), '-')
+plt.plot(x_wider, predicted.reshape(-1), '--')
 plt.plot(x, y, '.')
 plt.show()
 
 
+# Release the deployed resource
 pnn.finalize()
+
+
+''' Conclusion:
+
+With the configurations:
+
+    epochs = 3000
+    learning_rate = 0.01
+    batch_size = None  # using the whole data.
+
+and tested on:
+
+    NUM_PEAKS = 1  # reduce to mean-field variational inference.
+    NUM_PEAKS = 5
+    NUM_PEAKS = 25
+
+we find that increasing `NUM_PEAKS` brings almost nothing for decreasing the
+value of loss, which finally stay stable around `70`.
+'''

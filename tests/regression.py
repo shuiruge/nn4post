@@ -30,6 +30,11 @@ NUM_SAMPLES = 10 ** 4
 
 # --- Model ---
 
+def log_prior(theta):
+    """ Uniform prior. """
+    return 0.0
+
+
 # -- For instance 1
 DIM = 1
 def model(x, theta):
@@ -96,7 +101,10 @@ batch_generator = BatchGenerator(x, y, y_error)
 
 # --- Test ---
 
-pnn = PostNN(NUM_PEAKS, DIM, model=model)
+pnn = PostNN(num_peaks=NUM_PEAKS,
+             dim=DIM,
+             model=model,
+             log_prior=log_prior)
 print('Model setup')
 
 
@@ -105,8 +113,11 @@ with Timer():
     print('Model compiled.')
 
 
-with Timer():
+print('--- Parameters:\n\t--- NUM_PEAKS: {0},  learning_rate: {1}'
+      .format(NUM_PEAKS, learning_rate))
 
+
+with Timer():
     pnn.fit(batch_generator, 300, verbose=True, skip_steps=10)
 
 predicted = pnn.predict(x)
