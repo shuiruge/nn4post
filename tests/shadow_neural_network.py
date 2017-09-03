@@ -22,22 +22,22 @@ np.random.seed(1234)
 
 # --- Model ---
 
-NUM_HIDDEN = 32
+NUM_HIDDEN = 5
 DIM = NUM_HIDDEN * 3 + 1
 
 def parse_params(params):
-    
+
     w_h, w_a, b_h, b_a = tf.split(
         value=params,
         num_or_size_splits=[NUM_HIDDEN, NUM_HIDDEN, NUM_HIDDEN, 1])
-    
+
     # shape: [1, num_hidden]
     w_h = tf.expand_dims(w_h, axis=0)
     # shape: [num_hidden, 1]
     w_a = tf.expand_dims(w_a, axis=1)
-    
+
     return w_h, w_a, b_h, b_a
-    
+
 def shadow_neural_network(x, params):
     """
     Args:
@@ -46,14 +46,17 @@ def shadow_neural_network(x, params):
     Returns:
         `Tensor` with shape `[None, 1]`.
     """
-    
+
     w_h, w_a, b_h, b_a = parse_params(params)
-    
+
+    # -- Hidden Layer
     # shape: [None, num_hidden]
-    h = tf.nn.relu(tf.add(tf.matmul(x, w_h), b_h))
+    h = tf.tanh(tf.matmul(x, w_h) + b_h)
+
+    # -- Output Layer
     # shape: [None, 1]
-    a = tf.nn.relu(tf.add(tf.matmul(h, w_a), b_a))
-    
+    a = tf.tanh(tf.matmul(h, w_a) + b_a)
+
     return a
 
 
@@ -61,12 +64,12 @@ def shadow_neural_network(x, params):
 # --- Data ---
 
 def target_func(x):
-    return np.sin(x)
+    return np.sin(x) * 0.5
 
 num_data = 100
 noise_scale = 0.1
 
-x = np.linspace(-10, 10, num_data)
+x = np.linspace(-7, 7, num_data)
 x = np.expand_dims(x, -1)  # shape: [num_data, 1]
 x.astype(np.float32)
 
@@ -77,27 +80,33 @@ y.astype(np.float32)
 y_error = noise_scale * np.ones(shape=([num_data, 1]))
 y_error.astype(np.float32)
 
+
 class BatchGenerator(object):
-    
+
     def __init__(self, x, y, y_error):
-        
+
         self._x = x
         self._y = y
         self._y_error = y_error
-        
+        self._num_data = x.shape[0]
+
     def __next__(self):
-        
-        return (self._x, self._y, self._y_error)
-    
-    
+
+        ids = np.random.randint(0, self._num_data-1, size=10)
+        x = np.array([self._x[i] for i in ids])
+        y = np.array([self._y[i] for i in ids])
+        y_error = np.array([self._y_error[i] for i in ids])
+        return (x, y, y_error)
+
+
 batch_generator = BatchGenerator(x, y, y_error)
 
 
 
 # --- Test ---
 
-#NUM_PEAKS = 1  # reduce to mean-field variational inference.
-NUM_PEAKS = 10
+NUM_PEAKS = 1  # reduce to mean-field variational inference.
+#NUM_PEAKS = 10
 #NUM_PEAKS = 100
 
 
@@ -106,20 +115,22 @@ print('Model setup')
 
 
 with Timer():
-    pnn.compile(learning_rate=0.05)
+    pnn.compile(learning_rate=0.5)
     print('Model compiled.')
-    
+
 
 with Timer():
-    
-    pnn.fit(batch_generator, 300, verbose=True, skip_steps=10)
 
-test = np.linspace(-5, 5, 100).astype('float32')
-predicted = pnn.predict(np.expand_dims(test, axis=-1))
+    pnn.fit(batch_generator, 3000, verbose=True, skip_steps=10)
+
+
+predicted = pnn.predict(x)
 
 import matplotlib.pyplot as plt
-plt.plot(test, np.sin(test))
-plt.plot(test, predicted.reshape(-1))
+plt.plot(x, target_func(x), '-')
+plt.plot(x, predicted.reshape(-1), '--')
+plt.plot(x, y, '.')
 plt.show()
-    
+
+
 pnn.finalize()

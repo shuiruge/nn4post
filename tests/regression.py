@@ -63,8 +63,8 @@ def model(x, theta):
 def target_func(x):
     return 2 * x
 
-num_data = 100
-noise_scale = 0.1
+num_data = 3
+noise_scale = 1.0
 
 x = np.linspace(-10, 10, num_data)
 x = np.expand_dims(x, -1)
@@ -78,18 +78,18 @@ y_error = noise_scale * np.ones(shape=([num_data, 1]))
 y_error.astype(np.float32)
 
 class BatchGenerator(object):
-    
+
     def __init__(self, x, y, y_error):
-        
+
         self._x = x
         self._y = y
         self._y_error = y_error
-        
+
     def __next__(self):
-        
+
         return (self._x, self._y, self._y_error)
-    
-    
+
+
 batch_generator = BatchGenerator(x, y, y_error)
 
 
@@ -103,13 +103,19 @@ print('Model setup')
 with Timer():
     pnn.compile(learning_rate=0.05)
     print('Model compiled.')
-    
+
 
 with Timer():
-    
-    pnn.fit(batch_generator, 300, verbose=True, skip_steps=10)    
-    
-x = np.array([11.0], dtype='float32')
-print(pnn.predict(x))
+
+    pnn.fit(batch_generator, 300, verbose=True, skip_steps=10)
+
+predicted = pnn.predict(x)
+
+import matplotlib.pyplot as plt
+plt.plot(x, target_func(x), '-')
+plt.plot(x, predicted.reshape(-1), '--')
+plt.plot(x, y, '.')
+plt.show()
+
 
 pnn.finalize()
