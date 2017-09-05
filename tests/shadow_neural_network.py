@@ -147,8 +147,9 @@ batch_generator = BatchGenerator(x, y, y_error, batch_size=None)
 # --- Test ---
 
 #NUM_PEAKS = 1  # reduce to mean-field variational inference.
+#NUM_PEAKS = 2
 #NUM_PEAKS = 5
-NUM_PEAKS = 25
+NUM_PEAKS = 10
 
 
 pnn = PostNN(num_peaks=NUM_PEAKS,
@@ -160,7 +161,7 @@ print('Model setup')
 
 with Timer():
     learning_rate = 0.03
-    pnn.compile(learning_rate=learning_rate, optimizer=tf.train.AdamOptimizer)
+    pnn.compile(learning_rate=learning_rate, optimizer=tf.train.RMSPropOptimizer)
     print('Model compiled.')
 
 

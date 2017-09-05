@@ -82,6 +82,15 @@ class PostNN(object):
         compile
         fit
 
+    Remarks:
+        
+        - Set initial value of variable `a` by `random.normal()` gains much
+          better result than by `ones()`.
+        - Set initial value of variable `mu` by a larger `scale` makes things
+          worse.
+        - Set loss by `-1.0 * renyi_ratio` makes great instability while
+          training.
+
 
     TODO:
         Self-adaptively add some constant (like `prob(data)`) so that the uppder
@@ -125,9 +134,8 @@ class PostNN(object):
 
 
         # -- initialize the values of variables of CGMD.
-        self._a_val = np.ones(self._a_shape)
-        self._mu_val = np.random.normal(scale=1.0,
-                                        size=self._mu_shape)
+        self._a_val = np.random.normal(size=self._a_shape)
+        self._mu_val = np.random.normal(size=self._mu_shape)
         # To make `softplus(self._init_zeta) == np.ones(self._zeta_shape)`
         self._zeta_val = np.log((np.e-1) * np.ones(self._zeta_shape))
 
