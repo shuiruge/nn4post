@@ -83,7 +83,7 @@ class PostNN(object):
         fit
 
     Remarks:
-        
+
         - Set initial value of variable `a` by `random.normal()` gains much
           better result than by `ones()`.
         - Set initial value of variable `mu` by a larger `scale` makes things
@@ -134,7 +134,8 @@ class PostNN(object):
 
 
         # -- initialize the values of variables of CGMD.
-        self._a_val = np.random.normal(size=self._a_shape)
+        #self._a_val = np.random.normal(size=self._a_shape)
+        self._a_val = np.zeros(shape=self._a_shape)
         self._mu_val = np.random.normal(size=self._mu_shape)
         # To make `softplus(self._init_zeta) == np.ones(self._zeta_shape)`
         self._zeta_val = np.log((np.e-1) * np.ones(self._zeta_shape))
@@ -319,16 +320,33 @@ class PostNN(object):
                     name='model_output')
 
 
-            with tf.name_scope('summary'):
-
-                tf.summary.scalar('loss', self.loss)
-                tf.summary.histogram('histogram_loss', self.loss)
-                self.summary = tf.summary.merge_all()
-
 
             with tf.name_scope('auxiliary_ops'):
 
-                self.init = tf.global_variables_initializer()
+                with tf.name_scope('summarizer'):
+
+                    tf.summary.scalar('loss', self.loss)
+                    tf.summary.histogram('histogram_loss', self.loss)
+                    a_comps = tf.unstack(self.a)
+                    for i, a_component in enumerate(a_comps):
+                        tf.summary.scalar('a_comp_{0}'.format(i),
+                                          a_component)
+                    mu_comps = tf.unstack(self.mu)
+                    for i, mu_comp in enumerate(mu_comps):
+                        mu_sub_comps = tf.unstack(mu_comp)
+                            for j, mu_sub_comp in enumerate(mu_sub_comps):
+                                tf.summary.scalary(
+                                    'mu_sub_comp_{0}_{1}'.format(i, j),
+                                    mu_sub_comp)
+                    #tf.summary.tensor_summary('a', self.a)
+                    #tf.summary.tensor_summary('mu', self.mu)
+                    #tf.summary.tensor_summary('zeta', self.zeta)
+                    self.summary = tf.summary.merge_all()
+
+
+                with tf.name_scope('initializer'):
+
+                    self.init = tf.global_variables_initializer()
 
 
         print('INFO - Model compiled.')

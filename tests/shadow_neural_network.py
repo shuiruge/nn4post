@@ -170,7 +170,8 @@ print('\n--- Parameters:\n\t--- NUM_PEAKS: {0},  learning_rate: {1}\n'
 
 
 with Timer():
-    pnn.fit(batch_generator, 3000, verbose=True, skip_steps=10)
+    pnn.fit(batch_generator, 3000, verbose=True,
+            skip_steps=10, logdir='../dat/graph')
 
 
 predicted = pnn.predict(x)
