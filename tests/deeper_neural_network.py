@@ -11,7 +11,7 @@ TODO: Needs further test on the lower limit of loss for each `NUM_PEAKS`.
 
 import sys
 sys.path.append('../sample/')
-from nn4post_test import PostNN
+from nn4post import PostNN
 from tools import Timer
 import tensorflow as tf
 import numpy as np
@@ -24,31 +24,38 @@ np.random.seed(42)
 
 # --- Model ---
 
-num_hidden_1 = 100
+num_hidden_1 = 10
+num_hidden_2 = 10
+num_hidden_3 = 10
 
 split_shapes = [
 
     # -- `w`s.
-    num_hidden_1, num_hidden_1,
-
+    num_hidden_1, num_hidden_1 * num_hidden_2, num_hidden_2 * num_hidden_3,
+    num_hidden_3,
+    
     # -- `b`s.
-    num_hidden_1, 1,
+    num_hidden_1, num_hidden_2, num_hidden_3, 1,
 
 ]
 
 
 def parse_params(params):
 
-    w_1, w_a, b_1, b_a = tf.split(
+    w_1, w_2, w_3, w_a, b_1, b_2, b_3, b_a = tf.split(
         value=params,
         num_or_size_splits=split_shapes)
 
     # shape: [1, num_hidden_1]
     w_1 = tf.reshape(w_1, [1, num_hidden_1])
-    # shape: [num_hidden_1, 1]
-    w_a = tf.reshape(w_a, [num_hidden_1, 1])
+    # shape: [num_hidden_1, num_hidden_2]
+    w_2 = tf.reshape(w_2, [num_hidden_1, num_hidden_2])
+    # shape: [num_hidden_2, num_hidden_3]
+    w_3 = tf.reshape(w_3, [num_hidden_2, num_hidden_3])
+    # shape: [num_hidden_2, 1]
+    w_a = tf.reshape(w_a, [num_hidden_2, 1])
 
-    return w_1, w_a, b_1, b_a
+    return w_1, w_2, w_3, w_a, b_1, b_2, b_3, b_a
 
 
 def shadow_neural_network(x, params):
@@ -60,15 +67,24 @@ def shadow_neural_network(x, params):
         `Tensor` with shape `[None, 1]`.
     """
 
-    w_1, w_a, b_1, b_a = parse_params(params)
+    w_1, w_2, w_3, w_a, b_1, b_2, b_3, b_a = parse_params(params)
 
     # -- Hidden Layer 1
     # shape: [None, num_hidden_1]
     h_1 = tf.tanh(tf.matmul(x, w_1) + b_1)
 
+    # -- Hidden Layer 2
+    # shape: [None, num_hidden_2]
+    h_2 = tf.tanh(tf.matmul(h_1, w_2) + b_2)
+
+    # -- Hidden Layer 3
+    # shape: [None, num_hidden_3]
+    h_3 = tf.tanh(tf.matmul(h_2, w_3) + b_3)
+
+
     # -- Output Layer
     # shape: [None, 1]
-    a = tf.tanh(tf.matmul(h_1, w_a) + b_a)
+    a = tf.tanh(tf.matmul(h_3, w_a) + b_a)
 
     return a
 
@@ -138,14 +154,15 @@ class BatchGenerator(object):
             return (x, y, y_error)
 
 
-batch_generator = BatchGenerator(x, y, y_error, batch_size=None)
+#batch_generator = BatchGenerator(x, y, y_error, batch_size=None)
+batch_generator = BatchGenerator(x, y, y_error, batch_size=int(num_data/3))
 
 
 
 # --- Test ---
 
-#NUM_PEAKS = 1  # reduce to mean-field variational inference.
-NUM_PEAKS = 2
+NUM_PEAKS = 1  # reduce to mean-field variational inference.
+#NUM_PEAKS = 2
 #NUM_PEAKS = 5
 #NUM_PEAKS = 10
 
@@ -154,15 +171,14 @@ pnn = PostNN(num_peaks=NUM_PEAKS,
              dim=DIM,
              model=shadow_neural_network,
              log_prior=log_prior,
-             float_=tf.float32,
-             dir_to_ckpt='../dat/checkpoint/shadow_nn_{0}'.format(NUM_PEAKS))
+             float=tf.float32)
 print('Model setup')
 
 
 with Timer():
-    learning_rate = 0.10
+    learning_rate = 0.05
     #optimizer = tf.train.RMSPropOptimizer(learning_rate)
-    optimizer = tf.train.AdamOptimizer
+    optimizer = tf.train.AdamOptimizer(learning_rate)
     pnn.compile(optimizer=optimizer)
     print('Model compiled.')
 
@@ -172,25 +188,16 @@ print('\n--- Parameters:\n\t--- NUM_PEAKS: {0},  learning_rate: {1}\n'
 
 
 with Timer():
-    pnn.fit(batch_generator=batch_generator,
-            epochs=3000,
-            learning_rate=0.1,
-            batch_ratio=1.0,
-            logdir='../dat/graph/shadow_nn_{0}'.format(NUM_PEAKS),
-            skip_steps=50,
-    )
+    pnn.fit(batch_generator, 3000, verbose=True,
+            skip_steps=10, logdir='../dat/graph')
 
 
 predicted = pnn.predict(x)
 
-
 import matplotlib.pyplot as plt
-fig, ax = plt.subplots(1)
-ax.plot(x, target_func(x), ls='-', label='target')
-ax.plot(x, predicted.reshape(-1), ls='--', label='predicted')
-ax.plot(x, y, '.', label='data')
-ax.legend(loc='best', fancybox=True, framealpha=0.5)
-ax.set_title('Shadow Neural Network (hidden: 100)')
+plt.plot(x, target_func(x), '-')
+plt.plot(x, predicted.reshape(-1), '--')
+plt.plot(x, y, '.')
 plt.show()
 
 

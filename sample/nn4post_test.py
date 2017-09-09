@@ -12,6 +12,7 @@ C.f. '../docs/nn4post.pdf'.
 """
 
 
+import os
 import tensorflow as tf
 import numpy as np
 # -- `contrib` module in TensorFlow version: 1.3
@@ -118,7 +119,7 @@ class PostNN(object):
                  num_samples=10**2,
                  debug=False,
                  float_=tf.float32,
-                 int_=tf.int32):
+                 dir_to_ckpt=None):
 
         self._num_peaks = num_peaks
         self._dim = dim
@@ -127,7 +128,7 @@ class PostNN(object):
         self._num_samples = num_samples
         self._debug = debug
         self._float = float_
-        self._int = int_
+        self._dir_to_ckpt = dir_to_ckpt
 
         self.graph = tf.Graph()
 
@@ -147,7 +148,7 @@ class PostNN(object):
 
 
     def compile(self,
-                optimizer=tf.train.RMSPropOptimizer(0.01),
+                optimizer=tf.train.RMSPropOptimizer,
                 init_vars=None,
                 ):
         """ Set up the (TensorFlow) computational graph.
@@ -193,12 +194,33 @@ class PostNN(object):
                 # shape: [batch_size, *model_output]
                 self.y_error = tf.placeholder(dtype=var_dtype,
                                               name='y_error')
-                
+
+                # shape: []
+                self.batch_ratio = tf.placeholder(shape=[],
+                                                  dtype=var_dtype,
+                                                  name='batch_ratio')
+                # shape: []
+                self.learning_rate = tf.placeholder(shape=[],
+                                                    dtype=self._float,
+                                                    name='learning_rate')
+
 
             with tf.name_scope('log_p'):
 
                 def chi_square_on_data(theta):
                     """ Chi-square based on the data from 'data_source'.
+
+                    CAUTION:
+                        Have to keep in mind that, the :math:`\chi^2` (thus the
+                        posterior) is summarized over ALL data. Thus, if using
+                        mini-batch technique, the ratio of batch-size and of
+                        data-size (we call `batch_ratio`) be introduced in the
+                        computation of `chi_square_on_data`.
+
+                    TODO:
+                        What if the data-size is uncertain? For instance, when
+                        training online, wherein the data-size is always keeping
+                        increasing.
 
                     Args:
                         theta: `Tensor` with shape `[self.get_dim()]` and dtype
@@ -208,9 +230,13 @@ class PostNN(object):
                         `Tensor` with shape `[]` and dtype `self._float`.
                     """
                     model = self.get_model()
-                    return self._chi_square(
+                    _chi_square_on_batch = self._chi_square(
                         model=model, data_x=self.x, data_y=self.y,
                         data_y_error=self.y_error, params=theta)
+                    # C.f. the "CAUTION" in docstring
+                    _chi_square_on_data = tf.multiply( 1 / self.batch_ratio,
+                                                      _chi_square_on_batch)
+                    return _chi_square_on_data
 
 
                 def log_posterior(theta):
@@ -283,7 +309,8 @@ class PostNN(object):
                             loc=mu_list[i],
                             scale_diag=zeta_list[i],
                             name='Gaussian_{0}'.format(i))
-                        for i in range(self.get_num_peaks())]
+                        for i in range(self.get_num_peaks())
+                    ]
 
 
                 with tf.name_scope('mixture'):
@@ -300,6 +327,7 @@ class PostNN(object):
                 elbo = entropy.elbo_ratio(log_p, self.cgmd, z=theta_samples,
                                           name='ELBO')
 
+                # Try Renyi divergence
                 #elbo = entropy.renyi_ratio(log_p, self.cgmd,
                 #                           alpha=0.99, z=theta_samples,
                 #                           name='ELBO')
@@ -313,7 +341,7 @@ class PostNN(object):
 
             with tf.name_scope('optimize'):
 
-                self.optimize = optimizer.minimize(self.loss)
+                self.optimize = optimizer(self.learning_rate).minimize(self.loss)
 
 
             with tf.name_scope('model_output'):
@@ -353,6 +381,11 @@ class PostNN(object):
 
                     self.init = tf.global_variables_initializer()
 
+                    if self._dir_to_ckpt is not None:
+                        self._saver = tf.train.Saver()
+
+
+
 
         print('INFO - Model compiled.')
 
@@ -360,8 +393,9 @@ class PostNN(object):
     def fit(self,
             batch_generator,
             epochs,
+            learning_rate,
+            batch_ratio,
             logdir=None,
-            verbose=False,
             skip_steps=100):
         """
         TODO: complete docstring.
@@ -371,17 +405,47 @@ class PostNN(object):
         if logdir is not None:
             self._writer = tf.summary.FileWriter(logdir, self.graph)
 
+
         sess = self.get_session()
+        saver = self.get_saver()
+        dir_to_ckpt = self.get_dir_to_ckpt()
 
         with sess.as_default():
 
             sess.run(self.init)
 
-            for step in range(epochs):
+            # -- Resotre from checkpoint
+            if dir_to_ckpt is not None:
+                ckpt = tf.train.get_checkpoint_state(dir_to_ckpt)
+
+                if ckpt and ckpt.model_checkpoint_path:
+                    saver.restore(sess, ckpt.model_checkpoint_path)
+                    initial_step = int(ckpt.model_checkpoint_path\
+                                       .rsplit('-', 1)[1]) - 1
+                    print('Restored from checkpoint at global step {0}'\
+                          .format(initial_step))
+
+                else:
+                    initial_step = 0
+
+            else:
+                initial_step = 0
+
+
+            # -- Iterating optimizer
+            for step in range(initial_step, initial_step+epochs):
 
                 x, y, y_error = next(batch_generator)
-                feed_dict = {self.x: x, self.y: y, self.y_error: y_error}
+                feed_dict = {
+                    self.x: x,
+                    self.y: y,
+                    self.y_error: y_error,
+                    self.learning_rate: learning_rate,
+                    self.batch_ratio: batch_ratio
+                }
 
+
+                # Write to `tensorboard`
                 if logdir is None:
                     _, loss_val = sess.run(
                             [self.optimize, self.loss],
@@ -393,18 +457,19 @@ class PostNN(object):
                             feed_dict=feed_dict)
                     self._writer.add_summary(summary_val, global_step=step)
 
-                if verbose:
-                    if (step+1) % skip_steps == 0:
-                        print('step: {0}'.format(step+1))
-                        print('loss: {0}'.format(loss_val))
-                        print('-----------------------\n')
 
-            # Update the values of varialbes of CGMD
+                # Save checkpoint
+                if dir_to_ckpt is not None:
+                    path_to_ckpt = os.path.join(dir_to_ckpt, 'checkpoint')
+                    if (step+1) % skip_steps == 0:
+                        saver.save(sess, path_to_ckpt, global_step=step+1)
+
+
+            # -- Update the values of varialbes of CGMD
             self._a_val, self._mu_val, self._zeta_val = \
                 sess.run([self.a, self.mu, self.zeta])
 
-            
-            # For visualization
+            # -- For visualization
             self._weight_val, self._sigma_val = \
                 sess.run([self.weight, tf.nn.softplus(self.zeta)])
 
@@ -412,7 +477,7 @@ class PostNN(object):
 
     def predict(self, x):
         """
-        TODO: complete this.
+        TODO: complete this docstring.
         """
 
         sess = self.get_session()
@@ -612,6 +677,32 @@ class PostNN(object):
             print('INFO - created a `tf.Session()` object.')
             self._sess = self._create_session()
             return self._sess
+
+    def get_saver(self):
+        """ Get the `tf.Saver()` within `self.graph`.
+
+        Returns:
+            If `self._saver` exists, then return the `tf.Saver()` object within
+            `self.graph`; else, return `None`.
+        """
+        try:
+            return self._saver
+        except:
+            print('No `tf.Saver()` object is in `self.graph`.')
+            return None
+
+    def get_dir_to_ckpt(self):
+        """ Get the directory to checkpoints set at `__init__()` via
+            `dir_to_ckpt` argument.
+
+        Get the `dir_to_ckpt` argument in `__init__()`.
+
+        Returns:
+            `str`, as the directory to checkpoints set at `__init__()` via
+            `dir_to_ckpt` argument.
+        """
+        return self._dir_to_ckpt
+
 
 
     # -- Set-Functions
