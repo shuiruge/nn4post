@@ -145,8 +145,8 @@ batch_generator = BatchGenerator(x, y, y_error, batch_size=None)
 # --- Test ---
 
 #NUM_PEAKS = 1  # reduce to mean-field variational inference.
-NUM_PEAKS = 2
-#NUM_PEAKS = 5
+#NUM_PEAKS = 2
+NUM_PEAKS = 5
 #NUM_PEAKS = 10
 
 
@@ -154,8 +154,7 @@ pnn = PostNN(num_peaks=NUM_PEAKS,
              dim=DIM,
              model=shadow_neural_network,
              log_prior=log_prior,
-             float_=tf.float32,
-             dir_to_ckpt='../dat/checkpoint/shadow_nn_{0}'.format(NUM_PEAKS))
+             float_='float32')
 print('Model setup')
 
 
@@ -177,6 +176,7 @@ with Timer():
             learning_rate=0.1,
             batch_ratio=1.0,
             logdir='../dat/graph/shadow_nn_{0}'.format(NUM_PEAKS),
+            dir_to_ckpt='../dat/checkpoint/shadow_nn_{0}'.format(NUM_PEAKS),
             skip_steps=50,
     )
 

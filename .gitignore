@@ -103,3 +103,4 @@ ENV/
 
 *~
 dat/*
+docs/.DS_Store

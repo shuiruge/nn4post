@@ -68,11 +68,11 @@ class PostNN(object):
 
             Default is uniform prior.
 
-        num_samples: int
-            Number of samples in the Monte Carlo integrals herein.
-
         debug: bool
             If `True`, then employ the `tfdbg`.
+
+        float_: str
+            The dtype under running in `str`, e.g. `float32`.
 
     Attributes:
         graph: tf.Graph()
@@ -80,7 +80,6 @@ class PostNN(object):
             `self.compile()`.
 
         `Tensor`s within `self.graph`.
-
 
     Method:
         set_vars
@@ -107,8 +106,6 @@ class PostNN(object):
 
 
     TODO: complete it.
-    TODO: write `self.fit()`.
-    TODO: write `self.inference()`.
     """
 
     def __init__(self,
@@ -116,35 +113,46 @@ class PostNN(object):
                  dim,
                  model,
                  log_prior,
-                 num_samples=10**2,
                  debug=False,
-                 float_=tf.float32,
+                 float_='float32',
                  dir_to_ckpt=None):
 
         self._num_peaks = num_peaks
         self._dim = dim
         self._model = model
         self._log_prior = log_prior
-        self._num_samples = num_samples
         self._debug = debug
-        self._float = float_
         self._dir_to_ckpt = dir_to_ckpt
 
         self.graph = tf.Graph()
 
 
+        # -- Dtype
+        if float_ == 'float32':
+            self._float = tf.float32
+            np_float = np.float32
+        elif float_ == 'float64':
+            self._float = tf.float64
+            np_float = np.float64
+
+
         # -- Parameters
-        self._a_shape = [self.get_num_peaks()]
-        self._mu_shape = [self.get_num_peaks(), self.get_dim()]
-        self._zeta_shape = [self.get_num_peaks(), self.get_dim()]
+        self._a_shape = [self._num_peaks]
+        self._mu_shape = [self._num_peaks, self._dim]
+        self._zeta_shape = [self._num_peaks, self._dim]
 
 
         # -- initialize the values of variables of CGMD.
         #self._a_val = np.random.normal(size=self._a_shape)
         self._a_val = np.zeros(shape=self._a_shape)
+        self._a_val = self._a_val.astype(np_float)
+
         self._mu_val = np.random.normal(size=self._mu_shape)
+        self._mu_val = self._mu_val.astype(np_float)
+
         # To make `softplus(self._init_zeta) == np.ones(self._zeta_shape)`
         self._zeta_val = np.log((np.e-1) * np.ones(self._zeta_shape))
+        self._zeta_val = self._zeta_val.astype(np_float)
 
 
     def compile(self,
@@ -161,10 +169,9 @@ class PostNN(object):
         Args:
             optimizer:
                 `tf.Optimizer` object of module `tf.train`, with the
-                arguments fulfilled. C.f. the "CAUTION ERROR".
+                arguments fulfilled except for `learning_rate`.
 
-            learning_rate:
-                `float`, the learning rate of the `optimizer`.
+                C.f. the "CAUTION ERROR".
 
             init_vars:
                 "Initial value of variables (i.e. `a`, `mu`, and `zeta`)", as
@@ -195,6 +202,9 @@ class PostNN(object):
                 self.y_error = tf.placeholder(dtype=var_dtype,
                                               name='y_error')
 
+
+            with tf.name_scope('parameters'):
+
                 # shape: []
                 self.batch_ratio = tf.placeholder(shape=[],
                                                   dtype=var_dtype,
@@ -203,6 +213,10 @@ class PostNN(object):
                 self.learning_rate = tf.placeholder(shape=[],
                                                     dtype=self._float,
                                                     name='learning_rate')
+
+                self.num_samples = tf.placeholder(shape=[],
+                                                  dtype=tf.int32,
+                                                  name='num_samples')
 
 
             with tf.name_scope('log_p'):
@@ -261,7 +275,7 @@ class PostNN(object):
                     Returns:
                         `Tensor` with shape `[None]` and dtype `self._float`.
                         The two `None` shall both be the same value (e.g. both
-                        being `self.get_num_samples()`).
+                        being `self.num_samples`).
                     """
                     return tf.map_fn(log_posterior, thetas,
                                      name='log_p_as_vectorized')
@@ -322,7 +336,7 @@ class PostNN(object):
 
             with tf.name_scope('loss'):
 
-                theta_samples = self.cgmd.sample(self.get_num_samples(),
+                theta_samples = self.cgmd.sample(self.num_samples,
                                                  name='theta_samples')
                 elbo = entropy.elbo_ratio(log_p, self.cgmd, z=theta_samples,
                                           name='ELBO')
@@ -344,26 +358,38 @@ class PostNN(object):
                 self.optimize = optimizer(self.learning_rate).minimize(self.loss)
 
 
-            with tf.name_scope('model_output'):
+            with tf.name_scope('model_prediction'):
 
-                self.model_output = tf.reduce_mean(
-                    tf.map_fn(lambda theta: self._model(self.x, theta),
+                def _model_output(theta):
+                    return self._model(self.x, theta)
+
+                self.model_prediction = tf.reduce_mean(
+                    tf.map_fn(_model_output,
                               theta_samples),
                     axis=0,
-                    name='model_output')
+                    name='model_prediction')
 
+                # Someone may wonder
+                self.model_prediction_without_mean = tf.map_fn(
+                    _model_output,
+                    theta_samples,
+                    name='model_prediction_without_mean')
 
 
             with tf.name_scope('auxiliary_ops'):
 
                 with tf.name_scope('summarizer'):
 
+                    # For loss
                     tf.summary.scalar('loss', self.loss)
-                    tf.summary.histogram('histogram_loss', self.loss)
+
+                    # For variable `a`
                     a_comps = tf.unstack(self.a)
-                    for i, a_component in enumerate(a_comps):
-                        tf.summary.scalar('a_comp_{0}'.format(i),
-                                          a_component)
+                    for i, a_i in enumerate(a_comps):
+                        tf.summary.scalar('a_{0}'.format(i),
+                                          a_i)
+
+                    # For variable `mu`
 #                    mu_comps = tf.unstack(self.mu)
 #                    for i, mu_comp in enumerate(mu_comps):
 #                        mu_sub_comps = tf.unstack(mu_comp)
@@ -371,18 +397,20 @@ class PostNN(object):
 #                                tf.summary.scalary(
 #                                    'mu_sub_comp_{0}_{1}'.format(i, j),
 #                                    mu_sub_comp)
+
+                    # It seems that, up to TF version 1.3, `tensor_summary` is
+                    # still under building
                     #tf.summary.tensor_summary('a', self.a)
                     #tf.summary.tensor_summary('mu', self.mu)
                     #tf.summary.tensor_summary('zeta', self.zeta)
+
                     self.summary = tf.summary.merge_all()
 
 
                 with tf.name_scope('initializer'):
 
-                    self.init = tf.global_variables_initializer()
-
-                    if self._dir_to_ckpt is not None:
-                        self._saver = tf.train.Saver()
+                    self._initializer = tf.global_variables_initializer()
+                    self._saver = tf.train.Saver()
 
 
 
@@ -395,7 +423,9 @@ class PostNN(object):
             epochs,
             learning_rate,
             batch_ratio,
+            num_samples=10**2,
             logdir=None,
+            dir_to_ckpt=None,
             skip_steps=100):
         """
         TODO: complete docstring.
@@ -408,11 +438,11 @@ class PostNN(object):
 
         sess = self.get_session()
         saver = self.get_saver()
-        dir_to_ckpt = self.get_dir_to_ckpt()
+        initializer = self.get_initializer()
 
         with sess.as_default():
 
-            sess.run(self.init)
+            sess.run(initializer)
 
             # -- Resotre from checkpoint
             if dir_to_ckpt is not None:
@@ -441,7 +471,8 @@ class PostNN(object):
                     self.y: y,
                     self.y_error: y_error,
                     self.learning_rate: learning_rate,
-                    self.batch_ratio: batch_ratio
+                    self.batch_ratio: batch_ratio,
+                    self.num_samples: num_samples,
                 }
 
 
@@ -475,7 +506,7 @@ class PostNN(object):
 
 
 
-    def predict(self, x):
+    def predict(self, x, num_samples=10**2, with_mean=True):
         """
         TODO: complete this docstring.
         """
@@ -484,8 +515,18 @@ class PostNN(object):
 
         with sess.as_default():
 
-            output_val = sess.run(self.model_output,
-                                  feed_dict={self.x: x})
+            feed_dict = {
+                self.x: x,
+                self.num_samples: num_samples,
+            }
+
+            if with_mean:
+                predict_op = self.model_prediction
+            else:
+                predict_op = self.model_prediction_without_mean
+
+            output_val = sess.run(predict_op,
+                                  feed_dict=feed_dict)
 
         return output_val
 
@@ -602,9 +643,6 @@ class PostNN(object):
     def get_dim(self):
         return self._dim
 
-    def get_num_samples(self):
-        return self._num_samples
-
     def get_var_shapes(self):
         """ Get the tensor-shape of the variables `a`, `mu`, and `zeta`.
 
@@ -682,27 +720,13 @@ class PostNN(object):
         """ Get the `tf.Saver()` within `self.graph`.
 
         Returns:
-            If `self._saver` exists, then return the `tf.Saver()` object within
-            `self.graph`; else, return `None`.
+            `tf.Saver()` object.
         """
-        try:
-            return self._saver
-        except:
-            print('No `tf.Saver()` object is in `self.graph`.')
-            return None
+        return self._saver
 
-    def get_dir_to_ckpt(self):
-        """ Get the directory to checkpoints set at `__init__()` via
-            `dir_to_ckpt` argument.
-
-        Get the `dir_to_ckpt` argument in `__init__()`.
-
-        Returns:
-            `str`, as the directory to checkpoints set at `__init__()` via
-            `dir_to_ckpt` argument.
-        """
-        return self._dir_to_ckpt
-
+    def get_initializer(self):
+        """ Get the initializer within `self.graph`. """
+        return self._initializer
 
 
     # -- Set-Functions
