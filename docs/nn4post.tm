@@ -264,31 +264,44 @@
 
   <section|When & How to Use?>
 
-  As the figure <reference|figure: 1> hints,
+  As the figure <reference|figure: 1> hints, employing a large
+  <math|N<rsub|c>> will unnecessarily waste computational resource. So,
+  instead we'd better try <math|N<rsub|c>=1,2,3,\<ldots\>> one by one, until
+  increasing <math|N<rsub|c>> cannot reduce the loss apparently. At this
+  situation, e.g. <math|N<rsub|c>=n> for some <math|n>, it hints that the
+  posterior we are fitting has only <math|n> apparent peaks. This reveals the
+  intrinsic nature of the posterior, and we shall stop increasing
+  <math|N<rsub|c>> any more, stop wasting the computational
+  resource.<\footnote>
+    (A proposal:) Or iteratively? That is, first training by
+    <math|N<rsub|c>=1>; when loss becomes stable after a period of training,
+    add a new peak, so that <math|N<rsub|c>=1\<rightarrow\>2>; then, when
+    loss becomes stable again after a new period of training, add a new peak,
+    so that <math|N<rsub|c>=2\<rightarrow\>3>; repeating. Question: if so,
+    then what is the initial value of <math|a> of the newly added peak?
+    (Being <math|a<rsub|max>>?)
+  </footnote>
 
-  XXX: try <math|N<rsub|c>=1,2,3,\<ldots\>> one by one, until increasing
-  <math|N<rsub|c>> cannot reduce the loss apparently. At this situation, e.g.
-  <math|N<rsub|c>=n> for some <math|n>, it hints that the posterior we are
-  fitting has only <math|n> apparent peaks. This reveals the intrinsic nature
-  of posterior, and we shall stop increasing <math|N<rsub|c>> any more,
-  wasting the computational resource.
+  <section|Deep Learning>
 
-  XXX: Or iteratively? That is, first training by <math|N<rsub|c>=1>; when
-  loss becomes stable after a period of training, add a new peak, so that
-  <math|N<rsub|c>=1\<rightarrow\>2>; then, when loss becomes stable again
-  after a new period of training, add a new peak, so that
-  <math|N<rsub|c>=2\<rightarrow\>3>; repeating. Question: if so, then what is
-  the initial value of <math|a> of the newly added peak? (Being
-  <math|a<rsub|max>>?)
-
-  <section|XXX: Deep Learning?>
-
-  XXX: It cannot solve the vanishing gradient problem of deep neural network,
+  It cannot solve the vanishing gradient problem of deep neural network,
   since this problem is intrinsic to the posterior of deep neural network.
+  Indeed, the posterior has the shape like
+  <math|exp<around*|(|-x<rsup|2>/\<sigma\><rsup|2>|)>> with
+  <math|\<sigma\>\<rightarrow\>0>, where <math|x> is the variable (argument)
+  of the posterior. It has a sharp peak, located at a tiny area, with all
+  other region extremely flat. The problem of find this peak, or
+  equivalently, findng its tiny area, is intrinsically intactable.
+
+  So, even for Bayesian neural network, a layer by layer abstraction along
+  depth cannot be absent.
 </body>
 
-<initial|<\collection>
-</collection>>
+<\initial>
+  <\collection>
+    <associate|font-base-size|10>
+  </collection>
+</initial>
 
 <\references>
   <\collection>
@@ -316,9 +329,11 @@
     <associate|footnote-1|<tuple|1|1>>
     <associate|footnote-2|<tuple|2|2>>
     <associate|footnote-3|<tuple|3|3>>
+    <associate|footnote-4|<tuple|4|?>>
     <associate|footnr-1|<tuple|1|1>>
     <associate|footnr-2|<tuple|2|1>>
     <associate|footnr-3|<tuple|3|3>>
+    <associate|footnr-4|<tuple|4|?>>
   </collection>
 </references>
 
@@ -411,8 +426,8 @@
       & How to Use?> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-19><vspace|0.5fn>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|5<space|2spc>XXX:
-      Deep Learning?> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|5<space|2spc>Deep
+      Learning> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-20><vspace|0.5fn>
     </associate>
   </collection>

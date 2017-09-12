@@ -226,24 +226,30 @@ of the posterior.
 
 \section{When \& How to Use?}
 
-As the figure \ref{figure: 1} hints,
+As the figure \ref{figure: 1} hints, employing a large $N_c$ will
+unnecessarily waste computational resource. So, instead we'd better try $N_c =
+1, 2, 3, \ldots$ one by one, until increasing $N_c$ cannot reduce the loss
+apparently. At this situation, e.g. $N_c = n$ for some $n$, it hints that the
+posterior we are fitting has only $n$ apparent peaks. This reveals the
+intrinsic nature of the posterior, and we shall stop increasing $N_c$ any
+more, stop wasting the computational resource.\footnote{(A proposal:) Or
+iteratively? That is, first training by $N_c = 1$; when loss becomes stable
+after a period of training, add a new peak, so that $N_c = 1 \rightarrow 2$;
+then, when loss becomes stable again after a new period of training, add a new
+peak, so that $N_c = 2 \rightarrow 3$; repeating. Question: if so, then what
+is the initial value of $a$ of the newly added peak? (Being $a_{\max}$?)}
 
-XXX: try $N_c = 1, 2, 3, \ldots$ one by one, until increasing $N_c$ cannot
-reduce the loss apparently. At this situation, e.g. $N_c = n$ for some $n$, it
-hints that the posterior we are fitting has only $n$ apparent peaks. This
-reveals the intrinsic nature of posterior, and we shall stop increasing $N_c$
-any more, wasting the computational resource.
+\section{Deep Learning}
 
-XXX: Or iteratively? That is, first training by $N_c = 1$; when loss becomes
-stable after a period of training, add a new peak, so that $N_c = 1
-\rightarrow 2$; then, when loss becomes stable again after a new period of
-training, add a new peak, so that $N_c = 2 \rightarrow 3$; repeating.
-Question: if so, then what is the initial value of $a$ of the newly added
-peak? (Being $a_{\max}$?)
+It cannot solve the vanishing gradient problem of deep neural network, since
+this problem is intrinsic to the posterior of deep neural network. Indeed, the
+posterior has the shape like $\exp (- x^2 / \sigma^2)$ with $\sigma
+\rightarrow 0$, where $x$ is the variable (argument) of the posterior. It has
+a sharp peak, located at a tiny area, with all other region extremely flat.
+The problem of find this peak, or equivalently, findng its tiny area, is
+intrinsically intactable.
 
-\section{XXX: Deep Learning?}
-
-XXX: It cannot solve the vanishing gradient problem of deep neural network,
-since this problem is intrinsic to the posterior of deep neural network.
+So, even for Bayesian neural network, a layer by layer abstraction along depth
+cannot be absent.
 
 \end{document}
