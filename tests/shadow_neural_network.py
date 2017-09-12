@@ -11,7 +11,7 @@ TODO: Needs further test on the lower limit of loss for each `NUM_PEAKS`.
 
 import sys
 sys.path.append('../sample/')
-from nn4post_test import PostNN
+from nn4post_test import Nn4post
 from tools import Timer
 import tensorflow as tf
 import numpy as np
@@ -144,13 +144,13 @@ batch_generator = BatchGenerator(x, y, y_error, batch_size=None)
 
 # --- Test ---
 
-#NUM_PEAKS = 1  # reduce to mean-field variational inference.
+NUM_PEAKS = 1  # reduce to mean-field variational inference.
 #NUM_PEAKS = 2
-NUM_PEAKS = 5
+#NUM_PEAKS = 5
 #NUM_PEAKS = 10
 
 
-pnn = PostNN(num_peaks=NUM_PEAKS,
+nn4post = Nn4post(num_peaks=NUM_PEAKS,
              dim=DIM,
              model=shadow_neural_network,
              log_prior=log_prior,
@@ -162,7 +162,7 @@ with Timer():
     learning_rate = 0.10
     #optimizer = tf.train.RMSPropOptimizer(learning_rate)
     optimizer = tf.train.AdamOptimizer
-    pnn.compile(optimizer=optimizer)
+    nn4post.compile(optimizer=optimizer)
     print('Model compiled.')
 
 
@@ -171,7 +171,7 @@ print('\n--- Parameters:\n\t--- NUM_PEAKS: {0},  learning_rate: {1}\n'
 
 
 with Timer():
-    pnn.fit(batch_generator=batch_generator,
+    nn4post.fit(batch_generator=batch_generator,
             epochs=3000,
             learning_rate=0.1,
             batch_ratio=1.0,
@@ -181,7 +181,7 @@ with Timer():
     )
 
 
-predicted = pnn.predict(x)
+predicted = nn4post.predict(x)
 
 
 import matplotlib.pyplot as plt
@@ -194,4 +194,4 @@ ax.set_title('Shadow Neural Network (hidden: 100)')
 plt.show()
 
 
-pnn.finalize()
+nn4post.finalize()

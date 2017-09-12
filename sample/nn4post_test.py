@@ -29,7 +29,7 @@ np.random.seed(42)
 
 # --- Main Class ---
 
-class PostNN(object):
+class Nn4post(object):
     """ Main class of "neural network for posterior" ("nn4post" for short).
 
     DOCUMENTATION:
@@ -142,7 +142,7 @@ class PostNN(object):
         self._zeta_shape = [self._num_peaks, self._dim]
 
 
-        # -- initialize the values of variables of CGMD.
+        # -- initialize the values of variables of `cat_gauss_mix_dist`.
         #self._a_val = np.random.normal(size=self._a_shape)
         self._a_val = np.zeros(shape=self._a_shape)
         self._a_val = self._a_val.astype(np_float)
@@ -302,7 +302,7 @@ class PostNN(object):
                     name='zeta')
 
 
-            with tf.name_scope('CGMD_model'):
+            with tf.name_scope('cat_gauss_mix_dist'):
 
 
                 with tf.name_scope('categorical'):
@@ -331,7 +331,7 @@ class PostNN(object):
 
                     self.cgmd = Mixture(cat=cat,
                                         components=components,
-                                        name='CGMD')
+                                        name='cat_gauss_mix_dist')
 
 
             with tf.name_scope('loss'):
@@ -363,17 +363,17 @@ class PostNN(object):
                 def _model_output(theta):
                     return self._model(self.x, theta)
 
-                self.model_prediction = tf.reduce_mean(
-                    tf.map_fn(_model_output,
-                              theta_samples),
-                    axis=0,
-                    name='model_prediction')
+                with tf.name_scope('with_mean'):
+                    self.model_prediction = tf.reduce_mean(
+                        tf.map_fn(_model_output,
+                                  theta_samples),
+                        axis=0)
 
                 # Someone may wonder
-                self.model_prediction_without_mean = tf.map_fn(
-                    _model_output,
-                    theta_samples,
-                    name='model_prediction_without_mean')
+                with tf.name_scope('without_mean'):
+                    self.model_prediction_without_mean = tf.map_fn(
+                        _model_output,
+                        theta_samples)
 
 
             with tf.name_scope('auxiliary_ops'):
@@ -496,7 +496,7 @@ class PostNN(object):
                         saver.save(sess, path_to_ckpt, global_step=step+1)
 
 
-            # -- Update the values of varialbes of CGMD
+            # -- Update the values of varialbes of `cat_gauss_mix_dist`
             self._a_val, self._mu_val, self._zeta_val = \
                 sess.run([self.a, self.mu, self.zeta])
 
@@ -661,7 +661,8 @@ class PostNN(object):
         return self._float
 
     def get_model(self):
-        """ Get the model (whose posteior is to be fitted by CGMD).
+        """ Get the model (whose posteior is to be fitted by
+            `cat_gauss_mix_dist`).
 
         Returns:
             Callable, as the model is.
@@ -690,8 +691,9 @@ class PostNN(object):
         return (self._a_val, self._mu_val, self._zeta_val)
 
     def get_cgmd_params(self):
-        """ Get tuple of numerical values (as numpy arraries) of CGMD
-        parameters, including `weight`, `mu`, and `sigma`.
+        """ Get tuple of numerical values (as numpy arraries) of
+            `cat_gauss_mix_dist` parameters, including `weight`, `mu`,
+            and `sigma`.
 
         CAUTION:
             Can only be called after an `self.fit()`.
@@ -737,7 +739,7 @@ class PostNN(object):
         Args:
             vars_val:
                 list of numpy array or `None`, as the values of the variables
-                of CGMD.
+                of `cat_gauss_mix_dist`.
 
         Modifies:
             `self._a_val`, `self._mu_val`, and `self._zeta_val`.
