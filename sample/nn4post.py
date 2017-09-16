@@ -12,12 +12,14 @@ C.f. '../docs/nn4post.pdf'.
 """
 
 
+import os
 import tensorflow as tf
 import numpy as np
 # -- `contrib` module in TensorFlow version: 1.3
 from tensorflow.contrib.distributions import \
     Categorical, Mixture, MultivariateNormalDiagWithSoftplusScale
 from tensorflow.contrib.bayesflow import entropy
+from tools import ensure_directory
 
 
 # -- For testing (and debugging)
@@ -28,7 +30,7 @@ np.random.seed(42)
 
 # --- Main Class ---
 
-class PostNN(object):
+class Nn4post(object):
     """ Main class of "neural network for posterior" ("nn4post" for short).
 
     DOCUMENTATION:
@@ -67,11 +69,11 @@ class PostNN(object):
 
             Default is uniform prior.
 
-        num_samples: int
-            Number of samples in the Monte Carlo integrals herein.
-
         debug: bool
             If `True`, then employ the `tfdbg`.
+
+        float_: str
+            The dtype under running in `str`, e.g. `float32`.
 
     Attributes:
         graph: tf.Graph()
@@ -79,7 +81,6 @@ class PostNN(object):
             `self.compile()`.
 
         `Tensor`s within `self.graph`.
-
 
     Method:
         set_vars
@@ -106,8 +107,6 @@ class PostNN(object):
 
 
     TODO: complete it.
-    TODO: write `self.fit()`.
-    TODO: write `self.inference()`.
     """
 
     def __init__(self,
@@ -115,39 +114,51 @@ class PostNN(object):
                  dim,
                  model,
                  log_prior,
-                 num_samples=10**2,
                  debug=False,
-                 float_=tf.float32,
-                 int_=tf.int32):
+                 float_='float32',
+                 dir_to_ckpt=None):
 
         self._num_peaks = num_peaks
         self._dim = dim
         self._model = model
         self._log_prior = log_prior
-        self._num_samples = num_samples
         self._debug = debug
-        self._float = float_
-        self._int = int_
+        self._dir_to_ckpt = dir_to_ckpt
+        if self._dir_to_ckpt is not None:
+            ensure_directory(self._dir_to_ckpt)
 
         self.graph = tf.Graph()
 
 
+        # -- Dtype
+        if float_ == 'float32':
+            self._float = tf.float32
+            np_float = np.float32
+        elif float_ == 'float64':
+            self._float = tf.float64
+            np_float = np.float64
+
+
         # -- Parameters
-        self._a_shape = [self.get_num_peaks()]
-        self._mu_shape = [self.get_num_peaks(), self.get_dim()]
-        self._zeta_shape = [self.get_num_peaks(), self.get_dim()]
+        self._a_shape = [self._num_peaks]
+        self._mu_shape = [self._num_peaks, self._dim]
+        self._zeta_shape = [self._num_peaks, self._dim]
 
 
-        # -- initialize the values of variables of CGMD.
-        #self._a_val = np.random.normal(size=self._a_shape)
+        # -- initialize the values of variables of `cat_gauss_mix_dist`.
         self._a_val = np.zeros(shape=self._a_shape)
+        self._a_val = self._a_val.astype(np_float)
+
         self._mu_val = np.random.normal(size=self._mu_shape)
+        self._mu_val = self._mu_val.astype(np_float)
+
         # To make `softplus(self._init_zeta) == np.ones(self._zeta_shape)`
         self._zeta_val = np.log((np.e-1) * np.ones(self._zeta_shape))
+        self._zeta_val = self._zeta_val.astype(np_float)
 
 
     def compile(self,
-                optimizer=tf.train.RMSPropOptimizer(0.01),
+                optimizer=tf.train.RMSPropOptimizer,
                 init_vars=None,
                 ):
         """ Set up the (TensorFlow) computational graph.
@@ -160,10 +171,9 @@ class PostNN(object):
         Args:
             optimizer:
                 `tf.Optimizer` object of module `tf.train`, with the
-                arguments fulfilled. C.f. the "CAUTION ERROR".
+                arguments fulfilled except for `learning_rate`.
 
-            learning_rate:
-                `float`, the learning rate of the `optimizer`.
+                C.f. the "CAUTION ERROR".
 
             init_vars:
                 "Initial value of variables (i.e. `a`, `mu`, and `zeta`)", as
@@ -193,12 +203,40 @@ class PostNN(object):
                 # shape: [batch_size, *model_output]
                 self.y_error = tf.placeholder(dtype=var_dtype,
                                               name='y_error')
-                
+
+
+            with tf.name_scope('parameters'):
+
+                # shape: []
+                self.batch_ratio = tf.placeholder(shape=[],
+                                                  dtype=var_dtype,
+                                                  name='batch_ratio')
+                # shape: []
+                self.learning_rate = tf.placeholder(shape=[],
+                                                    dtype=self._float,
+                                                    name='learning_rate')
+
+                self.num_samples = tf.placeholder(shape=[],
+                                                  dtype=tf.int32,
+                                                  name='num_samples')
+
 
             with tf.name_scope('log_p'):
 
                 def chi_square_on_data(theta):
                     """ Chi-square based on the data from 'data_source'.
+
+                    CAUTION:
+                        Have to keep in mind that, the :math:`\chi^2` (thus the
+                        posterior) is summarized over ALL data. Thus, if using
+                        mini-batch technique, the ratio of batch-size and of
+                        data-size (we call `batch_ratio`) be introduced in the
+                        computation of `chi_square_on_data`.
+
+                    TODO:
+                        What if the data-size is uncertain? For instance, when
+                        training online, wherein the data-size is always keeping
+                        increasing.
 
                     Args:
                         theta: `Tensor` with shape `[self.get_dim()]` and dtype
@@ -208,9 +246,13 @@ class PostNN(object):
                         `Tensor` with shape `[]` and dtype `self._float`.
                     """
                     model = self.get_model()
-                    return self._chi_square(
+                    _chi_square_on_batch = self._chi_square(
                         model=model, data_x=self.x, data_y=self.y,
                         data_y_error=self.y_error, params=theta)
+                    # C.f. the "CAUTION" in docstring
+                    _chi_square_on_data = tf.multiply( 1 / self.batch_ratio,
+                                                      _chi_square_on_batch)
+                    return _chi_square_on_data
 
 
                 def log_posterior(theta):
@@ -235,7 +277,7 @@ class PostNN(object):
                     Returns:
                         `Tensor` with shape `[None]` and dtype `self._float`.
                         The two `None` shall both be the same value (e.g. both
-                        being `self.get_num_samples()`).
+                        being `self.num_samples`).
                     """
                     return tf.map_fn(log_posterior, thetas,
                                      name='log_p_as_vectorized')
@@ -262,7 +304,7 @@ class PostNN(object):
                     name='zeta')
 
 
-            with tf.name_scope('CGMD_model'):
+            with tf.name_scope('cat_gauss_mix_dist'):
 
 
                 with tf.name_scope('categorical'):
@@ -283,85 +325,132 @@ class PostNN(object):
                             loc=mu_list[i],
                             scale_diag=zeta_list[i],
                             name='Gaussian_{0}'.format(i))
-                        for i in range(self.get_num_peaks())]
+                        for i in range(self.get_num_peaks())
+                    ]
 
 
                 with tf.name_scope('mixture'):
 
-                    self.cgmd = Mixture(cat=cat,
-                                        components=components,
-                                        name='CGMD')
+                    self.cat_gauss_mix_dist = Mixture(
+                        cat=cat,
+                        components=components,
+                        name='cat_gauss_mix_dist')
 
 
             with tf.name_scope('loss'):
 
-                theta_samples = self.cgmd.sample(self.get_num_samples(),
-                                                 name='theta_samples')
-                elbo = entropy.elbo_ratio(log_p, self.cgmd, z=theta_samples,
-                                          name='ELBO')
+                theta_samples = self.cat_gauss_mix_dist.sample(
+                    self.num_samples,
+                    name='theta_samples')
+                elbo = entropy.elbo_ratio(
+                    log_p, self.cat_gauss_mix_dist, z=theta_samples,
+                    name='ELBO')
 
-                #elbo = entropy.renyi_ratio(log_p, self.cgmd,
-                #                           alpha=0.99, z=theta_samples,
-                #                           name='ELBO')
+                # Try Renyi divergence
+                #elbo = entropy.renyi_ratio(
+                #    log_p, self.cat_gauss_mix_dist,
+                #    alpha=0.99, z=theta_samples,
+                #    name='ELBO')
 
                 # In TensorFlow, ELBO is defined as `E_q [ log( p / q ) ]`,
                 # rather than as E_q [log(q / p)] as WikiPedia. So, the loss
-                # would be `-1 * elbo`
-                self.loss = tf.multiply(-1.0, elbo,
-                                        name='loss')
+                # would be `- elbo`
+                self.loss = - elbo
 
 
             with tf.name_scope('optimize'):
 
-                self.optimize = optimizer.minimize(self.loss)
+                self.optimize = optimizer(self.learning_rate).minimize(self.loss)
 
 
-            with tf.name_scope('model_output'):
+            with tf.name_scope('model_prediction'):
 
-                self.model_output = tf.reduce_mean(
-                    tf.map_fn(lambda theta: self._model(self.x, theta),
-                              theta_samples),
-                    axis=0,
-                    name='model_output')
+                def _model_output(theta):
+                    model = self.get_model()
+                    return model(self.x, theta)
 
+                with tf.name_scope('with_mean'):
+                    self.model_prediction = tf.reduce_mean(
+                        tf.map_fn(_model_output,
+                                  theta_samples),
+                        axis=0)
+
+                # Someone may wonder
+                with tf.name_scope('without_mean'):
+                    self.model_prediction_without_mean = tf.map_fn(
+                        _model_output,
+                        theta_samples)
 
 
             with tf.name_scope('auxiliary_ops'):
 
+                with tf.name_scope('metrics'):
+
+                    with tf.name_scope('errror'):  # test!
+
+                        mistakes = tf.not_equal(
+                            tf.argmax(self.model_prediction, 1),
+                            tf.argmax(self.y, 1),
+                            name='mistakes')
+                        self.error = tf.reduce_mean(
+                            tf.cast(mistakes, self.get_var_dtype()),
+                            name='error')
+
+
+
                 with tf.name_scope('summarizer'):
 
+                    # For loss
                     tf.summary.scalar('loss', self.loss)
-                    tf.summary.histogram('histogram_loss', self.loss)
+                    tf.summary.histogram('loss', self.loss)
+
+                    # For variable `a`
                     a_comps = tf.unstack(self.a)
-                    for i, a_component in enumerate(a_comps):
-                        tf.summary.scalar('a_comp_{0}'.format(i),
-                                          a_component)
-#                    mu_comps = tf.unstack(self.mu)
-#                    for i, mu_comp in enumerate(mu_comps):
-#                        mu_sub_comps = tf.unstack(mu_comp)
-#                            for j, mu_sub_comp in enumerate(mu_sub_comps):
-#                                tf.summary.scalary(
-#                                    'mu_sub_comp_{0}_{1}'.format(i, j),
-#                                    mu_sub_comp)
+                    for i, a_i in enumerate(a_comps):
+                        tf.summary.scalar('a_{0}'.format(i),
+                                          a_i)
+
+                    # For variable `mu` (projected)  # test!
+                    project_axis = 0
+                    mu_comps = tf.unstack(self.mu)
+                    for i, mu_comp in enumerate(mu_comps):
+                        mu_sub_comps = tf.unstack(mu_comp)
+                        tf.summary.scalar(
+                            'mu_{0}_{1}'.format(i, project_axis),
+                             mu_sub_comps[project_axis])
+
+                    # It seems that, up to TF version 1.3, `tensor_summary` is
+                    # still under building
                     #tf.summary.tensor_summary('a', self.a)
                     #tf.summary.tensor_summary('mu', self.mu)
                     #tf.summary.tensor_summary('zeta', self.zeta)
+
+                    # For error, test!
+                    tf.summary.scalar('error', self.error)
+                    tf.summary.histogram('error', self.error)
+
+                    # Merge them all
                     self.summary = tf.summary.merge_all()
 
 
                 with tf.name_scope('initializer'):
 
-                    self.init = tf.global_variables_initializer()
+                    self._initializer = tf.global_variables_initializer()
+                    self._saver = tf.train.Saver()
 
 
-        print('INFO - Model compiled.')
+
+        print('INFO - Compiled.')
 
 
     def fit(self,
             batch_generator,
             epochs,
+            learning_rate,
+            batch_ratio,
+            num_samples=10**2,
             logdir=None,
-            verbose=False,
+            dir_to_ckpt=None,
             skip_steps=100):
         """
         TODO: complete docstring.
@@ -371,17 +460,47 @@ class PostNN(object):
         if logdir is not None:
             self._writer = tf.summary.FileWriter(logdir, self.graph)
 
+
         sess = self.get_session()
+        saver = self.get_saver()
+        initializer = self.get_initializer()
 
         with sess.as_default():
 
-            sess.run(self.init)
+            sess.run(initializer)
 
-            for step in range(epochs):
+            # -- Resotre from checkpoint
+            initial_step = 0
+            if dir_to_ckpt is not None:
+                ckpt = tf.train.get_checkpoint_state(dir_to_ckpt)
+
+                if ckpt and ckpt.model_checkpoint_path:
+                    try:  # test!
+                        saver.restore(sess, ckpt.model_checkpoint_path)
+                        initial_step = int(ckpt.model_checkpoint_path\
+                                        .rsplit('-', 1)[1]) - 1
+                        print('Restored from checkpoint at global step {0}'\
+                            .format(initial_step+1))
+                    except Exception as e:
+                        print('ERROR - {0}'.format(e))
+                        print('WARNING - Continue without restore.')
+
+
+            # -- Iterating optimizer
+            for step in range(initial_step, initial_step+epochs):
 
                 x, y, y_error = next(batch_generator)
-                feed_dict = {self.x: x, self.y: y, self.y_error: y_error}
+                feed_dict = {
+                    self.x: x,
+                    self.y: y,
+                    self.y_error: y_error,
+                    self.learning_rate: learning_rate,
+                    self.batch_ratio: batch_ratio,
+                    self.num_samples: num_samples,
+                }
 
+
+                # Write to `tensorboard`
                 if logdir is None:
                     _, loss_val = sess.run(
                             [self.optimize, self.loss],
@@ -393,34 +512,45 @@ class PostNN(object):
                             feed_dict=feed_dict)
                     self._writer.add_summary(summary_val, global_step=step)
 
-                if verbose:
-                    if (step+1) % skip_steps == 0:
-                        print('step: {0}'.format(step+1))
-                        print('loss: {0}'.format(loss_val))
-                        print('-----------------------\n')
 
-            # Update the values of varialbes of CGMD
+                # Save checkpoint
+                if dir_to_ckpt is not None:
+                    path_to_ckpt = os.path.join(dir_to_ckpt, 'checkpoint')
+                    if (step+1) % skip_steps == 0:
+                        saver.save(sess, path_to_ckpt, global_step=step+1)
+
+
+            # -- Update the values of varialbes of `cat_gauss_mix_dist`
             self._a_val, self._mu_val, self._zeta_val = \
                 sess.run([self.a, self.mu, self.zeta])
 
-            
-            # For visualization
+            # -- For visualization
             self._weight_val, self._sigma_val = \
                 sess.run([self.weight, tf.nn.softplus(self.zeta)])
 
 
 
-    def predict(self, x):
+    def predict(self, x, num_samples=10**2, with_mean=True):
         """
-        TODO: complete this.
+        TODO: complete this docstring.
         """
 
         sess = self.get_session()
 
         with sess.as_default():
 
-            output_val = sess.run(self.model_output,
-                                  feed_dict={self.x: x})
+            feed_dict = {
+                self.x: x,
+                self.num_samples: num_samples,
+            }
+
+            if with_mean:
+                predict_op = self.model_prediction
+            else:
+                predict_op = self.model_prediction_without_mean
+
+            output_val = sess.run(predict_op,
+                                  feed_dict=feed_dict)
 
         return output_val
 
@@ -503,8 +633,8 @@ class PostNN(object):
             `Tensor` with shape `[]` and dtype `self._float`.
         """
 
-        noise = tf.subtract(data_y, model(data_x, params))
-
+        predict_y = model(data_x, params)
+        noise = data_y - predict_y
         return tf.reduce_sum( -0.5 * tf.square(noise/data_y_error) )
 
 
@@ -537,9 +667,6 @@ class PostNN(object):
     def get_dim(self):
         return self._dim
 
-    def get_num_samples(self):
-        return self._num_samples
-
     def get_var_shapes(self):
         """ Get the tensor-shape of the variables `a`, `mu`, and `zeta`.
 
@@ -558,7 +685,8 @@ class PostNN(object):
         return self._float
 
     def get_model(self):
-        """ Get the model (whose posteior is to be fitted by CGMD).
+        """ Get the model (whose posteior is to be fitted by
+            `cat_gauss_mix_dist`).
 
         Returns:
             Callable, as the model is.
@@ -586,9 +714,10 @@ class PostNN(object):
         """
         return (self._a_val, self._mu_val, self._zeta_val)
 
-    def get_cgmd_params(self):
-        """ Get tuple of numerical values (as numpy arraries) of CGMD
-        parameters, including `weight`, `mu`, and `sigma`.
+    def get_cat_gauss_mix_dist_params(self):
+        """ Get tuple of numerical values (as numpy arraries) of
+            `cat_gauss_mix_dist` parameters, including `weight`, `mu`,
+            and `sigma`.
 
         CAUTION:
             Can only be called after an `self.fit()`.
@@ -613,6 +742,18 @@ class PostNN(object):
             self._sess = self._create_session()
             return self._sess
 
+    def get_saver(self):
+        """ Get the `tf.Saver()` within `self.graph`.
+
+        Returns:
+            `tf.Saver()` object.
+        """
+        return self._saver
+
+    def get_initializer(self):
+        """ Get the initializer within `self.graph`. """
+        return self._initializer
+
 
     # -- Set-Functions
     def set_vars(self, vars_val):
@@ -622,7 +763,7 @@ class PostNN(object):
         Args:
             vars_val:
                 list of numpy array or `None`, as the values of the variables
-                of CGMD.
+                of `cat_gauss_mix_dist`.
 
         Modifies:
             `self._a_val`, `self._mu_val`, and `self._zeta_val`.

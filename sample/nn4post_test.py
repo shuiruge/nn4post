@@ -19,6 +19,7 @@ import numpy as np
 from tensorflow.contrib.distributions import \
     Categorical, Mixture, MultivariateNormalDiagWithSoftplusScale
 from tensorflow.contrib.bayesflow import entropy
+from tools import ensure_directory
 
 
 # -- For testing (and debugging)
@@ -36,7 +37,7 @@ class Nn4post(object):
         'nn4post/docs/nn4post.pdf'.
 
     Args:
-        num_peaks: int
+        n_peaks: int
             Number of Gaussian peaks, that is, the number of categories in the
             categorical distribution (i.e. the :math:`N_c` in documentation).
 
@@ -109,7 +110,7 @@ class Nn4post(object):
     """
 
     def __init__(self,
-                 num_peaks,
+                 n_peaks,
                  dim,
                  model,
                  log_prior,
@@ -117,12 +118,14 @@ class Nn4post(object):
                  float_='float32',
                  dir_to_ckpt=None):
 
-        self._num_peaks = num_peaks
+        self._n_peaks = n_peaks
         self._dim = dim
         self._model = model
         self._log_prior = log_prior
         self._debug = debug
         self._dir_to_ckpt = dir_to_ckpt
+        if self._dir_to_ckpt is not None:
+            ensure_directory(self._dir_to_ckpt)
 
         self.graph = tf.Graph()
 
@@ -137,13 +140,12 @@ class Nn4post(object):
 
 
         # -- Parameters
-        self._a_shape = [self._num_peaks]
-        self._mu_shape = [self._num_peaks, self._dim]
-        self._zeta_shape = [self._num_peaks, self._dim]
+        self._a_shape = [self._n_peaks]
+        self._mu_shape = [self._n_peaks, self._dim]
+        self._zeta_shape = [self._n_peaks, self._dim]
 
 
         # -- initialize the values of variables of `cat_gauss_mix_dist`.
-        #self._a_val = np.random.normal(size=self._a_shape)
         self._a_val = np.zeros(shape=self._a_shape)
         self._a_val = self._a_val.astype(np_float)
 
@@ -158,6 +160,9 @@ class Nn4post(object):
     def compile(self,
                 optimizer=tf.train.RMSPropOptimizer,
                 init_vars=None,
+                metrics=None,
+                summarize_variables=False
+                project_axis = 0,
                 ):
         """ Set up the (TensorFlow) computational graph.
 
@@ -180,6 +185,14 @@ class Nn4post(object):
                 shapes of `self.get_a_shape()`, `self.get_mu_shape()`,
                 and `self.get_zeta_shape()` respectively, and dtypes of
                 `self.get_var_dtype()` uniformly.
+
+            metrics: XXX
+
+            summarize_variables:
+                XXX
+                This would be costy when running `tensorboard`.
+
+            project_axis: XXX
 
         Modifies:
             `self.graph` and `self.*` therein; `self._sess`
@@ -214,9 +227,9 @@ class Nn4post(object):
                                                     dtype=self._float,
                                                     name='learning_rate')
 
-                self.num_samples = tf.placeholder(shape=[],
+                self.n_samples = tf.placeholder(shape=[],
                                                   dtype=tf.int32,
-                                                  name='num_samples')
+                                                  name='n_samples')
 
 
             with tf.name_scope('log_p'):
@@ -275,7 +288,7 @@ class Nn4post(object):
                     Returns:
                         `Tensor` with shape `[None]` and dtype `self._float`.
                         The two `None` shall both be the same value (e.g. both
-                        being `self.num_samples`).
+                        being `self.n_samples`).
                     """
                     return tf.map_fn(log_posterior, thetas,
                                      name='log_p_as_vectorized')
@@ -323,34 +336,37 @@ class Nn4post(object):
                             loc=mu_list[i],
                             scale_diag=zeta_list[i],
                             name='Gaussian_{0}'.format(i))
-                        for i in range(self.get_num_peaks())
+                        for i in range(self.get_n_peaks())
                     ]
 
 
                 with tf.name_scope('mixture'):
 
-                    self.cgmd = Mixture(cat=cat,
-                                        components=components,
-                                        name='cat_gauss_mix_dist')
+                    self.cat_gauss_mix_dist = Mixture(
+                        cat=cat,
+                        components=components,
+                        name='cat_gauss_mix_dist')
 
 
             with tf.name_scope('loss'):
 
-                theta_samples = self.cgmd.sample(self.num_samples,
-                                                 name='theta_samples')
-                elbo = entropy.elbo_ratio(log_p, self.cgmd, z=theta_samples,
-                                          name='ELBO')
+                theta_samples = self.cat_gauss_mix_dist.sample(
+                    self.n_samples,
+                    name='theta_samples')
+                elbo = entropy.elbo_ratio(
+                    log_p, self.cat_gauss_mix_dist, z=theta_samples,
+                    name='ELBO')
 
                 # Try Renyi divergence
-                #elbo = entropy.renyi_ratio(log_p, self.cgmd,
-                #                           alpha=0.99, z=theta_samples,
-                #                           name='ELBO')
+                #elbo = entropy.renyi_ratio(
+                #    log_p, self.cat_gauss_mix_dist,
+                #    alpha=0.99, z=theta_samples,
+                #    name='ELBO')
 
                 # In TensorFlow, ELBO is defined as `E_q [ log( p / q ) ]`,
                 # rather than as E_q [log(q / p)] as WikiPedia. So, the loss
-                # would be `-1 * elbo`
-                self.loss = tf.multiply(-1.0, elbo,
-                                        name='loss')
+                # would be `- elbo`
+                self.loss = - elbo
 
 
             with tf.name_scope('optimize'):
@@ -361,7 +377,8 @@ class Nn4post(object):
             with tf.name_scope('model_prediction'):
 
                 def _model_output(theta):
-                    return self._model(self.x, theta)
+                    model = self.get_model()
+                    return model(self.x, theta)
 
                 with tf.name_scope('with_mean'):
                     self.model_prediction = tf.reduce_mean(
@@ -378,32 +395,61 @@ class Nn4post(object):
 
             with tf.name_scope('auxiliary_ops'):
 
+                with tf.name_scope('metrics'):
+
+                    if metrics is not None:
+                        self.metrics = [
+                            metric(self.model_prediction, self.y)
+                            for metric in metrics]
+
+
                 with tf.name_scope('summarizer'):
 
-                    # For loss
-                    tf.summary.scalar('loss', self.loss)
+                    with tf.name_scope('loss'):
+                        tf.summary.scalar('loss', self.loss)
+                        tf.summary.histogram('loss', self.loss)
 
-                    # For variable `a`
-                    a_comps = tf.unstack(self.a)
-                    for i, a_i in enumerate(a_comps):
-                        tf.summary.scalar('a_{0}'.format(i),
-                                          a_i)
 
-                    # For variable `mu`
-#                    mu_comps = tf.unstack(self.mu)
-#                    for i, mu_comp in enumerate(mu_comps):
-#                        mu_sub_comps = tf.unstack(mu_comp)
-#                            for j, mu_sub_comp in enumerate(mu_sub_comps):
-#                                tf.summary.scalary(
-#                                    'mu_sub_comp_{0}_{1}'.format(i, j),
-#                                    mu_sub_comp)
+                    if summarize_variables:
 
-                    # It seems that, up to TF version 1.3, `tensor_summary` is
-                    # still under building
-                    #tf.summary.tensor_summary('a', self.a)
-                    #tf.summary.tensor_summary('mu', self.mu)
-                    #tf.summary.tensor_summary('zeta', self.zeta)
+                        with tf.name_scope('variables'):
 
+                            # It seems that, up to TF version 1.3,
+                            # `tensor_summary` is still under building
+                            #tf.summary.tensor_summary('a', self.a)
+                            #tf.summary.tensor_summary('mu', self.mu)
+                            #tf.summary.tensor_summary('zeta', self.zeta)
+
+                            # So, we make it seperately:
+                            # For variable `a`
+                            a_comps = tf.unstack(self.a)
+                            for i, a_i in enumerate(a_comps):
+                                tf.summary.scalar('a_{0}'.format(i),
+                                                a_i)
+                            # For variable `mu` (projected)  # test!
+                            mu_comps = tf.unstack(self.mu)
+                            for i, mu_comp in enumerate(mu_comps):
+                                mu_sub_comps = tf.unstack(mu_comp)
+                                tf.summary.scalar(
+                                    'mu_{0}_{1}'.format(i, project_axis),
+                                    mu_sub_comps[project_axis])
+                            # For variable `zeta` (projected)  # test!
+                            zeta_comps = tf.unstack(self.zeta)
+                            for i, zeta_comp in enumerate(zeta_comps):
+                                zeta_sub_comps = tf.unstack(zeta_comp)
+                                tf.summary.scalar(
+                                    'zeta_{0}_{1}'.format(i, project_axis),
+                                    zeta_sub_comps[project_axis])
+
+
+                    with tf.name_scope('metrics'):
+                        if metric is not None:
+                            for metric in metrics:
+                                tf.summary.scalar(metric.name, metric)
+                                tf.summary.histogram(metric.name, metric)
+
+
+                    # -- And Merge them All
                     self.summary = tf.summary.merge_all()
 
 
@@ -414,8 +460,7 @@ class Nn4post(object):
 
 
 
-
-        print('INFO - Model compiled.')
+        print('INFO - Compiled.')
 
 
     def fit(self,
@@ -423,7 +468,7 @@ class Nn4post(object):
             epochs,
             learning_rate,
             batch_ratio,
-            num_samples=10**2,
+            n_samples=10**2,
             logdir=None,
             dir_to_ckpt=None,
             skip_steps=100):
@@ -445,21 +490,20 @@ class Nn4post(object):
             sess.run(initializer)
 
             # -- Resotre from checkpoint
+            initial_step = 0
             if dir_to_ckpt is not None:
                 ckpt = tf.train.get_checkpoint_state(dir_to_ckpt)
 
                 if ckpt and ckpt.model_checkpoint_path:
-                    saver.restore(sess, ckpt.model_checkpoint_path)
-                    initial_step = int(ckpt.model_checkpoint_path\
-                                       .rsplit('-', 1)[1]) - 1
-                    print('Restored from checkpoint at global step {0}'\
-                          .format(initial_step))
-
-                else:
-                    initial_step = 0
-
-            else:
-                initial_step = 0
+                    try:  # test!
+                        saver.restore(sess, ckpt.model_checkpoint_path)
+                        initial_step = int(ckpt.model_checkpoint_path\
+                                        .rsplit('-', 1)[1]) - 1
+                        print('Restored from checkpoint at global step {0}'\
+                            .format(initial_step+1))
+                    except Exception as e:
+                        print('ERROR - {0}'.format(e))
+                        print('WARNING - Continue without restore.')
 
 
             # -- Iterating optimizer
@@ -472,7 +516,7 @@ class Nn4post(object):
                     self.y_error: y_error,
                     self.learning_rate: learning_rate,
                     self.batch_ratio: batch_ratio,
-                    self.num_samples: num_samples,
+                    self.n_samples: n_samples,
                 }
 
 
@@ -506,7 +550,7 @@ class Nn4post(object):
 
 
 
-    def predict(self, x, num_samples=10**2, with_mean=True):
+    def predict(self, x, n_samples=10**2, with_mean=True):
         """
         TODO: complete this docstring.
         """
@@ -517,7 +561,7 @@ class Nn4post(object):
 
             feed_dict = {
                 self.x: x,
-                self.num_samples: num_samples,
+                self.n_samples: n_samples,
             }
 
             if with_mean:
@@ -609,8 +653,8 @@ class Nn4post(object):
             `Tensor` with shape `[]` and dtype `self._float`.
         """
 
-        noise = tf.subtract(data_y, model(data_x, params))
-
+        predict_y = model(data_x, params)
+        noise = data_y - predict_y
         return tf.reduce_sum( -0.5 * tf.square(noise/data_y_error) )
 
 
@@ -637,8 +681,8 @@ class Nn4post(object):
 
     # -- Get-Functions
 
-    def get_num_peaks(self):
-        return self._num_peaks
+    def get_n_peaks(self):
+        return self._n_peaks
 
     def get_dim(self):
         return self._dim
@@ -690,7 +734,7 @@ class Nn4post(object):
         """
         return (self._a_val, self._mu_val, self._zeta_val)
 
-    def get_cgmd_params(self):
+    def get_cat_gauss_mix_dist_params(self):
         """ Get tuple of numerical values (as numpy arraries) of
             `cat_gauss_mix_dist` parameters, including `weight`, `mu`,
             and `sigma`.
@@ -749,3 +793,11 @@ class Nn4post(object):
 
         # If passed this check without raising
         self._a_val, self._mu_val, self._zeta_val = vars_val
+
+
+def error(y_pred, y_true):
+    """ XXX """
+    mistakes = tf.not_equal(tf.argmax(y_pred, 1), tf.argmax(y_true, 1))
+    mistakes = tf.cast(mistakes, tf.float32)
+    return tf.reduce_mean(mistakes, name='error')
+

@@ -1,4 +1,4 @@
-<TeXmacs|1.99.5>
+<TeXmacs|1.99.1>
 
 <style|generic>
 
@@ -177,6 +177,27 @@
   <math|ELBO> is well-defined, as the loss-function (or say loss-function,
   performance, etc) of the fitting.
 
+  <section|Stochastic Optimization>
+
+  Suppose, instead of use the whole dataset, we employ mini-batch technique.
+  Let <math|D<rsub|m>> denotes the mini-batch with batch-size
+  <math|N<rsub|m>>. With this, we have approximation
+
+  <\equation*>
+    ln p<around*|(|\<theta\>;D|)>\<approx\><frac|N<rsub|D>|N<rsub|m>> ln
+    p<around*|(|\<theta\>;D<rsub|m>|)>.
+  </equation*>
+
+  Let <math|q<rsub|m><around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>> the function
+  that fits the <math|p<around*|(|\<theta\>;D<rsub|m>|)>>, thus we would
+  expect
+
+  <\equation*>
+    q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>\<approx\><around*|[|q<rsub|m><around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>|]><rsup|N<rsub|D>/N<rsub|m>>.
+  </equation*>
+
+  XXX
+
   <section|Computational Resource of Training>
 
   Recall that <math|d> denotes the dimension of <math|\<theta\>>, the
@@ -262,6 +283,13 @@
   losses get together. (For the source code, see
   <cpp|'nn4post/tests/shadow_neural_network.py'>.)>
 
+  <subsection|Batch-Size>
+
+  The batch-size needed for variational inference (including both this model
+  and the mean-field approximiation) is generally greater than that for
+  non-Bayesian. This is an experimental result (on MNIST dataset), but what
+  is the reason?
+
   <section|When & How to Use?>
 
   As the figure <reference|figure: 1> hints, employing a large
@@ -308,16 +336,18 @@
     <associate|auto-1|<tuple|1|1>>
     <associate|auto-10|<tuple|2.3|3>>
     <associate|auto-11|<tuple|3|3>>
-    <associate|auto-12|<tuple|3.1|3>>
-    <associate|auto-13|<tuple|3.1.1|3>>
-    <associate|auto-14|<tuple|3.1.2|3>>
-    <associate|auto-15|<tuple|3.1.3|3>>
-    <associate|auto-16|<tuple|3.1.4|3>>
-    <associate|auto-17|<tuple|3.2|4>>
-    <associate|auto-18|<tuple|1|4>>
-    <associate|auto-19|<tuple|4|4>>
+    <associate|auto-12|<tuple|4|3>>
+    <associate|auto-13|<tuple|4.1|3>>
+    <associate|auto-14|<tuple|4.1.1|3>>
+    <associate|auto-15|<tuple|4.1.2|3>>
+    <associate|auto-16|<tuple|4.1.3|3>>
+    <associate|auto-17|<tuple|4.1.4|4>>
+    <associate|auto-18|<tuple|4.2|4>>
+    <associate|auto-19|<tuple|1|4>>
     <associate|auto-2|<tuple|1.1|1>>
-    <associate|auto-20|<tuple|5|4>>
+    <associate|auto-20|<tuple|4.3|4>>
+    <associate|auto-21|<tuple|5|?>>
+    <associate|auto-22|<tuple|6|?>>
     <associate|auto-3|<tuple|1.2|1>>
     <associate|auto-4|<tuple|2|1>>
     <associate|auto-5|<tuple|2.1|1>>
@@ -351,7 +381,7 @@
       <with|mode|<quote|math>|a<rsub|2>> so that only one peak is essentially
       left, and it is just around <with|mode|<quote|math>|500> steps of
       iterations that the two losses get together. (For the source code, see
-      <with|mode|<quote|prog>|prog-language|<quote|cpp>|font-family|<quote|rm>|'nn4post/tests/shadow_neural_network.py'>.)|<pageref|auto-18>>
+      <with|mode|<quote|prog>|prog-language|<quote|cpp>|font-family|<quote|rm>|'nn4post/tests/shadow_neural_network.py'>.)|<pageref|auto-19>>
     </associate>
     <\associate|toc>
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|1<space|2spc>Preliminary>
@@ -394,41 +424,49 @@
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-10>>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|3<space|2spc>Computational
-      Resource of Training> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|3<space|2spc>Stochastic
+      Optimization> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-11><vspace|0.5fn>
 
-      <with|par-left|<quote|1tab>|3.1<space|2spc>At Each Iteration
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-12>>
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|4<space|2spc>Computational
+      Resource of Training> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-12><vspace|0.5fn>
 
-      <with|par-left|<quote|2tab>|3.1.1<space|2spc>Overview
+      <with|par-left|<quote|1tab>|4.1<space|2spc>At Each Iteration
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-13>>
 
-      <with|par-left|<quote|2tab>|3.1.2<space|2spc>Traditional MAP
+      <with|par-left|<quote|2tab>|4.1.1<space|2spc>Overview
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-14>>
 
-      <with|par-left|<quote|2tab>|3.1.3<space|2spc>Variational Inference with
-      Mean-Field Approximation <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <with|par-left|<quote|2tab>|4.1.2<space|2spc>Traditional MAP
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-15>>
 
-      <with|par-left|<quote|2tab>|3.1.4<space|2spc>Neural Network for
-      Posterior <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <with|par-left|<quote|2tab>|4.1.3<space|2spc>Variational Inference with
+      Mean-Field Approximation <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-16>>
 
-      <with|par-left|<quote|1tab>|3.2<space|2spc>Essential Number of
-      Iterations <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <with|par-left|<quote|2tab>|4.1.4<space|2spc>Neural Network for
+      Posterior <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-17>>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|4<space|2spc>When
-      & How to Use?> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-19><vspace|0.5fn>
+      <with|par-left|<quote|1tab>|4.2<space|2spc>Essential Number of
+      Iterations <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-18>>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|5<space|2spc>Deep
+      <with|par-left|<quote|1tab>|4.3<space|2spc>Batch-Size
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-20>>
+
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|5<space|2spc>When
+      & How to Use?> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-21><vspace|0.5fn>
+
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|6<space|2spc>Deep
       Learning> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-20><vspace|0.5fn>
+      <no-break><pageref|auto-22><vspace|0.5fn>
     </associate>
   </collection>
 </auxiliary>

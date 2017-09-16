@@ -15,6 +15,7 @@ from nn4post import Nn4post
 from tools import Timer
 import tensorflow as tf
 import numpy as np
+import mnist_loader
 
 
 # For testing (and debugging)
@@ -24,15 +25,18 @@ np.random.seed(42)
 
 # --- Model ---
 
+num_input_feature = 28 * 28
 num_hidden_1 = 100
+num_output_feature = 10
+
 
 split_shapes = [
 
     # -- `w`s.
-    num_hidden_1, num_hidden_1,
+    num_input_feature*num_hidden_1, num_hidden_1*num_output_feature,
 
     # -- `b`s.
-    num_hidden_1, 1,
+    num_hidden_1, num_output_feature,
 
 ]
 
@@ -43,10 +47,10 @@ def parse_params(params):
         value=params,
         num_or_size_splits=split_shapes)
 
-    # shape: [1, num_hidden_1]
-    w_1 = tf.reshape(w_1, [1, num_hidden_1])
-    # shape: [num_hidden_1, 1]
-    w_a = tf.reshape(w_a, [num_hidden_1, 1])
+    # shape: [num_input_feature, num_hidden_1]
+    w_1 = tf.reshape(w_1, [num_input_feature, num_hidden_1])
+    # shape: [num_hidden_1, num_output_feature]
+    w_a = tf.reshape(w_a, [num_hidden_1, num_output_feature])
 
     return w_1, w_a, b_1, b_a
 
@@ -64,16 +68,17 @@ def shadow_neural_network(x, params):
 
     # -- Hidden Layer 1
     # shape: [None, num_hidden_1]
-    h_1 = tf.tanh(tf.matmul(x, w_1) + b_1)
+    h_1 = tf.sigmoid(tf.matmul(x, w_1) + b_1)
 
     # -- Output Layer
-    # shape: [None, 1]
-    a = tf.tanh(tf.matmul(h_1, w_a) + b_a)
+    # shape: [None, num_output_feature]
+    a = tf.nn.softmax(tf.matmul(h_1, w_a) + b_a)
 
     return a
 
 
 DIM = int(sum(split_shapes))  # dimension of parameter-space.
+print('DIM: {0}'.format(DIM))
 
 
 def log_prior(theta):
@@ -96,24 +101,29 @@ def log_prior(theta):
 
 # --- Data ---
 
-def target_func(x):
-    return np.sin(x) * 0.5
 
-num_data = 100
+training_data, validation_data, test_data = mnist_loader.load_data_wrapper()
+
+
+# -- Training Data
+x, y = training_data
+x = np.asarray(x, dtype=np.float32)
+x = np.squeeze(x, -1)
+y = np.asarray(y, dtype=np.float32)
+y = np.squeeze(y, -1)
+
+print(x.shape, x.dtype)
+print(y.shape, y.dtype)
+
 noise_scale = 0.1
+y_error = noise_scale * np.ones(y.shape, dtype=np.float32)
+
+# -- Testing Data
+x_test = [_[0].astype(np.float32) for _ in test_data]
+y_test = [_[1] for _ in test_data]
 
 
-x = np.linspace(-7, 7, num_data)
-x = np.expand_dims(x, -1)  # shape: [num_data, 1]
-x.astype(np.float32)
-
-y = target_func(x)
-y += noise_scale * np.random.normal(size=[num_data, 1])
-y.astype(np.float32)
-
-y_error = noise_scale * np.ones(shape=([num_data, 1]))
-y_error.astype(np.float32)
-
+# -- Batch Generator
 
 class BatchGenerator(object):
 
@@ -138,15 +148,17 @@ class BatchGenerator(object):
             return (x, y, y_error)
 
 
-batch_generator = BatchGenerator(x, y, y_error, batch_size=None)
+#batch_generator = BatchGenerator(x, y, y_error, batch_size=None)
+batch_size = 256
+batch_generator = BatchGenerator(x, y, y_error, batch_size)
 
 
 
 # --- Test ---
 
 #NUM_PEAKS = 1  # reduce to mean-field variational inference.
-NUM_PEAKS = 2
-#NUM_PEAKS = 5
+#NUM_PEAKS = 2
+NUM_PEAKS = 5
 #NUM_PEAKS = 10
 
 
@@ -159,39 +171,43 @@ print('Model setup')
 
 
 with Timer():
-    learning_rate = 0.10
-    #optimizer = tf.train.RMSPropOptimizer(learning_rate)
+    #optimizer = tf.train.RMSPropOptimizer
     optimizer = tf.train.AdamOptimizer
     nn4post.compile(optimizer=optimizer)
     print('Model compiled.')
 
 
+learning_rate = 0.01
 print('\n--- Parameters:\n\t--- NUM_PEAKS: {0},  learning_rate: {1}\n'
       .format(NUM_PEAKS, learning_rate))
 
 
 with Timer():
     nn4post.fit(batch_generator=batch_generator,
-            epochs=3000,
-            learning_rate=0.1,
-            batch_ratio=1.0,
-            logdir='../dat/graph/shadow_nn_{0}'.format(NUM_PEAKS),
-            dir_to_ckpt='../dat/checkpoint/shadow_nn_{0}'.format(NUM_PEAKS),
-            skip_steps=50,
+        epochs=1000,
+        #epochs=3,  # test!
+        learning_rate=learning_rate,
+        batch_ratio=1.0,
+        logdir='../dat/graph/on_mnist_{0}_{1}'\
+            .format(NUM_PEAKS, num_hidden_1),
+        dir_to_ckpt='../dat/checkpoint/on_mnist_{0}_{1}'\
+            .format(NUM_PEAKS, num_hidden_1),
+        skip_steps=50,
     )
 
 
-predicted = nn4post.predict(x)
+## Test
+#num_data = x_test.shape[0]
+#predicted = nn4post.predict(x_test)
+#predicted = [np.argmax(predicted[i]) for i in range(num_data)]
+#
+#
+#num_correct = 0
+#for i in range(num_data):
+#    if int(y_test[i]) == predicted[i]:
+#        num_correct += 1
+#print('Acc: {0}'.format(num_correct/num_data))
 
-
-import matplotlib.pyplot as plt
-fig, ax = plt.subplots(1)
-ax.plot(x, target_func(x), ls='-', label='target')
-ax.plot(x, predicted.reshape(-1), ls='--', label='predicted')
-ax.plot(x, y, '.', label='data')
-ax.legend(loc='best', fancybox=True, framealpha=0.5)
-ax.set_title('Shadow Neural Network (hidden: 100)')
-plt.show()
 
 
 nn4post.finalize()
