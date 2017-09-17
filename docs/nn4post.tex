@@ -13,15 +13,30 @@
 
 \begin{document}
 
-\section{Preliminary}
+\section{Notations}
 
-\subsection{Assumptions on Posterior}
+\subsection{Model \& Data}
 
 Let $f ( x; \theta )$ a function of $x$ with parameter $\theta$. Let $y=f ( x;
 \theta )$ an observable, thus the observed value obeys a Gaussian
-distribution. Thus, for a list of observations $D \assign \{ ( x_{i} ,y_{i} ,
-\sigma_{i} ) :i=1, \ldots ,N_{D} \}$ ($\sigma_{i}$ is the observational error
-of $y_{i}$), we can construct a (logrithmic) likelihood, as
+distribution. Let $D$ denote a list of observations, $D \assign \{ ( x_{i}
+,y_{i} , \sigma_{i} ) :i=1, \ldots ,N_{D} \}$, wherein $x_{i}$ is the $i$th
+input, $y_{i}$ its observed value, and $\sigma_{i}$ the observational error of
+$y_{i}$.
+
+\section{Preliminary}
+
+\subsection{Posterior}
+
+By Bayes's formula, the posterior can be computed by a valid set of likelihood
+and prior, as
+\[ \ln  p ( \theta |D ) = \ln  p ( D| \theta ) + \ln  p ( \theta ) - \ln  p (
+   D ) . \]
+
+\subsection{Assumptions on Likelihood}
+
+With some assumption of the dataset, e.g. independency and Gaussianity, we can
+gain a likelihood as
 \begin{eqnarray*}
   \ln  p ( D| \theta ) & = & \ln \left( \prod_{i=1}^{N_{D}} \frac{1}{\sqrt{2 
   \pi   \sigma_{i}^{2}}}   \exp \left\{ - \frac{1}{2}   \left( \frac{y_{i} -f
@@ -30,18 +45,21 @@ of $y_{i}$), we can construct a (logrithmic) likelihood, as
   \sigma_{i}^{2} ) - \frac{1}{2}   \left( \frac{y_{i} -f ( x_{i} ; \theta
   )}{\sigma_{i}} \right)^{2} \right\} .
 \end{eqnarray*}
-If in addition assume a Gaussian prior, for some hyper-parameter $\sigma$,
-\[ p ( \theta ) = \frac{1}{\sqrt{2  \pi   \sigma^{2}}}   \exp \left( -
-   \frac{\theta^{2}}{2  \sigma^{2}} \right) , \]
-then we have posterior $p ( \theta |D )$
-\begin{eqnarray*}
-  \ln  p ( \theta |D ) & = & - \frac{1}{2} \left\{ \sum_{i=1}^{n}   \left(
-  \frac{y_{i} -f ( x_{i} ; \theta )}{\sigma_{i}} \right)^{2} + \left(
-  \frac{\theta}{\sigma} \right)^{2} \right\}\\
-  & - & \frac{1}{2} \left\{ \sum_{i=1}^{n}   \ln   ( 2  \pi   \sigma_{i}^{2}
-  ) + \ln   ( 2  \pi   \sigma^{2} ) \right\} ,
-\end{eqnarray*}
-where the second line is $\theta$-independent.
+
+\subsection{Assumption on Prior}
+
+Assumption on prior shall take lots of cares and considerations. A bad (or
+unreasonable) choice of prior ruins all.
+
+\subsubsection{Priors in Bayesian Neural Network}
+
+As an example, consider Bayesian neural network. Herein, the prior on weights
+and that on biases are intrinsically different. For prior on weights, we
+employ Gaussian, and then averaged; and for that on biases, we take uniform
+instead. This can be illustrated in the section 2.1.1 of Neal (1995) in
+principle, and in
+\href{http://neuralnetworksanddeeplearning.com/chap3.html#regularization}{section
+2.3.1 (``Regularization'') of Nealson (eq. (85) therein)} in practice.
 
 \subsection{Bayesian Inference}
 
@@ -58,19 +76,13 @@ Sample $m$ samples from $p ( \theta |D )$, $\{ \theta_{( s )} :s=1, \ldots ,m
 
 \subsection{The Model}
 
-Suppose we have a model, $f ( x, \theta )$, where $x$ is the input and
-$\theta$ the set of parameters of this model. Let $D$ denotes an arbitrarily
-given dataset, i.e. $D= \{ ( x_{i} ,y_{i} ) :i=1,2, \ldots ,N_{D} \}$ wherein,
-for $\forall i$, $x_{i}$ is the input and $y_{i}$ the target (observed). With
-some assumption of the dataset, e.g. independency and Gaussianity, we can gain
-a likelihood $L ( \theta ;D ) \assign p ( D| \theta )$. Suppose we have some
-prior on $\theta$, $p ( \theta )$, we gain the unormalized posterior $L ( D,
-\theta )  p ( \theta )$. With $D$ arbitrarily given, this unormalized
-posterior is a function of $\theta$, denoted by $p ( \theta ;D
-)$\footnote{This is why we use `` $;$ '' instead of `` $,$ '', indicating that
-$D$ has been (arbitrarily) given and fixed.}.\footnote{The normalized
-posterior $p ( \theta |D ) =p ( D| \theta )  p ( \theta ) /p ( D ) =p ( \theta
-;D ) /p ( D )$, by Bayes's rule.}
+Suppose we have some prior on $\theta$, $p ( \theta )$, we gain the
+unormalized posterior $p ( D| \theta )  p ( \theta )$. With $D$ arbitrarily
+given, this unormalized posterior is a function of $\theta$, denoted by $p (
+\theta ;D )$\footnote{This is why we use `` $;$ '' instead of `` $,$ '',
+indicating that $D$ has been (arbitrarily) given and fixed.}.\footnote{The
+normalized posterior $p ( \theta |D ) =p ( D| \theta )  p ( \theta ) /p ( D )
+=p ( \theta ;D ) /p ( D )$, by Bayes's rule.}
 
 We we are going to do is fit this $p ( \theta ;D )$ by ANN for any given $D$.
 To do so, we have to assume that $\tmop{supp} \{ p ( \theta ;D ) \}

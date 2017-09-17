@@ -161,8 +161,8 @@ class Nn4post(object):
                 optimizer=tf.train.RMSPropOptimizer,
                 init_vars=None,
                 metrics=None,
-                summarize_variables=False
-                project_axis = 0,
+                summarize_variables=False,
+                project_axes=[0],  # XXX
                 ):
         """ Set up the (TensorFlow) computational graph.
 
@@ -192,7 +192,7 @@ class Nn4post(object):
                 XXX
                 This would be costy when running `tensorboard`.
 
-            project_axis: XXX
+            project_axes: XXX
 
         Modifies:
             `self.graph` and `self.*` therein; `self._sess`
@@ -430,21 +430,23 @@ class Nn4post(object):
                             mu_comps = tf.unstack(self.mu)
                             for i, mu_comp in enumerate(mu_comps):
                                 mu_sub_comps = tf.unstack(mu_comp)
-                                tf.summary.scalar(
-                                    'mu_{0}_{1}'.format(i, project_axis),
-                                    mu_sub_comps[project_axis])
+                                for j in project_axes:
+                                    tf.summary.scalar(
+                                        'mu_{0}_{1}'.format(i, j),
+                                        mu_sub_comps[j])
                             # For variable `zeta` (projected)  # test!
                             zeta_comps = tf.unstack(self.zeta)
                             for i, zeta_comp in enumerate(zeta_comps):
                                 zeta_sub_comps = tf.unstack(zeta_comp)
-                                tf.summary.scalar(
-                                    'zeta_{0}_{1}'.format(i, project_axis),
-                                    zeta_sub_comps[project_axis])
+                                for j in project_axes:
+                                    tf.summary.scalar(
+                                        'zeta_{0}_{1}'.format(i, j),
+                                        zeta_sub_comps[j])
 
 
                     with tf.name_scope('metrics'):
-                        if metric is not None:
-                            for metric in metrics:
+                        if metrics is not None:
+                            for metric in self.metrics:
                                 tf.summary.scalar(metric.name, metric)
                                 tf.summary.histogram(metric.name, metric)
 
@@ -490,7 +492,7 @@ class Nn4post(object):
             sess.run(initializer)
 
             # -- Resotre from checkpoint
-            initial_step = 0
+            initial_step = 1
             if dir_to_ckpt is not None:
                 ckpt = tf.train.get_checkpoint_state(dir_to_ckpt)
 
@@ -498,46 +500,53 @@ class Nn4post(object):
                     try:  # test!
                         saver.restore(sess, ckpt.model_checkpoint_path)
                         initial_step = int(ckpt.model_checkpoint_path\
-                                        .rsplit('-', 1)[1]) - 1
+                                        .rsplit('-', 1)[1])
                         print('Restored from checkpoint at global step {0}'\
-                            .format(initial_step+1))
+                            .format(initial_step))
                     except Exception as e:
                         print('ERROR - {0}'.format(e))
                         print('WARNING - Continue without restore.')
 
 
             # -- Iterating optimizer
-            for step in range(initial_step, initial_step+epochs):
+            step = initial_step
 
-                x, y, y_error = next(batch_generator)
-                feed_dict = {
-                    self.x: x,
-                    self.y: y,
-                    self.y_error: y_error,
-                    self.learning_rate: learning_rate,
-                    self.batch_ratio: batch_ratio,
-                    self.n_samples: n_samples,
-                }
+            for epoch in range(epochs):
+                print('Epoch: {0}'.format(epoch))
 
+                batch_list = next(batch_generator)
+                for x, y, y_error in batch_list:
 
-                # Write to `tensorboard`
-                if logdir is None:
-                    _, loss_val = sess.run(
-                            [self.optimize, self.loss],
-                            feed_dict=feed_dict)
+                    step += 1
 
-                else:
-                    _, loss_val, summary_val = sess.run(
-                            [self.optimize, self.loss, self.summary],
-                            feed_dict=feed_dict)
-                    self._writer.add_summary(summary_val, global_step=step)
+                    feed_dict = {
+                        self.x: x,
+                        self.y: y,
+                        self.y_error: y_error,
+                        self.learning_rate: learning_rate,
+                        self.batch_ratio: batch_ratio,
+                        self.n_samples: n_samples,
+                    }
 
 
-                # Save checkpoint
-                if dir_to_ckpt is not None:
-                    path_to_ckpt = os.path.join(dir_to_ckpt, 'checkpoint')
-                    if (step+1) % skip_steps == 0:
-                        saver.save(sess, path_to_ckpt, global_step=step+1)
+                    # Write to `tensorboard`
+                    if logdir is None:
+                        _, loss_val = sess.run(
+                                [self.optimize, self.loss],
+                                feed_dict=feed_dict)
+
+                    else:
+                        _, loss_val, summary_val = sess.run(
+                                [self.optimize, self.loss, self.summary],
+                                feed_dict=feed_dict)
+                        self._writer.add_summary(summary_val, global_step=step)
+
+
+                    # Save checkpoint
+                    if dir_to_ckpt is not None:
+                        path_to_ckpt = os.path.join(dir_to_ckpt, 'checkpoint')
+                        if step % skip_steps == 0:
+                            saver.save(sess, path_to_ckpt, global_step=step)
 
 
             # -- Update the values of varialbes of `cat_gauss_mix_dist`
@@ -800,4 +809,3 @@ def error(y_pred, y_true):
     mistakes = tf.not_equal(tf.argmax(y_pred, 1), tf.argmax(y_true, 1))
     mistakes = tf.cast(mistakes, tf.float32)
     return tf.reduce_mean(mistakes, name='error')
-
