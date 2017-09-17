@@ -26,17 +26,19 @@ $y_{i}$.
 
 \section{Preliminary}
 
-\subsection{Posterior}
+\subsection{The Bayesian Formula}
 
 By Bayes's formula, the posterior can be computed by a valid set of likelihood
 and prior, as
 \[ \ln  p ( \theta |D ) = \ln  p ( D| \theta ) + \ln  p ( \theta ) - \ln  p (
    D ) . \]
 
-\subsection{Assumptions on Likelihood}
+\subsection{The General Form of Likelihood}
 
-With some assumption of the dataset, e.g. independency and Gaussianity, we can
-gain a likelihood as
+It's very practical to propose that the data are all independent and Gaussian.
+Indeed, since observations are generally independently taken, this gives the
+independence; observations with many times of repeatations gives Gaussianity.
+Then, the likelihood becomes
 \begin{eqnarray*}
   \ln  p ( D| \theta ) & = & \ln \left( \prod_{i=1}^{N_{D}} \frac{1}{\sqrt{2 
   \pi   \sigma_{i}^{2}}}   \exp \left\{ - \frac{1}{2}   \left( \frac{y_{i} -f
@@ -71,6 +73,13 @@ Sample $m$ samples from $p ( \theta |D )$, $\{ \theta_{( s )} :s=1, \ldots ,m
   & \approx & \left( \frac{1}{m} \sum_{s=1}^{m} \right) f ( x; \theta_{( s )}
   ) .
 \end{eqnarray*}
+
+\subsection{Bayesian as Information Encoder}
+
+Comparing with the traditional method, what is the advantage of Bayesian way?
+The answer is, it encodes more information of data into model. Indeed, it does
+not encodes the value of peak of the posterior only, as traditional method
+does, but also much more information on the posterior. XXX
 
 \section{Neural Network for Posterior (nn4post)}
 
