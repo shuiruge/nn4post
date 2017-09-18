@@ -13,7 +13,9 @@
   a list of observations, <math|D\<assign\><around*|{|<around*|(|x<rsub|i>,y<rsub|i>,\<sigma\><rsub|i>|)>:i=1,\<ldots\>,N<rsub|D>|}>>,
   wherein <math|x<rsub|i>> is the <math|i>th input, <math|y<rsub|i>> its
   observed value, and <math|\<sigma\><rsub|i>> the observational error of
-  <math|y<rsub|i>>.
+  <math|y<rsub|i>>. We may employ mini-batch technique, thus denote
+  <math|D<rsub|m>\<assign\><around*|{|<around*|(|x<rsub|i>,y<rsub|i>,\<sigma\><rsub|i>|)>:i=1,\<ldots\>,N<rsub|m>|}>\<subset\>D>
+  as a mini-batch, with batch-size <math|N<rsub|m>\<leqslant\>N<rsub|D>>.
 
   <section|Preliminary>
 
@@ -338,6 +340,31 @@
 
   So, even for Bayesian neural network, a layer by layer abstraction along
   depth cannot be absent.
+
+  <section|Problems>
+
+  <subsection|Generalization Problems>
+
+  <subsubsection|From Mini-Batch to the Whole Dataset>
+
+  XXX <math|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>\<rightarrow\><around*|[|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>|]><rsup|N<rsub|D>/N<rsub|m>>>,
+  this will be intactable if <math|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>>
+  involves summation.
+
+  <subsubsection|Model Transfer>
+
+  Since all components of <math|\<theta\>> in
+  <math|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>> are not independent,
+  transfering the model by copying its subgraph (e.g. several based layers)
+  and then attaching directly to other model's graph cannot be taken. XXX
+
+  <subsubsection|A Solution: Mean-Field Approximation>
+
+  I mean, not the Gaussian <math|q<around*|(|\<theta\><rsub|i>,\<lambda\><rsub|i>|)>>
+  where <math|\<lambda\>>s denotes arbitrary parameters, but a general form
+  of it. However, the <math|q<around*|(|\<theta\>;\<lambda\>|)>> can be
+  decomposited as <math|q<around*|(|\<theta\>;\<lambda\>|)>=<big|prod><rsub|i>q<around*|(|\<theta\><rsub|i>;\<lambda\><rsub|i>|)>>.
+  This solves the provious two problems in one go. XXX
 </body>
 
 <\initial>
@@ -369,7 +396,12 @@
     <associate|auto-26|<tuple|5.3|5>>
     <associate|auto-27|<tuple|6|5>>
     <associate|auto-28|<tuple|7|?>>
+    <associate|auto-29|<tuple|8|?>>
     <associate|auto-3|<tuple|2|1>>
+    <associate|auto-30|<tuple|8.1|?>>
+    <associate|auto-31|<tuple|8.1.1|?>>
+    <associate|auto-32|<tuple|8.1.2|?>>
+    <associate|auto-33|<tuple|8.1.3|?>>
     <associate|auto-4|<tuple|2.1|1>>
     <associate|auto-5|<tuple|2.2|1>>
     <associate|auto-6|<tuple|2.3|1>>
@@ -402,7 +434,7 @@
       <with|mode|<quote|math>|a<rsub|2>> so that only one peak is essentially
       left, and it is just around <with|mode|<quote|math>|500> steps of
       iterations that the two losses get together. (For the source code, see
-      <with|mode|<quote|prog>|prog-language|<quote|cpp>|font-family|<quote|rm>|'nn4post/tests/shadow_neural_network.py'>.)|<pageref|auto-24>>
+      <with|mode|<quote|prog>|prog-language|<quote|cpp>|font-family|<quote|rm>|'nn4post/tests/shadow_neural_network.py'>.)|<pageref|auto-25>>
     </associate>
     <\associate|toc>
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|1<space|2spc>Notations>
@@ -417,12 +449,12 @@
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-3><vspace|0.5fn>
 
-      <with|par-left|<quote|1tab>|2.1<space|2spc>Posterior
+      <with|par-left|<quote|1tab>|2.1<space|2spc>The Bayesian Formula
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-4>>
 
-      <with|par-left|<quote|1tab>|2.2<space|2spc>Assumptions on Likelihood
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <with|par-left|<quote|1tab>|2.2<space|2spc>The General Form of
+      Likelihood <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-5>>
 
       <with|par-left|<quote|1tab>|2.3<space|2spc>Assumption on Prior
@@ -437,77 +469,81 @@
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-8>>
 
+      <with|par-left|<quote|1tab>|2.5<space|2spc>Bayesian as Information
+      Encoder <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-9>>
+
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|3<space|2spc>Neural
       Network for Posterior (nn4post)> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-9><vspace|0.5fn>
+      <no-break><pageref|auto-10><vspace|0.5fn>
 
       <with|par-left|<quote|1tab>|3.1<space|2spc>The Model
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-10>>
+      <no-break><pageref|auto-11>>
 
       <with|par-left|<quote|2tab>|3.1.1<space|2spc>Numerical Consideration
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-11>>
+      <no-break><pageref|auto-12>>
 
       <with|par-left|<quote|1tab>|3.2<space|2spc>Interpretation
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-12>>
+      <no-break><pageref|auto-13>>
 
       <with|par-left|<quote|2tab>|3.2.1<space|2spc>As a Mixture Distribution
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-13>>
+      <no-break><pageref|auto-14>>
 
       <with|par-left|<quote|2tab>|3.2.2<space|2spc>As a Generalization
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-14>>
+      <no-break><pageref|auto-15>>
 
       <with|par-left|<quote|1tab>|3.3<space|2spc>Loss-Function
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-15>>
+      <no-break><pageref|auto-16>>
 
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|4<space|2spc>Stochastic
       Optimization> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-16><vspace|0.5fn>
+      <no-break><pageref|auto-17><vspace|0.5fn>
 
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|5<space|2spc>Computational
       Resource of Training> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-17><vspace|0.5fn>
+      <no-break><pageref|auto-18><vspace|0.5fn>
 
       <with|par-left|<quote|1tab>|5.1<space|2spc>At Each Iteration
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-18>>
+      <no-break><pageref|auto-19>>
 
       <with|par-left|<quote|2tab>|5.1.1<space|2spc>Overview
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-19>>
+      <no-break><pageref|auto-20>>
 
       <with|par-left|<quote|2tab>|5.1.2<space|2spc>Traditional MAP
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-20>>
+      <no-break><pageref|auto-21>>
 
       <with|par-left|<quote|2tab>|5.1.3<space|2spc>Variational Inference with
       Mean-Field Approximation <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-21>>
+      <no-break><pageref|auto-22>>
 
       <with|par-left|<quote|2tab>|5.1.4<space|2spc>Neural Network for
       Posterior <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-22>>
+      <no-break><pageref|auto-23>>
 
       <with|par-left|<quote|1tab>|5.2<space|2spc>Essential Number of
       Iterations <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-23>>
+      <no-break><pageref|auto-24>>
 
       <with|par-left|<quote|1tab>|5.3<space|2spc>Batch-Size
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-25>>
+      <no-break><pageref|auto-26>>
 
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|6<space|2spc>When
       & How to Use?> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-26><vspace|0.5fn>
+      <no-break><pageref|auto-27><vspace|0.5fn>
 
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|7<space|2spc>Deep
       Learning> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-27><vspace|0.5fn>
+      <no-break><pageref|auto-28><vspace|0.5fn>
     </associate>
   </collection>
 </auxiliary>

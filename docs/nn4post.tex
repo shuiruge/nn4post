@@ -1,6 +1,6 @@
 \documentclass{article}
 \usepackage[english]{babel}
-\usepackage{amsmath,graphicx,bbm,hyperref}
+\usepackage{amsmath,amssymb,graphicx,bbm,hyperref}
 
 %%%%%%%%%% Start TeXmacs macros
 \catcode`\|=\active \def|{
@@ -22,7 +22,9 @@ Let $f ( x; \theta )$ a function of $x$ with parameter $\theta$. Let $y=f ( x;
 distribution. Let $D$ denote a list of observations, $D \assign \{ ( x_{i}
 ,y_{i} , \sigma_{i} ) :i=1, \ldots ,N_{D} \}$, wherein $x_{i}$ is the $i$th
 input, $y_{i}$ its observed value, and $\sigma_{i}$ the observational error of
-$y_{i}$.
+$y_{i}$. We may employ mini-batch technique, thus denote $D_{m} \assign \{ (
+x_{i} ,y_{i} , \sigma_{i} ) :i=1, \ldots ,N_{m} \} \subset D$ as a mini-batch,
+with batch-size $N_{m} \leqslant N_{D}$.
 
 \section{Preliminary}
 
@@ -300,5 +302,30 @@ intrinsically intactable.
 
 So, even for Bayesian neural network, a layer by layer abstraction along depth
 cannot be absent.
+
+\section{Problems}
+
+\subsection{Generalization Problems}
+
+\subsubsection{From Mini-Batch to the Whole Dataset}
+
+XXX $q ( \theta ;a, \mu , \zeta ) \rightarrow [ q ( \theta ;a, \mu , \zeta )
+]^{N_{D} /N_{m}}$, this will be intactable if $q ( \theta ;a, \mu , \zeta )$
+involves summation.
+
+\subsubsection{Model Transfer}
+
+Since all components of $\theta$ in $q ( \theta ;a, \mu , \zeta )$ are not
+independent, transfering the model by copying its subgraph (e.g. several based
+layers) and then attaching directly to other model's graph cannot be taken.
+XXX
+
+\subsubsection{A Solution: Mean-Field Approximation}
+
+I mean, not the Gaussian $q ( \theta_{i} , \lambda_{i} )$ where $\lambda$s
+denotes arbitrary parameters, but a general form of it. However, the $q (
+\theta ; \lambda )$ can be decomposited as $q ( \theta ; \lambda ) = \prod_{i}
+q ( \theta_{i} ; \lambda_{i} )$. This solves the provious two problems in one
+go. XXX
 
 \end{document}

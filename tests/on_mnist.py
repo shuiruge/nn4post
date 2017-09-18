@@ -168,9 +168,9 @@ batch_generator = get_batch_generator(x, y, y_error, batch_size)
 
 # --- Test ---
 
-N_PEAKS = 1  # reduce to mean-field variational inference.
+#N_PEAKS = 1  # reduce to mean-field variational inference.
 #N_PEAKS = 2
-#N_PEAKS = 5
+N_PEAKS = 5
 #N_PEAKS = 10
 
 
@@ -212,17 +212,18 @@ with Timer():
     )
 
 
-## Test
-#n_data = x_test.shape[0]
-#predicted = nn4post.predict(x_test)
-#predicted = [np.argmax(predicted[i]) for i in range(n_data)]
-#
-#
-#n_correct = 0
-#for i in range(n_data):
-#    if int(y_test[i]) == predicted[i]:
-#        n_correct += 1
-#print('Acc: {0}'.format(n_correct/n_data))
+# Test
+n_data = x_test.shape[0]
+predicted = nn4post.predict(x_test)
+print(predicted.shape, y_test[0].shape)
+predicted = [np.argmax(predicted[i]) for i in range(n_data)]
+
+
+n_correct = 0
+for i in range(n_data):
+    if int(y_test[i]) == predicted[i]:
+        n_correct += 1
+print('Acc: {0}'.format(n_correct/n_data))
 
 
 
