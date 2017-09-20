@@ -141,7 +141,7 @@ the horizon-singularity of Schwarzschild solution of black hole.
 
 \subsubsection{As a Mixture Distribution}
 
-$q ( \theta ;a, \mu , \zeta )$ has a probablitic interpretation.
+$q ( \theta ;a, \mu , \zeta )$ has a probabilistic interpretation.
 $\prod_{j=1}^{d} \Phi ( \theta_{j} - \mu_{i j} , \sigma ( \zeta_{i j} ) )$
 corresponds to multi-dimensional Gaussian distribution (denote $\mathcal{N}$),
 with all dimensions independent with each other. The $\{ w_{i} ( a ) \}$ is a
@@ -153,11 +153,11 @@ distribution}}}.
 
 \subsubsection{As a Generalization}
 
-This model can also be intrepreted as a direct generalization of
+This model can also be interpreted as a direct generalization of
 \href{https://arxiv.org/pdf/1601.00670.pdf}{mean-field variational inference}.
 Indeed, let $N_{c} =1$, this model reduces to mean-field variational
 inference. Remark that mean-field variational inference is a mature algorithm
-and has been sucessfully established on many practical applications.
+and has been successfully established on many practical applications.
 
 \subsection{Loss-Function}
 
@@ -169,7 +169,7 @@ minimal, at which $p ( \theta ;D ) =q ( \theta ;a, \mu , \zeta )$.
   \tmop{ELBO} ( a, \mu , \zeta ) & \assign & \mathbbm{E}_{\theta \sim q (
   \theta ;w,b )} [ \ln  p ( \theta ;D ) - \ln  q ( \theta ;a, \mu , \zeta )
   ]\\
-  & \approx & \left( \frac{1}{n}   \sum_{\theta^{( s )}} \right) \{ \ln  p (
+  & \approx & \left( \frac{1}{n}   \sum_{\theta_{( s )}} \right) \{ \ln  p (
   \theta_{( s )} ;D ) - \ln  q ( \theta_{( s )} ;a, \mu , \zeta ) \} ,
 \end{eqnarray*}
 where $\{ \theta_{( s )} : s=1, \ldots ,n \}$ is sampled from $q ( \theta ;a,
@@ -180,16 +180,43 @@ the fitting.
 
 \section{Stochastic Optimization}
 
-Suppose, instead of use the whole dataset, we employ mini-batch technique. Let
-$D_{m}$ denotes the mini-batch with batch-size $N_{m}$. With this, we have
-approximation
-\[ \ln  p ( \theta ;D ) \approx \frac{N_{D}}{N_{m}}   \ln  p ( \theta ;D_{m} )
-   . \]
-Let $q_{m} ( \theta ;a, \mu , \zeta )$ the function that fits the $p ( \theta
-;D_{m} )$, thus we would expect
-\[ q ( \theta ;a, \mu , \zeta ) \approx [ q_{m} ( \theta ;a, \mu , \zeta )
-   ]^{N_{D} /N_{m}} . \]
-XXX
+\subsection{Difference between Bayesian and Traditional Methods}
+
+Suppose, instead of use the whole dataset, we employ mini-batch technique.
+Since all data are independent, if suppose that $D_{m}$ is unbiased in $D$,
+then we have,
+\[ \ln  p ( D| \theta ) = \sum_{D} p ( ( x_{i} ,y_{i} , \sigma_{i} ) | \theta
+   ) \approx \frac{N_{D}}{N_{m}} \sum_{D_{m}} p ( ( x_{i} ,y_{i} , \sigma_{i}
+   ) | \theta ) = \frac{N_{D}}{N_{m}}   \ln  p ( D_{m} | \theta ) . \]
+Then,
+\[ \ln  p ( \theta ;D ) = \ln  p ( D| \theta ) + \ln  p ( \theta ) =
+   \frac{N_{D}}{N_{m}}   \ln  p ( D_{m} | \theta ) + \ln  p ( \theta ) , \]
+thus as previous
+\[ \ln  p ( \theta ;D ) = \frac{N_{D}}{N_{m}} \sum_{( x_{i} ,y_{i} ,
+   \sigma_{i} ) \in D_{m}} \left\{ - \frac{1}{2} \ln   ( 2  \pi  
+   \sigma_{i}^{2} ) - \frac{1}{2}   \left( \frac{y_{i} -f ( x_{i} ; \theta
+   )}{\sigma_{i}} \right)^{2} \right\} + \ln  p ( \theta ) . \]
+In this we meet one of the main differences between the Bayesian and the
+traditional. In the traditional method, $N_{D}$ does not matters in training,
+being absent in the optimizer. However, in Bayesian, the number of data that
+are employed is encoded into Bayesian model, and has to, since the greater
+number of data gives more confidence. So, while using stochastic optimization
+in Bayesian mode, the factor $N_{D} /N_{m}$ of likelihood has to be taken into
+account. We have to know how many data we actrually have, thus how confident
+we are.
+
+\subsection{When Enlarging Dataset}
+
+When enlarging the dataset, i.e. increasing $N_{D}$, the posterior $p ( \theta
+;D )$, as the target function of variational inference, will be changed, since
+we become more confident. Does it mean that we have to re-train all the
+trained?
+
+Indeed we have to keep training as appending these new data, but start at what
+we have trained. Since we use gradient based optimizer, it may be beneficial
+if tune $N_{D}$ progressively while adding new data progressively, making the
+change smooth. The optimizer will not ``jump and get lost'' (like the case in
+RNN without gradient-clipping).
 
 \section{Computational Resource of Training}
 
@@ -220,7 +247,7 @@ mean-field approximation, and neural network for posterior respectively:
 At each step of iteration of optimizer (e.g.
 \tmcodeinline[cpp]{GradientDescentOptimizer}), the computational resource
 spent on time is of $\Theta ( d )$, i.e. computing the partial derivative
-values of loss-function by model paramters $\{ \theta_{j} :j=1,2, \ldots ,d
+values of loss-function by model parameters $\{ \theta_{j} :j=1,2, \ldots ,d
 \}$.
 
 \subsubsection{Variational Inference with Mean-Field Approximation}
@@ -228,7 +255,7 @@ values of loss-function by model paramters $\{ \theta_{j} :j=1,2, \ldots ,d
 At each step of iteration of optimizer (e.g.
 \tmcodeinline[cpp]{GradientDescentOptimizer}), the computational resource
 spent on time is of $\Theta ( 2 d ) = \Theta ( d )$, i.e. computing the
-partial derivative values of loss-function by each paramter of mean-field
+partial derivative values of loss-function by each parameter of mean-field
 approximation $\{ ( \mu_{j} , \sigma_{j} ) :j=1,2, \ldots ,d \}$.
 
 \subsubsection{Neural Network for Posterior}
@@ -307,12 +334,6 @@ cannot be absent.
 
 \subsection{Generalization Problems}
 
-\subsubsection{From Mini-Batch to the Whole Dataset}
-
-XXX $q ( \theta ;a, \mu , \zeta ) \rightarrow [ q ( \theta ;a, \mu , \zeta )
-]^{N_{D} /N_{m}}$, this will be intactable if $q ( \theta ;a, \mu , \zeta )$
-involves summation.
-
 \subsubsection{Model Transfer}
 
 Since all components of $\theta$ in $q ( \theta ;a, \mu , \zeta )$ are not
@@ -325,7 +346,6 @@ XXX
 I mean, not the Gaussian $q ( \theta_{i} , \lambda_{i} )$ where $\lambda$s
 denotes arbitrary parameters, but a general form of it. However, the $q (
 \theta ; \lambda )$ can be decomposited as $q ( \theta ; \lambda ) = \prod_{i}
-q ( \theta_{i} ; \lambda_{i} )$. This solves the provious two problems in one
-go. XXX
+q ( \theta_{i} ; \lambda_{i} )$. This solves the provious problem. XXX
 
 \end{document}

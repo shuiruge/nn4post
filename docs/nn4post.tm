@@ -152,7 +152,7 @@
 
   <subsubsection|As a Mixture Distribution>
 
-  <math|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>> has a probablitic
+  <math|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>> has a probabilistic
   interpretation. <math|<big|prod><rsub|j=1><rsup|d>\<Phi\><around*|(|\<theta\><rsub|j>-\<mu\><rsub|i
   j>,\<sigma\><around*|(|\<zeta\><rsub|i j>|)>|)>> corresponds to
   multi-dimensional Gaussian distribution (denote
@@ -165,11 +165,11 @@
 
   <subsubsection|As a Generalization>
 
-  This model can also be intrepreted as a direct generalization of
+  This model can also be interpreted as a direct generalization of
   <hlink|mean-field variational inference|https://arxiv.org/pdf/1601.00670.pdf>.
   Indeed, let <math|N<rsub|c>=1>, this model reduces to mean-field
   variational inference. Remark that mean-field variational inference is a
-  mature algorithm and has been sucessfully established on many practical
+  mature algorithm and has been successfully established on many practical
   applications.
 
   <subsection|Loss-Function>
@@ -182,7 +182,7 @@
   <\eqnarray*>
     <tformat|<table|<row|<cell|ELBO<around*|(|a,\<mu\>,\<zeta\>|)>>|<cell|\<assign\>>|<cell|\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>;w,b|)>><around*|[|ln
     p<around*|(|\<theta\>;D|)>-ln q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>|]>>>|<row|<cell|>|<cell|\<approx\>>|<cell|<around*|(|<frac|1|n>
-    <big|sum><rsub|\<theta\><rsup|<around*|(|s|)>>>|)><around*|{|ln
+    <big|sum><rsub|\<theta\><rsub|<around*|(|s|)>>>|)><around*|{|ln
     p<around*|(|\<theta\><rsub|<around*|(|s|)>>;D|)>-ln
     q<around*|(|\<theta\><rsub|<around*|(|s|)>>;a,\<mu\>,\<zeta\>|)>|}>,>>>>
   </eqnarray*>
@@ -196,24 +196,55 @@
 
   <section|Stochastic Optimization>
 
+  <subsection|Difference between Bayesian and Traditional Methods>
+
   Suppose, instead of use the whole dataset, we employ mini-batch technique.
-  Let <math|D<rsub|m>> denotes the mini-batch with batch-size
-  <math|N<rsub|m>>. With this, we have approximation
+  Since all data are independent, if suppose that <math|D<rsub|m>> is
+  unbiased in <math|D>, then we have,
 
   <\equation*>
-    ln p<around*|(|\<theta\>;D|)>\<approx\><frac|N<rsub|D>|N<rsub|m>> ln
-    p<around*|(|\<theta\>;D<rsub|m>|)>.
+    ln p<around*|(|D\|\<theta\>|)>=<big|sum><rsub|D>p<around*|(|<around*|(|x<rsub|i>,y<rsub|i>,\<sigma\><rsub|i>|)>\|\<theta\>|)>\<approx\><frac|N<rsub|D>|N<rsub|m>><big|sum><rsub|D<rsub|m>>p<around*|(|<around*|(|x<rsub|i>,y<rsub|i>,\<sigma\><rsub|i>|)>\|\<theta\>|)>=<frac|N<rsub|D>|N<rsub|m>>
+    ln p<around*|(|D<rsub|m>\|\<theta\>|)>.
   </equation*>
 
-  Let <math|q<rsub|m><around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>> the function
-  that fits the <math|p<around*|(|\<theta\>;D<rsub|m>|)>>, thus we would
-  expect
+  Then,
 
   <\equation*>
-    q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>\<approx\><around*|[|q<rsub|m><around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>|]><rsup|N<rsub|D>/N<rsub|m>>.
+    ln p<around*|(|\<theta\>;D|)>=ln p<around*|(|D\|\<theta\>|)>+ln
+    p<around*|(|\<theta\>|)>=<frac|N<rsub|D>|N<rsub|m>> ln
+    p<around*|(|D<rsub|m>\|\<theta\>|)>+ln p<around*|(|\<theta\>|)>,
   </equation*>
 
-  XXX
+  thus as previous
+
+  <\equation*>
+    ln p<around*|(|\<theta\>;D|)>=<frac|N<rsub|D>|N<rsub|m>><big|sum><rsub|<around*|(|x<rsub|i>,y<rsub|i>,\<sigma\><rsub|i>|)>\<in\>D<rsub|m>><around*|{|-<frac|1|2>ln
+    <around*|(|2 \<pi\> \<sigma\><rsub|i><rsup|2>|)>-<frac|1|2>
+    <around*|(|<frac|y<rsub|i>-f<around*|(|x<rsub|i>;\<theta\>|)>|\<sigma\><rsub|i>>|)><rsup|2>|}>+ln
+    p<around*|(|\<theta\>|)>.
+  </equation*>
+
+  In this we meet one of the main differences between the Bayesian and the
+  traditional. In the traditional method, <math|N<rsub|D>> does not matters
+  in training, being absent in the optimizer. However, in Bayesian, the
+  number of data that are employed is encoded into Bayesian model, and has
+  to, since the greater number of data gives more confidence. So, while using
+  stochastic optimization in Bayesian mode, the factor
+  <math|N<rsub|D>/N<rsub|m>> of likelihood has to be taken into account. We
+  have to know how many data we actrually have, thus how confident we are.
+
+  <subsection|When Enlarging Dataset>
+
+  When enlarging the dataset, i.e. increasing <math|N<rsub|D>>, the posterior
+  <math|p<around*|(|\<theta\>;D|)>>, as the target function of variational
+  inference, will be changed, since we become more confident. Does it mean
+  that we have to re-train all the trained?
+
+  Indeed we have to keep training as appending these new data, but start at
+  what we have trained. Since we use gradient based optimizer, it may be
+  beneficial if tune <math|N<rsub|D>> progressively while adding new data
+  progressively, making the change smooth. The optimizer will not ``jump and
+  get lost'' (like the case in RNN without gradient-clipping).
 
   <section|Computational Resource of Training>
 
@@ -247,7 +278,7 @@
   At each step of iteration of optimizer (e.g.
   <cpp|GradientDescentOptimizer>), the computational resource spent on time
   is of <math|\<Theta\><around*|(|d|)>>, i.e. computing the partial
-  derivative values of loss-function by model paramters
+  derivative values of loss-function by model parameters
   <math|<around*|{|\<theta\><rsub|j>:j=1,2,\<ldots\>,d|}>>.
 
   <subsubsection|Variational Inference with Mean-Field Approximation>
@@ -255,7 +286,7 @@
   At each step of iteration of optimizer (e.g.
   <cpp|GradientDescentOptimizer>), the computational resource spent on time
   is of <math|\<Theta\><around*|(|2 d|)>=\<Theta\><around*|(|d|)>>, i.e.
-  computing the partial derivative values of loss-function by each paramter
+  computing the partial derivative values of loss-function by each parameter
   of mean-field approximation <math|<around*|{|<around*|(|\<mu\><rsub|j>,\<sigma\><rsub|j>|)>:j=1,2,\<ldots\>,d|}>>.
 
   <subsubsection|Neural Network for Posterior>
@@ -345,12 +376,6 @@
 
   <subsection|Generalization Problems>
 
-  <subsubsection|From Mini-Batch to the Whole Dataset>
-
-  XXX <math|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>\<rightarrow\><around*|[|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>|]><rsup|N<rsub|D>/N<rsub|m>>>,
-  this will be intactable if <math|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>>
-  involves summation.
-
   <subsubsection|Model Transfer>
 
   Since all components of <math|\<theta\>> in
@@ -364,7 +389,7 @@
   where <math|\<lambda\>>s denotes arbitrary parameters, but a general form
   of it. However, the <math|q<around*|(|\<theta\>;\<lambda\>|)>> can be
   decomposited as <math|q<around*|(|\<theta\>;\<lambda\>|)>=<big|prod><rsub|i>q<around*|(|\<theta\><rsub|i>;\<lambda\><rsub|i>|)>>.
-  This solves the provious two problems in one go. XXX
+  This solves the provious problem. XXX
 </body>
 
 <\initial>
@@ -384,24 +409,26 @@
     <associate|auto-15|<tuple|3.2.2|3>>
     <associate|auto-16|<tuple|3.3|3>>
     <associate|auto-17|<tuple|4|3>>
-    <associate|auto-18|<tuple|5|3>>
-    <associate|auto-19|<tuple|5.1|3>>
+    <associate|auto-18|<tuple|4.1|3>>
+    <associate|auto-19|<tuple|4.2|3>>
     <associate|auto-2|<tuple|1.1|1>>
-    <associate|auto-20|<tuple|5.1.1|3>>
-    <associate|auto-21|<tuple|5.1.2|4>>
-    <associate|auto-22|<tuple|5.1.3|4>>
-    <associate|auto-23|<tuple|5.1.4|4>>
-    <associate|auto-24|<tuple|5.2|4>>
-    <associate|auto-25|<tuple|1|5>>
-    <associate|auto-26|<tuple|5.3|5>>
-    <associate|auto-27|<tuple|6|5>>
-    <associate|auto-28|<tuple|7|?>>
-    <associate|auto-29|<tuple|8|?>>
+    <associate|auto-20|<tuple|5|3>>
+    <associate|auto-21|<tuple|5.1|4>>
+    <associate|auto-22|<tuple|5.1.1|4>>
+    <associate|auto-23|<tuple|5.1.2|4>>
+    <associate|auto-24|<tuple|5.1.3|4>>
+    <associate|auto-25|<tuple|5.1.4|5>>
+    <associate|auto-26|<tuple|5.2|5>>
+    <associate|auto-27|<tuple|1|5>>
+    <associate|auto-28|<tuple|5.3|?>>
+    <associate|auto-29|<tuple|6|?>>
     <associate|auto-3|<tuple|2|1>>
-    <associate|auto-30|<tuple|8.1|?>>
-    <associate|auto-31|<tuple|8.1.1|?>>
-    <associate|auto-32|<tuple|8.1.2|?>>
-    <associate|auto-33|<tuple|8.1.3|?>>
+    <associate|auto-30|<tuple|7|?>>
+    <associate|auto-31|<tuple|8|?>>
+    <associate|auto-32|<tuple|8.1|?>>
+    <associate|auto-33|<tuple|8.1.1|?>>
+    <associate|auto-34|<tuple|8.1.2|?>>
+    <associate|auto-35|<tuple|8.1.3|?>>
     <associate|auto-4|<tuple|2.1|1>>
     <associate|auto-5|<tuple|2.2|1>>
     <associate|auto-6|<tuple|2.3|1>>
@@ -434,7 +461,7 @@
       <with|mode|<quote|math>|a<rsub|2>> so that only one peak is essentially
       left, and it is just around <with|mode|<quote|math>|500> steps of
       iterations that the two losses get together. (For the source code, see
-      <with|mode|<quote|prog>|prog-language|<quote|cpp>|font-family|<quote|rm>|'nn4post/tests/shadow_neural_network.py'>.)|<pageref|auto-25>>
+      <with|mode|<quote|prog>|prog-language|<quote|cpp>|font-family|<quote|rm>|'nn4post/tests/shadow_neural_network.py'>.)|<pageref|auto-27>>
     </associate>
     <\associate|toc>
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|1<space|2spc>Notations>
@@ -505,45 +532,69 @@
       Optimization> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-17><vspace|0.5fn>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|5<space|2spc>Computational
-      Resource of Training> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-18><vspace|0.5fn>
+      <with|par-left|<quote|1tab>|4.1<space|2spc>Difference between Bayesian
+      and Traditional Methods <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-18>>
 
-      <with|par-left|<quote|1tab>|5.1<space|2spc>At Each Iteration
+      <with|par-left|<quote|1tab>|4.2<space|2spc>When Enlarging Dataset
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-19>>
 
-      <with|par-left|<quote|2tab>|5.1.1<space|2spc>Overview
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-20>>
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|5<space|2spc>Computational
+      Resource of Training> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-20><vspace|0.5fn>
 
-      <with|par-left|<quote|2tab>|5.1.2<space|2spc>Traditional MAP
+      <with|par-left|<quote|1tab>|5.1<space|2spc>At Each Iteration
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-21>>
 
+      <with|par-left|<quote|2tab>|5.1.1<space|2spc>Overview
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-22>>
+
+      <with|par-left|<quote|2tab>|5.1.2<space|2spc>Traditional MAP
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-23>>
+
       <with|par-left|<quote|2tab>|5.1.3<space|2spc>Variational Inference with
       Mean-Field Approximation <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-22>>
+      <no-break><pageref|auto-24>>
 
       <with|par-left|<quote|2tab>|5.1.4<space|2spc>Neural Network for
       Posterior <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-23>>
+      <no-break><pageref|auto-25>>
 
       <with|par-left|<quote|1tab>|5.2<space|2spc>Essential Number of
       Iterations <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-24>>
+      <no-break><pageref|auto-26>>
 
       <with|par-left|<quote|1tab>|5.3<space|2spc>Batch-Size
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-26>>
+      <no-break><pageref|auto-28>>
 
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|6<space|2spc>When
       & How to Use?> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-27><vspace|0.5fn>
+      <no-break><pageref|auto-29><vspace|0.5fn>
 
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|7<space|2spc>Deep
       Learning> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-28><vspace|0.5fn>
+      <no-break><pageref|auto-30><vspace|0.5fn>
+
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|8<space|2spc>Problems>
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-31><vspace|0.5fn>
+
+      <with|par-left|<quote|1tab>|8.1<space|2spc>Generalization Problems
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-32>>
+
+      <with|par-left|<quote|2tab>|8.1.1<space|2spc>Model Transfer
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-33>>
+
+      <with|par-left|<quote|2tab>|8.1.2<space|2spc>A Solution: Mean-Field
+      Approximation <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-34>>
     </associate>
   </collection>
 </auxiliary>

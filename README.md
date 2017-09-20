@@ -19,6 +19,10 @@ TODO
 [X] - Try to visuralize the weights, gradients, etc, to see why it get stuck,
       even though being more representable (with more peaks).
 
-[ ] - Write a parser that transforms the flatten model parameters back to the un-flatten.
+#[ ] - Write a parser that transforms the flatten model parameters back to the un-flatten.
 
-[ ] - Edward?
+[ ] - Edward: write a template of variational inference with rich docstrings.
+
+[ ] - Test shadow neural network on fitting `sin()`.
+
+[ ] - Test shadow nerual network on MNIST dataset, comparing with that by Nealson.
