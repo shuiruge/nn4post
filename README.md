@@ -21,7 +21,9 @@ TODO
 
 #[ ] - Write a parser that transforms the flatten model parameters back to the un-flatten.
 
-[ ] - Edward: write a template of variational inference with rich docstrings.
+[X] - Edward: write a template of variational inference with rich docstrings.
+        
+        See 'nn4post/sample/edward_template.py'.
 
 [ ] - Test shadow neural network on fitting `sin()`.
 
