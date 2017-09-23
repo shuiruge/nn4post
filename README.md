@@ -13,7 +13,7 @@ TODO
   * Try to adjust learning-rate (**not** wihtin optimizer) automatically,
     basing on the suggestions in _Deep Learning_ book, chapter _Methodology_.
 
-[X] - Use `tfdbg` on `nn4post/tests/shadow_neural_network` for the strange
+[X] - Use `tfdbg` on `nn4post/tests/shallow_neural_network` for the strange
       `ERROR` of `DynamicPartition`.
 
 [X] - Try to visuralize the weights, gradients, etc, to see why it get stuck,
@@ -25,6 +25,6 @@ TODO
         
         See 'nn4post/sample/edward_template.py'.
 
-[X] - Test shadow neural network on fitting `sin()`.
+[X] - Test shallow neural network on fitting `sin()`.
 
-[ ] - Test shadow nerual network on MNIST dataset, comparing with that by Nealson.
+[ ] - Test shallow nerual network on MNIST dataset, comparing with that by Nealson.

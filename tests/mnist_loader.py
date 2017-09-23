@@ -45,7 +45,7 @@ def load_data():
     f.close()
     return (training_data, validation_data, test_data)
 
-def load_data_wrapper():
+def load_data_wrapper(one_hot_y=False):
     """Return a tuple containing ``(training_data, validation_data,
     test_data)``. Based on ``load_data``, but the format is more
     convenient for use in our implementation of neural networks.
@@ -53,13 +53,26 @@ def load_data_wrapper():
     XXX
     """
     tr_d, va_d, te_d = load_data()
+
     training_inputs = [np.reshape(x, (784, 1)) for x in tr_d[0]]
     training_results = [vectorized_result(y) for y in tr_d[1]]
     training_data = (training_inputs, training_results)
-    validation_inputs = [np.reshape(x, (784, 1)) for x in va_d[0]]
-    validation_data = (validation_inputs, va_d[1])
-    test_inputs = [np.reshape(x, (784, 1)) for x in te_d[0]]
-    test_data = (test_inputs, te_d[1])
+
+    if one_hot_y:
+        validation_inputs = [np.reshape(x, (784, 1)) for x in va_d[0]]
+        validation_results = [vectorized_result(y) for y in va_d[1]]
+        validation_data = (validation_inputs, validation_results)
+
+        test_inputs = [np.reshape(x, (784, 1)) for x in te_d[0]]
+        test_results = [vectorized_result(y) for y in te_d[1]]
+        test_data = (test_inputs, test_results)
+
+    else:
+        validation_inputs = [np.reshape(x, (784, 1)) for x in va_d[0]]
+        validation_data = (validation_inputs, va_d[1])
+        test_inputs = [np.reshape(x, (784, 1)) for x in te_d[0]]
+        test_data = (test_inputs, te_d[1])
+
     return (training_data, validation_data, test_data)
 
 def vectorized_result(j):

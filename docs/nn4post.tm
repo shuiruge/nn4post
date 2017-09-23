@@ -329,7 +329,7 @@
   <math|a<rsub|1>> and <math|a<rsub|2>> so that only one peak is essentially
   left, and it is just around <math|500> steps of iterations that the two
   losses get together. (For the source code, see
-  <cpp|'nn4post/tests/shadow_neural_network.py'>.)>
+  <cpp|'nn4post/tests/shallow_neural_network.py'>.)>
 
   <subsection|Batch-Size>
 

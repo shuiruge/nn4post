@@ -3,7 +3,7 @@
 """
 Description
 -----------
-Shadow neural network by `Edward ` on MNIST dataset.
+Shallow neural network by `Edward ` on MNIST dataset.
 
 This employs the mini-batch and scaling, c.f. [here](http://edwardlib.org/api/\
 inference-data-subsampling) and [here](http://edwardlib.org/tutorials/batch-\
@@ -157,7 +157,7 @@ with tf.name_scope("model"):
     #    :math:`\mathbb{R}`; herein we use `Normal()` with large `scale`
     #    (e.g. `100`) to approximate it.
     n_inputs = 28 * 28  # number of input features.
-    n_hiddens = 30  # number of perceptrons in the (single) hidden layer.
+    n_hiddens = 100  # number of perceptrons in the (single) hidden layer.
     n_outputs = 10  # number of perceptrons in the output layer.
     w_h = Normal(loc=tf.zeros([n_inputs, n_hiddens]),
                  scale=tf.ones([n_inputs, n_hiddens]),
@@ -248,9 +248,9 @@ with tf.name_scope("posterior"):
 # Set the parameters of training
 logdir = '../dat/logs'
 n_batch = mnist.batch_size
-n_epoch = 1  # test!
-n_samples = 10  # test!
-scale = {y: mnist.n_batches_per_epoch}
+n_epoch = 10
+n_samples = 100
+scale = {y: mnist.n_data / mnist.batch_size}
 y_ph = tf.placeholder(tf.float32, [None, n_outputs])
 inference = ed.KLqp(latent_vars={w_h: qw_h, b_h: qb_h,
                                  w_a: qw_a, b_a: qb_a},
@@ -274,10 +274,52 @@ for _ in range(inference.n_iter):
 # EVALUATE
 # -- That is, check your result.
 x_test, y_test, y_error_test = mnist.test_data
-y_post = ed.copy(y, {w_h: qw_h, b_h: qb_h,
-                     w_a: qw_a, b_a: qb_a})
-categorical_accuracy = ed.evaluate(
-    'sparse_categorical_accuracy',
-    data={x: x_test, y_post: y_test, y_error: y_error_test})
-print('Categorical accuracy on test data: {0}'\
-      .format(categorical_accuracy))
+n_test_data = len(y_test)
+print('{0} test data.'.format(n_test_data))
+
+prediction_post = ed.copy(prediction, {w_h: qw_h, b_h: qb_h,
+                                       w_a: qw_a, b_a: qb_a})
+n_models = 500  # number of Monte Carlo neural network models.
+# shape: [n_models, n_test_data, n_outputs]
+prediction_vals = [prediction_post.eval(feed_dict={x: x_test})
+                   for i in range(n_models)]
+
+acc = 0
+for i, y_true in enumerate(y_test):
+    # shape: [n_samples, n_outputs]
+    softmax_vals = np.array([pred[i] for pred in prediction_vals])
+    # shape: [n_outputs]
+    mean_softmax_val = np.mean(softmax_vals, axis=0)
+    pred_val = np.argmax(mean_softmax_val)
+    if int(pred_val) == int(y_true):
+        acc += 1
+
+print('Accuracy on test data: {0} %'.format(acc / n_test_data * 100))
+
+
+
+''' Conclusion:
+
+1   n_hiddens = 30
+    n_samples = 100
+    n_epochs = 5
+    batch_size = 128
+
+    => Accuracy on test data: 92.76 %
+
+
+2   n_hiddens = 100
+    n_samples = 100
+    n_epochs = 5
+    batch_size = 128
+
+    => Accuracy on test data: 95.68 %
+
+
+3   n_hiddens = 100
+    n_samples = 100
+    n_epochs = 10
+    batch_size = 128
+
+    => Accuracy on test data: 96.88 %
+'''

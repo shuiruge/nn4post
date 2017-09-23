@@ -3,7 +3,7 @@
 """
 Description
 -----------
-Test on a shadow neural network.
+Test on a deeper neural network.
 
 TODO: Needs further test on the lower limit of loss for each `NUM_PEAKS`.
       However, this can be estabilish only  after finishing the `Trainer()`.
@@ -58,7 +58,7 @@ def parse_params(params):
     return w_1, w_2, w_3, w_a, b_1, b_2, b_3, b_a
 
 
-def shadow_neural_network(x, params):
+def deeper_neural_network(x, params):
     """
     Args:
         x: `Tensor` with shape `[None, 1]`
@@ -169,7 +169,7 @@ NUM_PEAKS = 1  # reduce to mean-field variational inference.
 
 pnn = PostNN(num_peaks=NUM_PEAKS,
              dim=DIM,
-             model=shadow_neural_network,
+             model=deeper_neural_network,
              log_prior=log_prior,
              float=tf.float32)
 print('Model setup')

@@ -102,5 +102,6 @@ ENV/
 
 
 *~
-dat/*
+dat/logs/*
 docs/.DS_Store
+.DS_Store

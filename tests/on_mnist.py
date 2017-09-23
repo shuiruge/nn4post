@@ -3,7 +3,7 @@
 """
 Description
 -----------
-Test on a shadow neural network.
+Test on a shallow neural network.
 
 TODO: Needs further test on the lower limit of loss for each `N_PEAKS`.
       However, this can be estabilish only  after finishing the `Trainer()`.
@@ -57,7 +57,7 @@ def parse_params(params):
     return w_1, w_a, b_1, b_a
 
 
-def shadow_neural_network(x, params):
+def shallow_neural_network(x, params):
     """
     Args:
         x: `Tensor` with shape `[None, 1]`
@@ -176,7 +176,7 @@ N_PEAKS = 5
 
 nn4post = Nn4post(n_peaks=N_PEAKS,
              dim=DIM,
-             model=shadow_neural_network,
+             model=shallow_neural_network,
              log_prior=log_prior,
              float_='float32')
 print('Model setup')

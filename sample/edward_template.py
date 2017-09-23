@@ -5,7 +5,7 @@ Description
 -----------
 This is a template of how Edward is played.
 
-A Bayesian shadow neural network by Edward, c.f. [here](https://github.com/blei\
+A Bayesian shallow neural network by Edward, c.f. [here](https://github.com/blei\
 -lab/edward/blob/master/examples/bayesian_nn.py).
 
 Herein we use `sin()`,as the target function that the neural network is to fit.
@@ -107,7 +107,7 @@ with tf.name_scope("model"):
     #    Notice that the priors of the biases shall be uniform on
     #    :math:`\mathbb{R}`; herein we use `Normal()` with large `scale`
     #    (e.g. `100`) to approximate it.
-    n_hiddens = 10  # number of perceptrons in the (single) hidden layer.
+    n_hiddens = 100  # number of perceptrons in the (single) hidden layer.
     w_h = Normal(loc=tf.zeros([1, n_hiddens]),
                  scale=tf.ones([1, n_hiddens]),
                  name="w_h")
@@ -232,9 +232,10 @@ print('Mean absolute error on test data: {0}'\
 #    `org_instance` arg in the computational graph of `Inference` class by
 #    copying the topology of `org_instance`, but with posterior feeded by the
 #    trained via `dict_swap` arg.
-prediction_post = ed.copy(org_instance=prediction,
-                          dict_swap={w_h: qw_h, b_h: qb_h,
-                                     w_a: qw_a, b_a: qb_a})
+prediction_post = ed.copy(
+    org_instance=prediction,
+    dict_swap={w_h: qw_h, b_h: qb_h,
+               w_a: qw_a, b_a: qb_a})
 # -- Now with the feeding, `prediction_post` as a `RandomVariable` instance has
 #    the distribution of the trained posterior.
 predictions = [prediction_post.eval(feed_dict={x: x_test})
@@ -245,7 +246,7 @@ predictions = [prediction_post.eval(feed_dict={x: x_test})
 # PLOT
 # Setup an empty figure
 fig, ax = plt.subplots(1)
-ax.set_title('Shadow Neural Network (hidden: {0})'.format(n_hiddens))
+ax.set_title('Shallow Neural Network (hidden: {0})'.format(n_hiddens))
 
 # Draw target function
 #ax.plot(x_test, y_test, ls='solid', label='target')

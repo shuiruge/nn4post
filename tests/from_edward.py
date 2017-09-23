@@ -45,7 +45,7 @@ def parse_params(params):
 
     return w_1, w_2, w_a, b_1, b_2, b_a
 
-def shadow_neural_network(x, params):
+def shallow_neural_network(x, params):
     """
     Args:
         x: `Tensor` with shape `[None, 1]`
@@ -148,7 +148,7 @@ NUM_PEAKS = 25
 
 pnn = PostNN(num_peaks=NUM_PEAKS,
              dim=DIM,
-             model=shadow_neural_network,
+             model=shallow_neural_network,
              log_prior=log_prior)
 print('Model setup')
 
