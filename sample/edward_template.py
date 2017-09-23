@@ -5,8 +5,8 @@ Description
 -----------
 This is a template of how Edward is played.
 
-A Bayesian shadow neural network by Edward, c.f.
-[here](https://github.com/blei-lab/edward/blob/master/examples/bayesian_nn.py).
+A Bayesian shadow neural network by Edward, c.f. [here](https://github.com/blei\
+-lab/edward/blob/master/examples/bayesian_nn.py).
 
 Herein we use `sin()`,as the target function that the neural network is to fit.
 
@@ -196,9 +196,15 @@ with tf.name_scope("posterior"):
 # Remind `n_data` has been defined in building up the Bayesian.
 x_train, y_train, y_error_train = generate_dataset(n_data=n_data, noise_std=0.1)
 
+# -- Inference by minimizing the K-L divergence (ELBO in fact).
+#    The `ed.KLqp()` inherits the abstract base class `Inference()`.
 inference = ed.KLqp(latent_vars={w_h: qw_h, b_h: qb_h,
                                  w_a: qw_a, b_a: qb_a},
                     data={x: x_train, y: y_train, y_error: y_error_train})
+
+# -- `Inference.run()` will:
+#        1. setup computational graph by `Inference.initialize()`;
+#        2. iteratively run the graph by `Inference.update()`.
 inference.run(logdir='../dat/log', n_iter=1000, n_samples=100)
 
 
@@ -218,18 +224,19 @@ print('Mean absolute error on test data: {0}'\
 
 
 
-# -- You have to use `ed.copy()`, otherwise you will get miccha result.
-#    E.g., the plot shows a large `'mean_absolute_error'`, contrary to what
-#    the `ed.evaluate()` has shown.
-#
-#    Question:
-#        Why is `ed.copy()` essentail? And what is it used for?
-#
-#    Answer:
-#        C.f. [here](http://edwardlib.org/api/ed/copy), especially the "Example".
-#
-prediction_post = ed.copy(prediction, {w_h: qw_h, b_h: qb_h,
-                                       w_a: qw_a, b_a: qb_a})
+# -- In `prediction`, all are still in their priors. To employ the prediction op
+#    with the trained posterior, thus, using the `prediction` leads to mistake.
+#    Instead, we shall first create a new node of prediction op in the
+#    computational graph, with the same topology as `prediction`, but with the
+#    trained posterior. The `ed.copy()` helps. It creates a new node of
+#    `org_instance` arg in the computational graph of `Inference` class by
+#    copying the topology of `org_instance`, but with posterior feeded by the
+#    trained via `dict_swap` arg.
+prediction_post = ed.copy(org_instance=prediction,
+                          dict_swap={w_h: qw_h, b_h: qb_h,
+                                     w_a: qw_a, b_a: qb_a})
+# -- Now with the feeding, `prediction_post` as a `RandomVariable` instance has
+#    the distribution of the trained posterior.
 predictions = [prediction_post.eval(feed_dict={x: x_test})
                for i in range(10)]
 
