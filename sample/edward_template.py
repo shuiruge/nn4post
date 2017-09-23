@@ -3,10 +3,13 @@
 """
 Description
 -----------
+This is a template of how Edward is played.
+
 A Bayesian shadow neural network by Edward, c.f.
 [here](https://github.com/blei-lab/edward/blob/master/examples/bayesian_nn.py).
 
-This is a template of how Edward is played.
+Herein we use `sin()`,as the target function that the neural network is to fit.
+
 
 
 Remark
@@ -25,6 +28,7 @@ import numpy as np
 import tensorflow as tf
 import edward as ed
 from edward.models import Normal
+import matplotlib.pyplot as plt
 
 
 
@@ -63,7 +67,7 @@ def generate_dataset(
     if seed is not None:
         np.random.seed(seed)
 
-    def target_func(x):
+    def target_fn(x):
         """ The target function neural network is to fit. """
         return np.sin(x) * 0.5
 
@@ -73,12 +77,14 @@ def generate_dataset(
     x.astype(dtype)
 
     # Generate `y`
-    y = target_func(x)  # shape: [n_data, 1]
+    y = target_fn(x)  # shape: [n_data, 1]
     y += noise_std * np.random.normal(size=[n_data, 1])
     y.astype(dtype)
 
     # Generate `y_error`
-    y_error = np.random.uniform(0.0, 0.2, size=[n_data, 1])
+    # -- When we measure `y` in practice, we expect that the `y_error`
+    #    characterizes its noise forsooth.
+    y_error = np.ones([n_data, 1]) * noise_std
 
     return (x, y, y_error)
 
@@ -97,6 +103,10 @@ with tf.name_scope("model"):
 
     # -- This sets the priors of model parameters. I.e. the :math:`p(\theta)`
     #    in the documentation.
+    #
+    #    Notice that the priors of the biases shall be uniform on
+    #    :math:`\mathbb{R}`; herein we use `Normal()` with large `scale`
+    #    (e.g. `100`) to approximate it.
     n_hiddens = 10  # number of perceptrons in the (single) hidden layer.
     w_h = Normal(loc=tf.zeros([1, n_hiddens]),
                  scale=tf.ones([1, n_hiddens]),
@@ -105,10 +115,10 @@ with tf.name_scope("model"):
                  scale=tf.ones([n_hiddens, 1]),
                  name="w_a")
     b_h = Normal(loc=tf.zeros([n_hiddens]),
-                 scale=tf.ones([n_hiddens]),
+                 scale=tf.ones([n_hiddens]) * 100,
                  name="b_h")
     b_a = Normal(loc=tf.zeros([1]),
-                 scale=tf.ones([1]),
+                 scale=tf.ones([1]) * 100,
                  name="b_a")
 
 
@@ -134,6 +144,7 @@ with tf.name_scope("model"):
         # shape: `[n_data, 1]`
         activation = tf.matmul(hidden, w_a) + b_a
         return activation
+    prediction = neural_network(x)
 
     # -- This sets the likelihood. I.e. the :math:`p( D \mid \theta )`
     #    in the documentation.
@@ -142,7 +153,7 @@ with tf.name_scope("model"):
     #    throughout the process of Bayesian inference.
     #    (The `0.1` may not be equal to the `noise_std` in the data, which we
     #     do not known. This number of a prior in fact.)
-    y = Normal(loc=neural_network(x),  # recall shape: `[n_data, 1]`.
+    y = Normal(loc=prediction,  # recall shape: `[n_data, 1]`.
                scale=y_error,
                name="y")
 
@@ -188,17 +199,56 @@ x_train, y_train, y_error_train = generate_dataset(n_data=n_data, noise_std=0.1)
 inference = ed.KLqp(latent_vars={w_h: qw_h, b_h: qb_h,
                                  w_a: qw_a, b_a: qb_a},
                     data={x: x_train, y: y_train, y_error: y_error_train})
-inference.run(logdir='../dat/log', n_iter=2000)
+inference.run(logdir='../dat/log', n_iter=1000, n_samples=100)
 
 
 
 # EVALUATE
+# -- That is, check your result.
 x_test, y_test, y_error_test = generate_dataset(n_data=n_data, noise_std=0.0)
 y_post = ed.copy(y, {w_h: qw_h, b_h: qb_h,
                      w_a: qw_a, b_a: qb_a})
-print("Mean squared error on test data:")
-print(ed.evaluate('mean_squared_error',
-                  data={x: x_test, y_post: y_test, y_error: y_error_test}))
-print("Mean absolute error on test data:")
-print(ed.evaluate('mean_absolute_error',
-                  data={x: x_test, y_post: y_test, y_error: y_error_test}))
+mean_abs_err = ed.evaluate(
+    'mean_absolute_error',
+    data={x: x_test, y_post: y_test, y_error: y_error_test})
+print('Mean absolute error on test data: {0}'\
+      .format(mean_abs_err))
+# Question:
+#     It seems that `y_error_test` is essential, or ERROR raises. But why?
+
+
+
+# -- You have to use `ed.copy()`, otherwise you will get miccha result.
+#    E.g., the plot shows a large `'mean_absolute_error'`, contrary to what
+#    the `ed.evaluate()` has shown.
+#
+#    Question:
+#        Why is `ed.copy()` essentail? And what is it used for?
+#
+#    Answer:
+#        C.f. [here](http://edwardlib.org/api/ed/copy), especially the "Example".
+#
+prediction_post = ed.copy(prediction, {w_h: qw_h, b_h: qb_h,
+                                       w_a: qw_a, b_a: qb_a})
+predictions = [prediction_post.eval(feed_dict={x: x_test})
+               for i in range(10)]
+
+
+
+# PLOT
+# Setup an empty figure
+fig, ax = plt.subplots(1)
+ax.set_title('Shadow Neural Network (hidden: {0})'.format(n_hiddens))
+
+# Draw target function
+#ax.plot(x_test, y_test, ls='solid', label='target')
+
+# Draw data points
+ax.plot(x_train, y_train, '.', label='data')
+
+# Draw what the trained Bayesian neural network inferences
+for pred in predictions:
+    ax.plot(x_test, pred.reshape(-1), ls='-')
+
+ax.legend(loc='best', fancybox=True, framealpha=0.5)
+plt.show()

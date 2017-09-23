@@ -11,7 +11,7 @@ TODO: Needs further test on the lower limit of loss for each `N_PEAKS`.
 
 import sys
 sys.path.append('../sample/')
-from nn4post_test import Nn4post, error
+from nn4post_tf import Nn4post, error
 from tools import Timer
 import tensorflow as tf
 import numpy as np

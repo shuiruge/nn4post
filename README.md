@@ -25,6 +25,6 @@ TODO
         
         See 'nn4post/sample/edward_template.py'.
 
-[ ] - Test shadow neural network on fitting `sin()`.
+[X] - Test shadow neural network on fitting `sin()`.
 
 [ ] - Test shadow nerual network on MNIST dataset, comparing with that by Nealson.
