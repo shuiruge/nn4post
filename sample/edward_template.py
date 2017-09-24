@@ -11,6 +11,13 @@ A Bayesian shallow neural network by Edward, c.f. [here](https://github.com/blei
 Herein we use `sin()`,as the target function that the neural network is to fit.
 
 
+Versions
+--------
+- Python: 3.6
+- TensorFlow: 1.3.0
+- Edward: 1.3.3
+
+
 
 Remark
 ------
@@ -163,32 +170,48 @@ with tf.name_scope("model"):
 with tf.name_scope("posterior"):
 
 
-    # -- This sets the :math:`q( \theta \mid \mu )`, where :math:`\mu` is as
-    #    the :math:`(a, \mu, \zeta)` in the documentation.
+    # -- This sets the :math:`q( \theta \mid \nu )`, where :math:`\nu` is as
+    #    the :math:`(a, \mu, \zeta)` in the documentation. The `loc`s and
+    #    `scale`s are variables that is to be tuned in every iteration of
+    #    optimization (by `Inference.update()`).
+    #
+    #    CAUTION:
+    #        using `ed.models.MultivariateNormalDiag` (the same as the
+    #        `tf.contrib.distributions.MultivariateNormalDiag`) makes the
+    #        inference extremely slow, comparing with using `ed.models.Normal`.
+    #        The reason is unclear.
     with tf.name_scope("qw_h"):
-        qw_h = Normal(loc=tf.Variable(tf.random_normal([1, n_hiddens]),
-                                      name="loc"),
-                      scale=tf.nn.softplus(
-                          tf.Variable(tf.random_normal([1, n_hiddens]),
-                                      name="scale")))
+        loc_qw_h = tf.Variable(
+            tf.random_normal([1, n_hiddens]),
+            name='loc')
+        scale_qw_h = tf.nn.softplus(
+            tf.Variable(tf.random_normal([1, n_hiddens]),
+                        name='scale'))
+        qw_h = Normal(loc=loc_qw_h, scale=scale_qw_h)
     with tf.name_scope("qw_a"):
-        qw_a = Normal(loc=tf.Variable(tf.random_normal([n_hiddens, 1]),
-                                      name="loc"),
-                      scale=tf.nn.softplus(
-                          tf.Variable(tf.random_normal([n_hiddens, 1]),
-                                      name="scale")))
+        loc_qw_a = tf.Variable(
+            tf.random_normal([n_hiddens, 1]),
+            name='loc')
+        scale_qw_a = tf.nn.softplus(
+            tf.Variable(tf.random_normal([n_hiddens, 1]),
+                        name="scale"))
+        qw_a = Normal(loc=loc_qw_a, scale=scale_qw_a)
     with tf.name_scope("qb_h"):
-        qb_h = Normal(loc=tf.Variable(tf.random_normal([n_hiddens]),
-                                      name="loc"),
-                      scale=tf.nn.softplus(
-                          tf.Variable(tf.random_normal([n_hiddens]),
-                                      name="scale")))
+        loc_qb_h = tf.Variable(
+            tf.random_normal([n_hiddens]),
+            name="loc")
+        scale_qb_h = tf.nn.softplus(
+            tf.Variable(tf.random_normal([n_hiddens]),
+                        name="scale"))
+        qb_h = Normal(loc=loc_qb_h, scale=scale_qb_h)
     with tf.name_scope("qb_a"):
-        qb_a = Normal(loc=tf.Variable(tf.random_normal([1]),
-                                      name="loc"),
-                      scale=tf.nn.softplus(
-                          tf.Variable(tf.random_normal([1]),
-                                      name="scale")))
+        loc_qb_a = tf.Variable(
+            tf.random_normal([1]),
+            name="loc")
+        scale_qb_a = tf.nn.softplus(
+            tf.Variable(tf.random_normal([1]),
+                        name="scale"))
+        qb_a = Normal(loc=loc_qb_a, scale=scale_qb_a)
 
 
 
@@ -205,7 +228,7 @@ inference = ed.KLqp(latent_vars={w_h: qw_h, b_h: qb_h,
 # -- `Inference.run()` will:
 #        1. setup computational graph by `Inference.initialize()`;
 #        2. iteratively run the graph by `Inference.update()`.
-inference.run(logdir='../dat/log', n_iter=1000, n_samples=100)
+inference.run(logdir='../dat/logs', n_iter=1000, n_samples=100)
 
 
 

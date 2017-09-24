@@ -90,7 +90,6 @@ class MNIST(object):
         self.training_data = (x_tr, y_tr, y_err_tr)
 
         self.n_data = len(x_tr)
-        self.n_batches_per_epoch = int(self.n_data / self.batch_size)
 
         # Preprocess test data
         x_te, y_te = test_data
@@ -215,48 +214,66 @@ with tf.name_scope("model"):
 with tf.name_scope("posterior"):
 
 
-    # -- This sets the :math:`q( \theta \mid \mu )`, where :math:`\mu` is as
-    #    the :math:`(a, \mu, \zeta)` in the documentation.
+    # -- This sets the :math:`q( \theta \mid \nu )`, where :math:`\nu` is as
+    #    the :math:`(a, \mu, \zeta)` in the documentation. The `loc`s and
+    #    `scale`s are variables that is to be tuned in every iteration of
+    #    optimization (by `Inference.update()`).
+    #
+    #    CAUTION:
+    #        using `ed.models.MultivariateNormalDiag` (the same as the
+    #        `tf.contrib.distributions.MultivariateNormalDiag`) makes the
+    #        inference extremely slow, comparing with using `ed.models.Normal`.
+    #        The reason is unclear.
     with tf.name_scope("qw_h"):
-        qw_h = Normal(loc=tf.Variable(tf.random_normal([n_inputs, n_hiddens]),
-                                      name="loc"),
-                      scale=tf.nn.softplus(
-                          tf.Variable(tf.random_normal([n_inputs, n_hiddens]),
-                                      name="scale")))
+        loc_qw_h = tf.Variable(
+            tf.random_normal([n_inputs, n_hiddens]),
+            name='loc')
+        scale_qw_h = tf.nn.softplus(
+            tf.Variable(tf.random_normal([n_inputs, n_hiddens]),
+                        name='scale'))
+        qw_h = Normal(loc=loc_qw_h, scale=scale_qw_h)
     with tf.name_scope("qw_a"):
-        qw_a = Normal(loc=tf.Variable(tf.random_normal([n_hiddens, n_outputs]),
-                                      name="loc"),
-                      scale=tf.nn.softplus(
-                          tf.Variable(tf.random_normal([n_hiddens, n_outputs]),
-                                      name="scale")))
+        loc_qw_a = tf.Variable(
+            tf.random_normal([n_hiddens, n_outputs]),
+            name='loc')
+        scale_qw_a = tf.nn.softplus(
+            tf.Variable(tf.random_normal([n_hiddens, n_outputs]),
+                        name="scale"))
+        qw_a = Normal(loc=loc_qw_a, scale=scale_qw_a)
     with tf.name_scope("qb_h"):
-        qb_h = Normal(loc=tf.Variable(tf.random_normal([n_hiddens]),
-                                      name="loc"),
-                      scale=tf.nn.softplus(
-                          tf.Variable(tf.random_normal([n_hiddens]),
-                                      name="scale")))
+        loc_qb_h = tf.Variable(
+            tf.random_normal([n_hiddens]),
+            name="loc")
+        scale_qb_h = tf.nn.softplus(
+            tf.Variable(tf.random_normal([n_hiddens]),
+                        name="scale"))
+        qb_h = Normal(loc=loc_qb_h, scale=scale_qb_h)
     with tf.name_scope("qb_a"):
-        qb_a = Normal(loc=tf.Variable(tf.random_normal([n_outputs]),
-                                      name="loc"),
-                      scale=tf.nn.softplus(
-                          tf.Variable(tf.random_normal([n_outputs]),
-                                      name="scale")))
+        loc_qb_a = tf.Variable(
+            tf.random_normal([n_outputs]),
+            name="loc")
+        scale_qb_a = tf.nn.softplus(
+            tf.Variable(tf.random_normal([n_outputs]),
+                        name="scale"))
+        qb_a = Normal(loc=loc_qb_a, scale=scale_qb_a)
+
 
 
 
 # PLAY
 # Set the parameters of training
 logdir = '../dat/logs'
-n_batch = mnist.batch_size
-n_epoch = 10
+n_batchs = mnist.batch_size
+n_epochs = 30
 n_samples = 100
 scale = {y: mnist.n_data / mnist.batch_size}
-y_ph = tf.placeholder(tf.float32, [None, n_outputs])
+y_ph = tf.placeholder(tf.float32, [None, n_outputs],
+                      name='y')
 inference = ed.KLqp(latent_vars={w_h: qw_h, b_h: qb_h,
                                  w_a: qw_a, b_a: qb_a},
                     data={y: y_ph})
 inference.initialize(
-    n_iter=n_batch * n_epoch,
+    n_iter=n_batchs * n_epochs,
     n_samples=n_samples,
     scale=scale,
     logdir=logdir)
@@ -322,4 +339,12 @@ print('Accuracy on test data: {0} %'.format(acc / n_test_data * 100))
     batch_size = 128
 
     => Accuracy on test data: 96.88 %
+
+
+4   n_hiddens = 100
+    n_samples = 100
+    n_epochs = 30
+    batch_size = 128
+
+    => Accuracy on test data: 97.16 %
 '''
