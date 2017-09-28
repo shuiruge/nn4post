@@ -20,7 +20,7 @@ Conclusion
 ----------
 Implausibly costy on both CPU and RAM, even for the case:
 
-        n_cat = 2
+        n_cats = 2
         n_hiddens = 10
         n_samples = 10
 
@@ -38,6 +38,7 @@ method.
 
 import numpy as np
 import tensorflow as tf
+from tensorflow.python.client import timeline  # for debugging.
 import edward as ed
 from edward.models import Normal, Categorical, Mixture
 import matplotlib.pyplot as plt
@@ -251,7 +252,7 @@ with tf.name_scope("posterior"):
     #    The trick here is that `Categorical` supports broadcasting. I.e., the
     #    `[:-1]` dimensions of the argument of `Categorical()` are for the
     #    broadcasting, and the last dimension for categorical classes.
-    n_cats = 2
+    n_cats = 1
     var = {'cat': {},  # type: `Tensor`.
            'locs': {},  # type: list of `Tensor`s.
            'scales': {},  # type: list of `Tensor`s.
@@ -339,7 +340,7 @@ with tf.name_scope("posterior"):
 # Set the parameters of training
 logdir = '../dat/logs'
 n_batchs = mnist.batch_size
-n_epochs = 3
+n_epochs = 1
 n_samples = 10
 scale = {y: mnist.n_data / mnist.batch_size}
 y_ph = tf.placeholder(tf.float32, [None, n_outputs],
@@ -354,15 +355,37 @@ inference.initialize(
     logdir=logdir)
 tf.global_variables_initializer().run()
 
+
+sess = ed.get_session()
+
+# For tracing profile
+run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+run_metadata = tf.RunMetadata()
+
+
 for _ in range(inference.n_iter):
+
     batch_generator = mnist.batch_generator()
     x_batch, y_batch, y_error_batch = next(batch_generator)
-    info_dict = inference.update({x: x_batch,
-                                  y_ph: y_batch,
-                                  y_error: y_error_batch})
+    feed_dict = {x: x_batch,
+                 y_ph: y_batch,
+                 y_error: y_error_batch}
+    _, t, loss, summary = sess.run(
+        [ inference.train, inference.increment_t,
+          inference.loss, inference.summarize ],
+        feed_dict,
+        options=run_options,
+        run_metadata=run_metadata)
+
+    info_dict = {'t': t, 'loss': loss}
     inference.print_progress(info_dict)
 
+    if t % 10 == 0:
+        inference.train_writer.add_run_metadata(
+            run_metadata, 'step{0}'.format(t))
 
+
+'''
 # EVALUATE
 # -- That is, check your result.
 x_test, y_test, y_error_test = mnist.test_data
@@ -387,3 +410,4 @@ for i, y_true in enumerate(y_test):
         acc += 1
 
 print('Accuracy on test data: {0} %'.format(acc / n_test_data * 100))
+'''

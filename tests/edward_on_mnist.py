@@ -156,7 +156,7 @@ with tf.name_scope("model"):
     #    :math:`\mathbb{R}`; herein we use `Normal()` with large `scale`
     #    (e.g. `100`) to approximate it.
     n_inputs = 28 * 28  # number of input features.
-    n_hiddens = 100  # number of perceptrons in the (single) hidden layer.
+    n_hiddens = 10  # number of perceptrons in the (single) hidden layer.
     n_outputs = 10  # number of perceptrons in the output layer.
     w_h = Normal(loc=tf.zeros([n_inputs, n_hiddens]),
                  scale=tf.ones([n_inputs, n_hiddens]),
@@ -264,8 +264,8 @@ with tf.name_scope("posterior"):
 # Set the parameters of training
 logdir = '../dat/logs'
 n_batchs = mnist.batch_size
-n_epochs = 30
-n_samples = 100
+n_epochs = 3
+n_samples = 10
 scale = {y: mnist.n_data / mnist.batch_size}
 y_ph = tf.placeholder(tf.float32, [None, n_outputs],
                       name='y')
@@ -288,6 +288,7 @@ for _ in range(inference.n_iter):
     inference.print_progress(info_dict)
 
 
+'''
 # EVALUATE
 # -- That is, check your result.
 x_test, y_test, y_error_test = mnist.test_data
@@ -312,6 +313,7 @@ for i, y_true in enumerate(y_test):
         acc += 1
 
 print('Accuracy on test data: {0} %'.format(acc / n_test_data * 100))
+'''
 
 
 
