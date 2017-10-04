@@ -20,12 +20,14 @@ instead ceases this problem.
 import numpy as np
 import tensorflow as tf
 import edward as ed
-from edward.models import Normal
+from edward.models import Normal, NormalWithSoftplusScale
 import matplotlib.pyplot as plt
 import sys
 sys.path.append('../sample/')
 from sklearn.utils import shuffle
-import mnist_loader
+from tools import get_accuracy
+import mnist
+import time
 
 
 
@@ -33,115 +35,10 @@ ed.set_seed(42)  # for debugging.
 
 
 
-class MNIST(object):
-    """ Utils of loading, processing, and batch-emitting of MNIST dataset.
-
-    The MNIST are (28, 28)-pixal images.
-
-    Args:
-        noise_std:
-            `float`, as the standard derivative of Gaussian noise that is to
-            add to output `y`.
-        batch_size:
-            `int`, as the size of mini-batch of training data. We employ no
-            mini-batch for test data.
-        dtype:
-            Numpy `Dtype` object of `float`, optional. As the dtype of output
-            data. Default is `np.float32`.
-        seed:
-            `int` or `None`, optional. If `int`, then set the random-seed of
-            the noise in the output data. If `None`, do nothing. This arg is
-            for debugging. Default is `None`.
-
-    Attributes:
-        x_train:
-            Numpy array with shape `(10000, 784, 1)` and dtype `dtype`.
-        y_train:
-            Numpy array with shape `(10000, 10, 1)` and dtype `dtype`.
-        x_test:
-            Numpy array with shape `(10000, 784, 1)` and dtype `dtype`.
-        y_test:
-            Numpy array with shape `(10000,)` and dtype `dtype`.
-        XXX
-
-
-    Methods:
-        XXX
-    """
-
-    def __init__(self, noise_std, batch_size,
-                 dtype=np.float32, seed=None,
-                 verbose=True):
-
-        self._dtype = dtype
-        self.batch_size = batch_size
-
-        if seed is not None:
-            np.random.seed(seed)
-
-        training_data, validation_data, test_data = \
-            mnist_loader.load_data_wrapper()
-
-        # Preprocess training data
-        x_tr, y_tr = training_data
-        x_tr = self._preprocess(x_tr)
-        y_tr = self._preprocess(y_tr)
-        y_err_tr = noise_std * np.ones(y_tr.shape, dtype=self._dtype)
-        self.training_data = (x_tr, y_tr, y_err_tr)
-
-        self.n_data = len(x_tr)
-
-        # Preprocess test data
-        x_te, y_te = test_data
-        x_te = self._preprocess(x_te)
-        y_te = self._preprocess(y_te)
-        y_err_te = 0.0 * np.ones(y_te.shape, dtype=dtype)
-        self.test_data = (x_te, y_te, y_err_te)
-
-
-    def _preprocess(self, data):
-        """ Preprocessing MNIST data, including converting to numpy array,
-            re-arrange the shape and dtype.
-
-        Args:
-            data:
-                Any element of the tuple as the output of calling
-                `mnist_loader.load_data_wrapper()`.
-
-        Returns:
-            The preprocessed, as numpy array. (This copies the input `data`,
-            so that the input `data` will not be altered.)
-        """
-        data = np.asarray(data, dtype=self._dtype)
-        data = np.squeeze(data)
-        return data
-
-
-    def batch_generator(self):
-        """ A generator that emits mini-batch of training data, by acting
-            `next()`.
-
-        Returns:
-            Tuple of three numpy arraies `(x, y, y_error)`, for the inputs of the
-            model, the observed outputs of the model , and the standard derivatives
-            of the observation, respectively. They are used for training only.
-        """
-        x, y, y_err = self.training_data
-        batch_size = self.batch_size
-        n_data = self.n_data
-
-        while True:
-            x, y, y_err = shuffle(x, y, y_err)  # XXX: copy ???
-
-            for k in range(0, n_data, batch_size):
-                mini_batch = (x[k:k+batch_size],
-                                y[k:k+batch_size],
-                                y_err[k:k+batch_size])
-                yield mini_batch
-
-
-
-mnist = MNIST(noise_std=0.1, batch_size=128)
+# DATA
+noise_std = 0.1
+batch_size = 16  # test!
+mnist_ = mnist.MNIST(noise_std, batch_size)
 
 
 
@@ -156,7 +53,7 @@ with tf.name_scope("model"):
     #    :math:`\mathbb{R}`; herein we use `Normal()` with large `scale`
     #    (e.g. `100`) to approximate it.
     n_inputs = 28 * 28  # number of input features.
-    n_hiddens = 10  # number of perceptrons in the (single) hidden layer.
+    n_hiddens = 100  # number of perceptrons in the (single) hidden layer.
     n_outputs = 10  # number of perceptrons in the output layer.
     w_h = Normal(loc=tf.zeros([n_inputs, n_hiddens]),
                  scale=tf.ones([n_inputs, n_hiddens]),
@@ -228,92 +125,138 @@ with tf.name_scope("posterior"):
         loc_qw_h = tf.Variable(
             tf.random_normal([n_inputs, n_hiddens]),
             name='loc')
-        scale_qw_h = tf.nn.softplus(
-            tf.Variable(tf.random_normal([n_inputs, n_hiddens]),
-                        name='scale'))
-        qw_h = Normal(loc=loc_qw_h, scale=scale_qw_h)
+        scale_qw_h = tf.Variable(
+            tf.random_normal([n_inputs, n_hiddens]),
+            name='scale')
+        qw_h = NormalWithSoftplusScale(loc=loc_qw_h, scale=scale_qw_h)
     with tf.name_scope("qw_a"):
         loc_qw_a = tf.Variable(
             tf.random_normal([n_hiddens, n_outputs]),
             name='loc')
-        scale_qw_a = tf.nn.softplus(
-            tf.Variable(tf.random_normal([n_hiddens, n_outputs]),
-                        name="scale"))
-        qw_a = Normal(loc=loc_qw_a, scale=scale_qw_a)
+        scale_qw_a = tf.Variable(
+            tf.random_normal([n_hiddens, n_outputs]),
+            name="scale")
+        qw_a = NormalWithSoftplusScale(loc=loc_qw_a, scale=scale_qw_a)
     with tf.name_scope("qb_h"):
         loc_qb_h = tf.Variable(
             tf.random_normal([n_hiddens]),
             name="loc")
-        scale_qb_h = tf.nn.softplus(
-            tf.Variable(tf.random_normal([n_hiddens]),
-                        name="scale"))
-        qb_h = Normal(loc=loc_qb_h, scale=scale_qb_h)
+        scale_qb_h = tf.Variable(
+            tf.random_normal([n_hiddens]),
+            name="scale")
+        qb_h = NormalWithSoftplusScale(loc=loc_qb_h, scale=scale_qb_h)
     with tf.name_scope("qb_a"):
         loc_qb_a = tf.Variable(
             tf.random_normal([n_outputs]),
             name="loc")
-        scale_qb_a = tf.nn.softplus(
-            tf.Variable(tf.random_normal([n_outputs]),
-                        name="scale"))
-        qb_a = Normal(loc=loc_qb_a, scale=scale_qb_a)
+        scale_qb_a = tf.Variable(
+            tf.random_normal([n_outputs]),
+            name="scale")
+        qb_a = NormalWithSoftplusScale(loc=loc_qb_a, scale=scale_qb_a)
 
 
 
 
 # PLAY
 # Set the parameters of training
+n_epochs = 30
+n_iter = mnist_.n_batches_per_epoch * n_epochs
+n_samples = 100
+scale = {y: mnist_.n_data / mnist_.batch_size}
 logdir = '../dat/logs'
-n_batchs = mnist.batch_size
-n_epochs = 3
-n_samples = 10
-scale = {y: mnist.n_data / mnist.batch_size}
+
 y_ph = tf.placeholder(tf.float32, [None, n_outputs],
                       name='y')
 inference = ed.KLqp(latent_vars={w_h: qw_h, b_h: qb_h,
                                  w_a: qw_a, b_a: qb_a},
                     data={y: y_ph})
 inference.initialize(
-    n_iter=n_batchs * n_epochs,
+    n_iter=n_iter,
     n_samples=n_samples,
     scale=scale,
     logdir=logdir)
 tf.global_variables_initializer().run()
 
-for _ in range(inference.n_iter):
-    batch_generator = mnist.batch_generator()
+
+sess = ed.get_session()
+
+
+# Add node of posterior to graph
+prediction_post = ed.copy(prediction,
+                          { w_h: qw_h, b_h: qb_h,
+                            w_a: qw_a, b_a: qb_a })
+
+time_start = time.time()
+for i in range(inference.n_iter):
+
+    batch_generator = mnist_.batch_generator()
     x_batch, y_batch, y_error_batch = next(batch_generator)
-    info_dict = inference.update({x: x_batch,
-                                  y_ph: y_batch,
-                                  y_error: y_error_batch})
-    inference.print_progress(info_dict)
+    feed_dict = {x: x_batch,
+                    y_ph: y_batch,
+                    y_error: y_error_batch}
 
 
-'''
+    _, t, loss = sess.run(
+        [ inference.train, inference.increment_t,
+            inference.loss ],
+        feed_dict)
+
+    # Validation for each epoch
+    if i % mnist_.n_batches_per_epoch == 0:
+
+        print('\nFinished the {0}-th epoch'\
+                .format(i/mnist_.n_batches_per_epoch))
+        print('Elapsed time {0} sec.'.format(time.time()-time_start))
+
+        # Get validation data
+        x_valid, y_valid, y_error_valid = mnist_.validation_data
+        x_valid, y_valid, y_error_valid = \
+            shuffle(x_valid, y_valid, y_error_valid)
+        x_valid, y_valid, y_error_valid = \
+            x_valid[:128], y_valid[:128], y_error_valid[:128]
+
+        # Get accuracy
+        n_models = 100  # number of Monte Carlo neural network models.
+        # shape: [n_models, n_test_data, n_outputs]
+        softmax_vals = [prediction_post.eval(feed_dict={x: x_valid})
+                        for i in range(n_models)]
+        # shape: [n_test_data, n_outputs]
+        mean_softmax_vals = np.mean(softmax_vals, axis=0)
+        # shape: [n_test_data]
+        y_pred = np.argmax(mean_softmax_vals, axis=-1)
+        accuracy = get_accuracy(y_pred, y_valid)
+
+        print('Accuracy on validation data: {0} %'\
+                .format(accuracy/mnist_.batch_size*100))
+        time_start = time.time()  # re-initialize.
+
+
 # EVALUATE
-# -- That is, check your result.
-x_test, y_test, y_error_test = mnist.test_data
+x_test, y_test, y_error_test = mnist_.test_data
 n_test_data = len(y_test)
 print('{0} test data.'.format(n_test_data))
 
-prediction_post = ed.copy(prediction, {w_h: qw_h, b_h: qb_h,
-                                       w_a: qw_a, b_a: qb_a})
 n_models = 500  # number of Monte Carlo neural network models.
 # shape: [n_models, n_test_data, n_outputs]
 prediction_vals = [prediction_post.eval(feed_dict={x: x_test})
-                   for i in range(n_models)]
+                    for i in range(n_models)]
 
-acc = 0
-for i, y_true in enumerate(y_test):
-    # shape: [n_samples, n_outputs]
-    softmax_vals = np.array([pred[i] for pred in prediction_vals])
-    # shape: [n_outputs]
-    mean_softmax_val = np.mean(softmax_vals, axis=0)
-    pred_val = np.argmax(mean_softmax_val)
-    if int(pred_val) == int(y_true):
-        acc += 1
+# Get accuracy
+n_models = 100  # number of Monte Carlo neural network models.
+# shape: [n_models, n_test_data, n_outputs]
+softmax_vals = [prediction_post.eval(feed_dict={x: x_test})
+                for i in range(n_models)]
+# shape: [n_test_data, n_outputs]
+mean_softmax_vals = np.mean(softmax_vals, axis=0)
+# shape: [n_test_data]
+y_pred = np.argmax(mean_softmax_vals, axis=-1)
+accuracy = get_accuracy(y_pred, y_test)
 
-print('Accuracy on test data: {0} %'.format(acc / n_test_data * 100))
-'''
+print('Accuracy on test data: {0} %'\
+        .format(accuracy/mnist_.batch_size*100))
+time_start = time.time()  # re-initialize.
+
+
 
 
 

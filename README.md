@@ -27,4 +27,10 @@ TODO
 
 [X] - Test shallow neural network on fitting `sin()`.
 
-[ ] - Test shallow nerual network on MNIST dataset, comparing with that by Nealson.
+[X] - Test shallow nerual network on MNIST dataset, comparing with that by Nealson.
+
+[ ] - Load and restore values of Variables, as numpy arraies, with Pickle.
+
+[ ] - Write a `KLqp` that inherits `edward.Inference.VariationalInference`, by BayesFlow.
+
+[ ] - And test this `KLqp` on MNIST dataset.

@@ -38,10 +38,10 @@ method.
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.python.client import timeline  # for debugging.
 import edward as ed
-from edward.models import Normal, Categorical, Mixture
-import matplotlib.pyplot as plt
+from edward.models import (
+    Normal, Categorical, Mixture,
+    NormalWithSoftplusScale)
 import sys
 sys.path.append('../sample/')
 from sklearn.utils import shuffle
@@ -161,7 +161,9 @@ class MNIST(object):
 
 
 
-mnist = MNIST(noise_std=0.1, batch_size=128)
+noise_std = 0.1
+batch_size = 16  # test!
+mnist = MNIST(noise_std, batch_size)
 
 
 
@@ -253,13 +255,16 @@ with tf.name_scope("posterior"):
     #    `[:-1]` dimensions of the argument of `Categorical()` are for the
     #    broadcasting, and the last dimension for categorical classes.
     n_cats = 1
-    var = {'cat': {},  # type: `Tensor`.
-           'locs': {},  # type: list of `Tensor`s.
-           'scales': {},  # type: list of `Tensor`s.
-           }
+    var = {
+        'cat': {},  # type: `Tensor`.
+        'locs': {},  # type: list of `Tensor`s.
+        'scales': {},  # type: list of `Tensor`s.
+        }
+
     with tf.name_scope("qw_h"):
         var['cat']['qw_h'] = tf.Variable(
-            tf.zeros([n_inputs, n_hiddens, n_cats]))
+            tf.zeros([n_inputs, n_hiddens, n_cats]),
+            name='cat')
         var['locs']['qw_h'] = [
             tf.Variable(
                 tf.random_normal([n_inputs, n_hiddens]),
@@ -271,14 +276,17 @@ with tf.name_scope("posterior"):
                 name='scale_{0}'.format(i))
             for i in range(n_cats)]
         qw_h = Mixture(
-            cat=Categorical(probs=tf.nn.softmax(var['cat']['qw_h'])),
+            cat=Categorical(logits=var['cat']['qw_h']),
             components=[
-                Normal(loc=var['locs']['qw_h'][i],
-                       scale=tf.nn.softplus(var['scales']['qw_h'][i]))
+                NormalWithSoftplusScale(
+                    loc=var['locs']['qw_h'][i],
+                    scale=var['scales']['qw_h'][i])
                 for i in range(n_cats)])
+
     with tf.name_scope("qw_a"):
         var['cat']['qw_a'] = tf.Variable(
-            tf.zeros([n_hiddens, n_outputs, n_cats]))
+            tf.zeros([n_hiddens, n_outputs, n_cats]),
+            name='cat')
         var['locs']['qw_a'] = [
             tf.Variable(
                 tf.random_normal([n_hiddens, n_outputs]),
@@ -290,14 +298,17 @@ with tf.name_scope("posterior"):
                 name='scale_{0}'.format(i))
             for i in range(n_cats)]
         qw_a = Mixture(
-            cat=Categorical(probs=tf.nn.softmax(var['cat']['qw_a'])),
+            cat=Categorical(logits=var['cat']['qw_a']),
             components=[
-                Normal(loc=var['locs']['qw_a'][i],
-                       scale=tf.nn.softplus(var['scales']['qw_a'][i]))
+                NormalWithSoftplusScale(
+                    loc=var['locs']['qw_a'][i],
+                    scale=var['scales']['qw_a'][i])
                 for i in range(n_cats)])
+
     with tf.name_scope("qb_h"):
         var['cat']['qb_h'] = tf.Variable(
-            tf.zeros([n_hiddens, n_cats]))
+            tf.zeros([n_hiddens, n_cats]),
+            name='cat')
         var['locs']['qb_h'] = [
             tf.Variable(
                 tf.random_normal([n_hiddens]),
@@ -309,14 +320,17 @@ with tf.name_scope("posterior"):
                 name='scale_{0}'.format(i))
             for i in range(n_cats)]
         qb_h = Mixture(
-            cat=Categorical(probs=tf.nn.softmax(var['cat']['qb_h'])),
+            cat=Categorical(logits=var['cat']['qb_h']),
             components=[
-                Normal(loc=var['locs']['qb_h'][i],
-                       scale=tf.nn.softplus(var['scales']['qb_h'][i]))
+                NormalWithSoftplusScale(
+                    loc=var['locs']['qb_h'][i],
+                    scale=var['scales']['qb_h'][i])
                 for i in range(n_cats)])
+
     with tf.name_scope("qb_a"):
         var['cat']['qb_a'] = tf.Variable(
-            tf.zeros([n_outputs, n_cats]))
+            tf.zeros([n_outputs, n_cats]),
+            name='cat')
         var['locs']['qb_a'] = [
             tf.Variable(
                 tf.random_normal([n_outputs]),
@@ -328,10 +342,11 @@ with tf.name_scope("posterior"):
                 name='scale_{0}'.format(i))
             for i in range(n_cats)]
         qb_a = Mixture(
-            cat=Categorical(probs=tf.nn.softmax(var['cat']['qb_a'])),
+            cat=Categorical(logits=var['cat']['qb_a']),
             components=[
-                Normal(loc=var['locs']['qb_a'][i],
-                       scale=tf.nn.softplus(var['scales']['qb_a'][i]))
+                NormalWithSoftplusScale(
+                    loc=var['locs']['qb_a'][i],
+                    scale=var['scales']['qb_a'][i])
                 for i in range(n_cats)])
 
 
@@ -357,32 +372,77 @@ tf.global_variables_initializer().run()
 
 
 sess = ed.get_session()
-
-# For tracing profile
-run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-run_metadata = tf.RunMetadata()
+profiling = True
 
 
-for _ in range(inference.n_iter):
+if profiling:
+    # -- C.f. `help(tf.profiler.Profiler)`.
+    profiler = tf.profiler.Profiler(sess.graph)
 
-    batch_generator = mnist.batch_generator()
-    x_batch, y_batch, y_error_batch = next(batch_generator)
-    feed_dict = {x: x_batch,
-                 y_ph: y_batch,
-                 y_error: y_error_batch}
-    _, t, loss, summary = sess.run(
-        [ inference.train, inference.increment_t,
-          inference.loss, inference.summarize ],
-        feed_dict,
-        options=run_options,
-        run_metadata=run_metadata)
+    for i in range(inference.n_iter):
 
-    info_dict = {'t': t, 'loss': loss}
-    inference.print_progress(info_dict)
+        batch_generator = mnist.batch_generator()
+        x_batch, y_batch, y_error_batch = next(batch_generator)
+        feed_dict = {x: x_batch,
+                    y_ph: y_batch,
+                    y_error: y_error_batch}
 
-    if t % 10 == 0:
-        inference.train_writer.add_run_metadata(
-            run_metadata, 'step{0}'.format(t))
+
+        # With profiler
+        run_meta = tf.RunMetadata()
+        _, t, loss, summary = sess.run(
+            [ inference.train, inference.increment_t,
+              inference.loss, inference.summarize ],
+            feed_dict,
+            options=tf.RunOptions(
+                trace_level=tf.RunOptions.FULL_TRACE),
+            run_metadata=run_meta)
+        profiler.add_step(i, run_meta)
+
+        # Profile the parameters of your model.
+        option_builder = tf.profiler
+        profiler.profile_name_scope(options=(option_builder.ProfileOptionBuilder
+                                            .trainable_variables_parameter()))
+
+        # Or profile the timing of your model operations.
+        opts = option_builder.ProfileOptionBuilder.time_and_memory()
+        profiler.profile_operations(options=opts)
+
+        # Or you can generate a timeline:
+        opts = (option_builder.ProfileOptionBuilder(
+                option_builder.ProfileOptionBuilder.time_and_memory())
+                    .with_step(i)
+                    .with_timeline_output('timeline').build())
+        profiler.profile_graph(options=opts)
+
+
+        info_dict = {'t': t, 'loss': loss}
+        inference.print_progress(info_dict)
+
+    # Auto detect problems and generate advice.
+    #profiler.advise()
+
+
+else:
+    for i in range(inference.n_iter):
+
+        batch_generator = mnist.batch_generator()
+        x_batch, y_batch, y_error_batch = next(batch_generator)
+        feed_dict = {x: x_batch,
+                    y_ph: y_batch,
+                    y_error: y_error_batch}
+
+
+        _, t, loss = sess.run(
+            [ inference.train, inference.increment_t,
+              inference.loss ],
+            feed_dict)
+
+        info_dict = {'t': t, 'loss': loss}
+        inference.print_progress(info_dict)
+
+
+
 
 
 '''

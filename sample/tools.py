@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from time import time
 import os
+from time import time
+import numpy as np
 
 
 
@@ -42,3 +43,21 @@ def ensure_directory(directory):
 
     except:
         pass
+
+
+
+def get_accuracy(y_pred, y_true):
+    """
+    Args:
+        y_pred:
+            Numpy array with shape `[data_size]`.
+        y_true:
+            Numpy array with shape `[data_size]`.
+
+    Returns:
+        `float` as the accuracy.
+    """
+    corrects = [1 if int(p) == int(t) else 0
+                 for p, t in list(zip(y_pred, y_true))]
+    accuracy = np.mean(corrects)
+    return accuracy
