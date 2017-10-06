@@ -103,5 +103,6 @@ ENV/
 
 *~
 dat/logs/*
+dat/pretrained/*
 docs/.DS_Store
 .DS_Store

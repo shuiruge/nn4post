@@ -4,6 +4,7 @@
 import os
 from time import time
 import numpy as np
+import tensorflow as tf
 
 
 
@@ -61,3 +62,25 @@ def get_accuracy(y_pred, y_true):
                  for p, t in list(zip(y_pred, y_true))]
     accuracy = np.mean(corrects)
     return accuracy
+
+
+
+def get_variable_value_dict(sess):
+    """
+    Get all trainable variables and their current values in session `sess`.
+
+    Args:
+        sess:
+            `tf.Session` object.
+
+    Returns:
+        `dict` object, with keys the variables' names (structured by TensorFlow),
+        and values the associated variables' values in session `sess`.
+    """
+
+    variables = tf.trainable_variables()  # XXX: without figuring out graph?
+
+    variable_names = [v.name for v in variables]
+    values = sess.run(variables)
+    name_to_val_list = list(zip(variable_names, values))
+    return {name: val for name, val in name_to_val_list}

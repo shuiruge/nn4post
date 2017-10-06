@@ -20,17 +20,19 @@ instead ceases this problem.
 import numpy as np
 import tensorflow as tf
 import edward as ed
-from edward.models import Normal, NormalWithSoftplusScale
+from edward.models import NormalWithSoftplusScale
 import matplotlib.pyplot as plt
+import os
 import sys
 sys.path.append('../sample/')
 from sklearn.utils import shuffle
-from tools import get_accuracy
+from tools import Timer, get_accuracy, get_variable_value_dict
 import mnist
 import time
+import pickle
 
 
-
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # turn off the TF noise.
 ed.set_seed(42)  # for debugging.
 
 
@@ -39,34 +41,86 @@ ed.set_seed(42)  # for debugging.
 noise_std = 0.1
 batch_size = 16  # test!
 mnist_ = mnist.MNIST(noise_std, batch_size)
+batch_generator = mnist_.batch_generator()
 
 
 
 # MODEL
+path_to_pretrained = '../dat/pretrained/{0}.pkl'\
+                     .format(__file__)
+
 with tf.name_scope("model"):
 
 
     # -- This sets the priors of model parameters. I.e. the :math:`p(\theta)`
     #    in the documentation.
     #
-    #    Notice that the priors of the biases shall be uniform on
-    #    :math:`\mathbb{R}`; herein we use `Normal()` with large `scale`
-    #    (e.g. `100`) to approximate it.
-    n_inputs = 28 * 28  # number of input features.
-    n_hiddens = 100  # number of perceptrons in the (single) hidden layer.
-    n_outputs = 10  # number of perceptrons in the output layer.
-    w_h = Normal(loc=tf.zeros([n_inputs, n_hiddens]),
-                 scale=tf.ones([n_inputs, n_hiddens]),
-                 name="w_h")
-    w_a = Normal(loc=tf.zeros([n_hiddens, n_outputs]),
-                 scale=tf.ones([n_hiddens, n_outputs]),
-                 name="w_a")
-    b_h = Normal(loc=tf.zeros([n_hiddens]),
-                 scale=tf.ones([n_hiddens]) * 100,
-                 name="b_h")
-    b_a = Normal(loc=tf.zeros([n_outputs]),
-                 scale=tf.ones([n_outputs]) * 100,
-                 name="b_a")
+    #    There are two ways of setting prior:
+    #
+    #        1. hand-wave;
+    #
+    #        2. use pre-trained posterior.
+    #
+    #    The later is prefered herein.
+
+    try:
+
+        # -- Use pre-trained posterior as prior
+
+        print('Try to use pre-trained posterior as prior.')
+
+        pretrained = pickle.load(open(path_to_pretrained, 'rb'))
+        n_inputs, n_hiddens = pretrained['posterior/qw_h/loc:0'].shape
+        n_hiddens, n_outputs = pretrained['posterior/qw_a/loc:0'].shape
+
+        w_h = NormalWithSoftplusScale(
+            loc=pretrained['posterior/qw_h/loc:0'],
+            scale=pretrained['posterior/qw_h/scale:0'],
+            name="w_h")
+        w_a = NormalWithSoftplusScale(
+            loc=pretrained['posterior/qw_a/loc:0'],
+            scale=pretrained['posterior/qw_a/scale:0'],
+            name="w_a")
+        b_h = NormalWithSoftplusScale(
+            loc=pretrained['posterior/qb_h/loc:0'],
+            scale=pretrained['posterior/qb_h/scale:0'],
+            name="b_h")
+        b_a = NormalWithSoftplusScale(
+            loc=pretrained['posterior/qb_a/loc:0'],
+            scale=pretrained['posterior/qb_a/scale:0'],
+            name="b_a")
+
+    except Exception as e:
+
+        # -- Use hand-waved priors
+        #
+        #    Notice that the priors of the biases shall be uniform on
+        #    :math:`\mathbb{R}`; herein we use `Normal()` with large `scale`
+        #    (e.g. `100`) to approximate it.
+
+        print('WARNING - cannot use pre-trained posterior as prior:\n\t', e)
+        print('Instead, use hand-waved prior.')
+
+        n_inputs = 28 * 28  # number of input features.
+        n_hiddens = 10  # number of perceptrons in the (single) hidden layer.
+        n_outputs = 10  # number of perceptrons in the output layer.
+
+        w_h = NormalWithSoftplusScale(
+            loc=tf.zeros([n_inputs, n_hiddens]),
+            scale=tf.ones([n_inputs, n_hiddens]),
+            name="w_h")
+        w_a = NormalWithSoftplusScale(
+            loc=tf.zeros([n_hiddens, n_outputs]),
+            scale=tf.ones([n_hiddens, n_outputs]),
+            name="w_a")
+        b_h = NormalWithSoftplusScale(
+            loc=tf.zeros([n_hiddens]),
+            scale=tf.ones([n_hiddens]) * 100,
+            name="b_h")
+        b_a = NormalWithSoftplusScale(
+            loc=tf.zeros([n_outputs]),
+            scale=tf.ones([n_outputs]) * 100,
+            name="b_a")
 
 
     # -- Placeholder for input data.
@@ -101,9 +155,10 @@ with tf.name_scope("model"):
     #    throughout the process of Bayesian inference.
     #    (The `0.1` may not be equal to the `noise_std` in the data, which we
     #     do not known. This number of a prior in fact.)
-    y = Normal(loc=prediction,  # recall shape: `[n_data, 1]`.
-               scale=y_error,
-               name="y")
+    y = NormalWithSoftplusScale(
+        loc=prediction,  # recall shape: `[n_data, 1]`.
+        scale=y_error,
+        name="y")
 
 
 
@@ -159,8 +214,9 @@ with tf.name_scope("posterior"):
 
 # PLAY
 # Set the parameters of training
-n_epochs = 30
-n_iter = mnist_.n_batches_per_epoch * n_epochs
+n_epochs = 1
+#n_iter = mnist_.n_batches_per_epoch * n_epochs
+n_iter = 4  # test!
 n_samples = 100
 scale = {y: mnist_.n_data / mnist_.batch_size}
 logdir = '../dat/logs'
@@ -186,27 +242,29 @@ prediction_post = ed.copy(prediction,
                           { w_h: qw_h, b_h: qb_h,
                             w_a: qw_a, b_a: qb_a })
 
+#with tf.contrib.tfprof.ProfileContext('../dat/train_dir') as pctx:
 time_start = time.time()
+time_start_epoch = time_start
+
 for i in range(inference.n_iter):
 
-    batch_generator = mnist_.batch_generator()
     x_batch, y_batch, y_error_batch = next(batch_generator)
     feed_dict = {x: x_batch,
                     y_ph: y_batch,
                     y_error: y_error_batch}
 
-
-    _, t, loss = sess.run(
-        [ inference.train, inference.increment_t,
-            inference.loss ],
-        feed_dict)
+    with Timer():  # test!
+        _, t, loss = sess.run(
+            [ inference.train, inference.increment_t,
+                inference.loss ],
+            feed_dict)
 
     # Validation for each epoch
-    if i % mnist_.n_batches_per_epoch == 0:
+    if (i+1) % mnist_.n_batches_per_epoch == 0:
 
-        print('\nFinished the {0}-th epoch'\
-                .format(i/mnist_.n_batches_per_epoch))
-        print('Elapsed time {0} sec.'.format(time.time()-time_start))
+        epoch = int( (i+1) / mnist_.n_batches_per_epoch )
+        print('\nFinished the {0}-th epoch'.format(epoch))
+        print('Elapsed time {0} sec.'.format(time.time()-time_start_epoch))
 
         # Get validation data
         x_valid, y_valid, y_error_valid = mnist_.validation_data
@@ -228,9 +286,14 @@ for i in range(inference.n_iter):
 
         print('Accuracy on validation data: {0} %'\
                 .format(accuracy/mnist_.batch_size*100))
-        time_start = time.time()  # re-initialize.
+        time_start_epoch = time.time()  # re-initialize.
+
+time_end = time.time()
+print('------ Elapsed {0} sec in training'.format(time_end-time_start))
 
 
+
+'''
 # EVALUATE
 x_test, y_test, y_error_test = mnist_.test_data
 n_test_data = len(y_test)
@@ -254,8 +317,15 @@ accuracy = get_accuracy(y_pred, y_test)
 
 print('Accuracy on test data: {0} %'\
         .format(accuracy/mnist_.batch_size*100))
-time_start = time.time()  # re-initialize.
 
+# Save the training result
+pretrained = get_variable_value_dict(sess)
+print(pretrained.keys())
+try:
+    pickle.dump(pretrained, open(path_to_pretrained, 'wb'))
+except Exception as e:
+    print('Fail in saving trained variable to disk - ', e)
+'''
 
 
 
@@ -286,7 +356,7 @@ time_start = time.time()  # re-initialize.
     => Accuracy on test data: 96.88 %
 
 
-4   n_hiddens = 100
+
     n_samples = 100
     n_epochs = 30
     batch_size = 128

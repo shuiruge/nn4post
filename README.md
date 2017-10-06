@@ -29,7 +29,10 @@ TODO
 
 [X] - Test shallow nerual network on MNIST dataset, comparing with that by Nealson.
 
-[ ] - Load and restore values of Variables, as numpy arraies, with Pickle.
+[X] - Load and restore values of Variables, as numpy arraies, with Pickle.
+
+[X] - Compare the elapsed time for each iteration (except for the first iteration)
+      between `edward` and `nn4post_ed` on MNIST dataset.
 
 [ ] - Write a `KLqp` that inherits `edward.Inference.VariationalInference`, by BayesFlow.
 

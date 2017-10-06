@@ -113,9 +113,18 @@ class MNIST(object):
             Tuple of three numpy arries, as `x`, `y`, and `y_error` for test
             data, with shape `(10000, 784)`, `(10000)`, and `(10000)`
             respectively.
+        n_data:
+            `int`, as the number of training_data.
+        batch_size:
+            `int`, as the batch-size of training_data, as the same argument in
+            `__init__`.
+        n_batches_per_epoch:
+            `int`, as the number of mini-batches per epoch.
 
     Methods:
-        XXX
+        batch_generator:
+            Used to define a generator that emits mini-batch of training data,
+            by acting `next()`.
     """
 
     def __init__(self, noise_std, batch_size,
@@ -123,10 +132,18 @@ class MNIST(object):
                  verbose=True):
 
         self._dtype = dtype
+        self._noise_std = noise_std
         self.batch_size = batch_size
 
         if seed is not None:
             np.random.seed(seed)
+
+        self._get_data()
+
+
+    def _get_data(self):
+        """ Generate attributes: `training_data`, `validation_data`, and
+        `test_data`, as well as `n_data` and `n_batches_per_epoch`. """
 
         training_data, validation_data, test_data = load_data_wrapper()
 
@@ -134,7 +151,7 @@ class MNIST(object):
         x_tr, y_tr = training_data
         x_tr = self._preprocess(x_tr)
         y_tr = self._preprocess(y_tr)
-        y_err_tr = noise_std * np.ones(y_tr.shape, dtype=self._dtype)
+        y_err_tr = self._noise_std * np.ones(y_tr.shape, dtype=self._dtype)
         self.training_data = (x_tr, y_tr, y_err_tr)
 
         self.n_data = x_tr.shape[0]
@@ -153,7 +170,7 @@ class MNIST(object):
         x_te, y_te = test_data
         x_te = self._preprocess(x_te)
         y_te = self._preprocess(y_te)
-        y_err_te = 0.0 * np.ones(y_te.shape, dtype=dtype)
+        y_err_te = 0.0 * np.ones(y_te.shape, dtype=self._dtype)
         self.test_data = (x_te, y_te, y_err_te)
 
 
@@ -176,8 +193,16 @@ class MNIST(object):
 
 
     def batch_generator(self):
-        """ A generator that emits mini-batch of training data, by acting
-            `next()`.
+        """ Used to define a generator that emits mini-batch of training data,
+            by acting `next()`.
+
+        Example:
+            ``` python:
+
+            mnist_ = MNIST(...)
+            batch_generator = mnist_.batch_generator()
+            x_batch, y_batch, y_error_batch = next(batch_generator)
+            ````
 
         Returns:
             Tuple of three numpy arraies `(x, y, y_error)`, for the inputs of the
