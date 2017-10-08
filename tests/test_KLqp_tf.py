@@ -26,11 +26,14 @@ import os
 import sys
 sys.path.append('../sample/')
 from sklearn.utils import shuffle
-from tools import Timer, get_accuracy, get_variable_value_dict
+from tools import Timer, get_accuracy, get_variable_value_dict, TimeLiner
 import mnist
 import time
 import pickle
 from KLqp_tf import KLqp
+from tensorflow.python.client import timeline
+import json
+
 
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # turn off the TF noise.
@@ -221,7 +224,7 @@ def without_cat():
     n_epochs = 1
     #n_iter = mnist_.n_batches_per_epoch * n_epochs
     n_iter = 2
-    n_samples = 100
+    n_samples = 5
     scale = {y: mnist_.n_data / mnist_.batch_size}
     logdir = '../dat/logs'
 
@@ -262,6 +265,7 @@ def without_cat():
 
         run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
         run_metadata = tf.RunMetadata()
+        many_runs_timeline = TimeLiner()
         with Timer():
             _, t, loss = sess.run(
                 [ inference.train, inference.increment_t,
@@ -270,6 +274,10 @@ def without_cat():
                 options=run_options,
                 run_metadata=run_metadata)
         inference.train_writer.add_run_metadata(run_metadata, 'step%d' % i)
+
+        fetched_timeline = timeline.Timeline(run_metadata.step_stats)
+        chrome_trace = fetched_timeline.generate_chrome_trace_format()
+        many_runs_timeline.update_timeline(chrome_trace)
 
         # Validation for each epoch
         if (i+1) % mnist_.n_batches_per_epoch == 0:
@@ -300,6 +308,7 @@ def without_cat():
                     .format(accuracy/mnist_.batch_size*100))
             time_start_epoch = time.time()  # re-initialize.
 
+    many_runs_timeline.save('../dat/timelines/timeline_with_0_cats.json')
     time_end = time.time()
     print('------ Elapsed {0} sec in training.\n\n'\
           .format(time_end-time_start))
@@ -466,7 +475,7 @@ def with_cat(n_cats):
     n_epochs = 1
     #n_iter = mnist_.n_batches_per_epoch * n_epochs
     n_iter = 2  # test!
-    n_samples = 100
+    n_samples = 5
     scale = {y: mnist_.n_data / mnist_.batch_size}
     logdir = '../dat/logs'
 
@@ -508,6 +517,7 @@ def with_cat(n_cats):
 
         run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
         run_metadata = tf.RunMetadata()
+        many_runs_timeline = TimeLiner()
         with Timer():
             _, t, loss = sess.run(
                 [ inference.train, inference.increment_t,
@@ -516,6 +526,10 @@ def with_cat(n_cats):
                 options=run_options,
                 run_metadata=run_metadata)
         inference.train_writer.add_run_metadata(run_metadata, 'step%d' % i)
+
+        fetched_timeline = timeline.Timeline(run_metadata.step_stats)
+        chrome_trace = fetched_timeline.generate_chrome_trace_format()
+        many_runs_timeline.update_timeline(chrome_trace)
 
         # Validation for each epoch
         if (i+1) % mnist_.n_batches_per_epoch == 0:
@@ -546,6 +560,9 @@ def with_cat(n_cats):
                     .format(accuracy/mnist_.batch_size*100))
             time_start = time.time()  # re-initialize.
 
+    many_runs_timeline.save(
+        '../dat/timelines/timeline_with_{0}_cats.json'\
+        .format(n_cats))
     time_end = time.time()
     print('------ Elapsed {0} sec in training.\n\n'\
           .format(time_end-time_start))

@@ -102,7 +102,10 @@ ENV/
 
 
 *~
+
 dat/logs/*
 dat/pretrained/*
+dat/timelines/*
+
 docs/.DS_Store
 .DS_Store
