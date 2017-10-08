@@ -220,8 +220,8 @@ def without_cat():
     # Set the parameters of training
     n_epochs = 1
     #n_iter = mnist_.n_batches_per_epoch * n_epochs
-    n_iter = 3
-    n_samples = 1
+    n_iter = 2
+    n_samples = 100
     scale = {y: mnist_.n_data / mnist_.batch_size}
     logdir = '../dat/logs'
 
@@ -231,11 +231,13 @@ def without_cat():
                      latent_vars={w_h: qw_h, b_h: qb_h,
                                   w_a: qw_a, b_a: qb_a},
                      data={y: y_ph})
-    inference.initialize(
-        n_iter=n_iter,
-        n_samples=n_samples,
-        scale=scale,
-        logdir=logdir)
+    with Timer():
+        inference.initialize(
+            n_iter=n_iter,
+            n_samples=n_samples,
+            scale=scale,
+            logdir=logdir,
+            log_vars=[])
     tf.global_variables_initializer().run()
 
 
@@ -258,13 +260,16 @@ def without_cat():
                     y_ph: y_batch,
                     y_error: y_error_batch}
 
-        _, t, loss = sess.run(
-            [ inference.train, inference.increment_t,
-            inference.loss ],
-            feed_dict)
-
-        inference.print_progress({'t': t, 'loss': loss})
-
+        run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+        run_metadata = tf.RunMetadata()
+        with Timer():
+            _, t, loss = sess.run(
+                [ inference.train, inference.increment_t,
+                inference.loss ],
+                feed_dict,
+                options=run_options,
+                run_metadata=run_metadata)
+        inference.train_writer.add_run_metadata(run_metadata, 'step%d' % i)
 
         # Validation for each epoch
         if (i+1) % mnist_.n_batches_per_epoch == 0:
@@ -296,10 +301,12 @@ def without_cat():
             time_start_epoch = time.time()  # re-initialize.
 
     time_end = time.time()
-    print('------ Elapsed {0} sec in training'.format(time_end-time_start))
+    print('------ Elapsed {0} sec in training.\n\n'\
+          .format(time_end-time_start))
 
 
 
+    '''
     # EVALUATE
     x_test, y_test, y_error_test = mnist_.test_data
     n_test_data = len(y_test)
@@ -323,6 +330,7 @@ def without_cat():
 
     print('Accuracy on test data: {0} %'\
             .format(accuracy/mnist_.batch_size*100))
+    '''
 
     ## Save the training result
     #pretrained = get_variable_value_dict(sess)
@@ -334,7 +342,7 @@ def without_cat():
 
 
 
-def with_cat():
+def with_cat(n_cats):
 
 
     # INFERENCE
@@ -359,7 +367,6 @@ def with_cat():
         #    The trick here is that `Categorical` supports broadcasting. I.e., the
         #    `[:-1]` dimensions of the argument of `Categorical()` are for the
         #    broadcasting, and the last dimension for categorical classes.
-        n_cats = 1
         var = {
             'cat': {},  # type: `Tensor`.
             'locs': {},  # type: list of `Tensor`s.
@@ -458,8 +465,8 @@ def with_cat():
     # Set the parameters of training
     n_epochs = 1
     #n_iter = mnist_.n_batches_per_epoch * n_epochs
-    n_iter = 3  # test!
-    n_samples = 1  # test!
+    n_iter = 2  # test!
+    n_samples = 100
     scale = {y: mnist_.n_data / mnist_.batch_size}
     logdir = '../dat/logs'
 
@@ -469,12 +476,14 @@ def with_cat():
                      latent_vars={w_h: qw_h, b_h: qb_h,
                                   w_a: qw_a, b_a: qb_a},
                      data={y: y_ph})
-    inference.initialize(
-        n_iter=n_iter,
-        n_samples=n_samples,
-        scale=scale,
-        logdir=logdir)
-    tf.global_variables_initializer().run()
+    with Timer():
+        inference.initialize(
+            n_iter=n_iter,
+            n_samples=n_samples,
+            scale=scale,
+            logdir=logdir,
+            log_vars=[])
+        tf.global_variables_initializer().run()
 
 
     sess = ed.get_session()
@@ -497,10 +506,16 @@ def with_cat():
                         y_ph: y_batch,
                         y_error: y_error_batch}
 
-        _, t, loss = sess.run(
-            [ inference.train, inference.increment_t,
-              inference.loss ],
-            feed_dict)
+        run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+        run_metadata = tf.RunMetadata()
+        with Timer():
+            _, t, loss = sess.run(
+                [ inference.train, inference.increment_t,
+                inference.loss ],
+                feed_dict,
+                options=run_options,
+                run_metadata=run_metadata)
+        inference.train_writer.add_run_metadata(run_metadata, 'step%d' % i)
 
         # Validation for each epoch
         if (i+1) % mnist_.n_batches_per_epoch == 0:
@@ -560,18 +575,30 @@ def with_cat():
 
     print('Accuracy on test data: {0} %'\
             .format(accuracy/mnist_.batch_size*100))
-
-    # Save the training result
-    pretrained = get_variable_value_dict(sess)
-    print(pretrained.keys())
-    try:
-        pickle.dump(pretrained, open(path_to_pretrained, 'wb'))
-    except Exception as e:
-        print('Fail in saving trained variable to disk - ', e)
     '''
+
+    ## Save the training result
+    #pretrained = get_variable_value_dict(sess)
+    #print(pretrained.keys())
+    #try:
+    #    pickle.dump(pretrained, open(path_to_pretrained, 'wb'))
+    #except Exception as e:
+    #    print('Fail in saving trained variable to disk - ', e)
+
+
+
+def main(n_cats):
+
+    if n_cats == 0:
+        without_cat()
+
+    elif n_cats > 0:
+        with_cat(n_cats)
+
 
 
 if __name__ == '__main__':
 
-    without_cat()
-    #with_cat()
+    import sys
+    n_cats = int(sys.argv[1])
+    main(n_cats)

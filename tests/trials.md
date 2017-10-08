@@ -65,3 +65,10 @@ Thus from these trials, we find the elapsed time:
   * is proportional to `n_samples`, as theoritically expected;
   
   * is quite in-sensitive to `n_cats`, to our surprise.
+
+
+Testing of "KLqp_tf.py" (using `entropy_lower_bound` implementation) shows that
+**increasing `n_samples` makes everything costy!** This is intrinsic for
+"KLqp_tf.py", even for `edward`, since all terms for each samples are summed
+over by `for` loop, rather than by direct broadcasting (via vectorizing), as
+the "nn4post_tf.py" (without employing `edward`) does.

@@ -121,7 +121,7 @@ class KLqp(edward.KLqp):
     we shall avoid employing it.
     """
 
-    # Construct `loss`
+    # --- Construct `loss` ---
     p_log_prob = [0.0] * self.n_samples
 
     # Get all samples in one go
@@ -131,6 +131,7 @@ class KLqp(edward.KLqp):
       z_samples = tf.unstack(z_samples)
       dict_samples[z] = z_samples  # the `z` is for labeling.
 
+    # For computing likelihood
     # (Temporally) assume that the data obeys a normal distribution,
     # realized by Gauss's limit-theorem
     dict_chi_square = {}
@@ -140,14 +141,12 @@ class KLqp(edward.KLqp):
 
     # Construct `p_log_prob` by sampling
     for s in range(self.n_samples):
-
       # Compute prior values
       for z in six.iterkeys(self.latent_vars):
         p_log_prob[s] += tf.reduce_sum(
             z.log_prob(dict_samples[z][s]) \
             * self.scale.get(z, 1.0)
         )
-
       # Compute likelihood values
       params = {}
       for z, z_samples in six.iteritems(dict_samples):
@@ -157,15 +156,14 @@ class KLqp(edward.KLqp):
             dict_chi_square[y](self.model(**params))
             * self.scale.get(y, 1.0)
         )
-
     p_log_prob = tf.reduce_mean(p_log_prob)
 
-
+    # Construct `q_log_prob` by analytic method
     q_log_prob = 0.0
     for z, qz in six.iteritems(self.latent_vars):
       try:
         q_log_prob += - tf.reduce_mean(qz.entropy())
-      except AttributeError:
+      except NotImplementedError:
         q_log_prob += - tf.reduce_mean(qz.entropy_lower_bound())
 
     loss = - ( p_log_prob - q_log_prob )
