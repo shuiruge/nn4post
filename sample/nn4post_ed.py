@@ -75,5 +75,3 @@ class Nn4post(VariationalInference):
     mu_val = np.random.normal(size=mu_shape)
     # To make `softplus(self._init_zeta) == np.ones(self._zeta_shape)`
     zeta_val = np.log((np.e-1) * np.ones(zeta_shape))
-
-    

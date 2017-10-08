@@ -1,9 +1,9 @@
 Neural Network for Posterior
-============================
+========================================
 
 
 TODO
-----
+-----
 
 
 [ ] - Write an abstract `Trainer()` class for `fit()`.
@@ -34,6 +34,9 @@ TODO
 [X] - Compare the elapsed time for each iteration (except for the first iteration)
       between `edward` and `nn4post_ed` on MNIST dataset.
 
-[ ] - Write a `KLqp` that inherits `edward.Inference.VariationalInference`, by BayesFlow.
+[X] - Write a `KLqp` that inherits `edward.Inference.VariationalInference`, by
+      BayesFlow.
 
-[ ] - And test this `KLqp` on MNIST dataset.
+        * Failed in constructing the likelihood.
+
+[ ] - Consider using `q.entropy` for `E_q [ log q(z) ]`.
