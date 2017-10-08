@@ -390,6 +390,15 @@
   of it. However, the <math|q<around*|(|\<theta\>;\<lambda\>|)>> can be
   decomposited as <math|q<around*|(|\<theta\>;\<lambda\>|)>=<big|prod><rsub|i>q<around*|(|\<theta\><rsub|i>;\<lambda\><rsub|i>|)>>.
   This solves the provious problem. XXX
+
+  <section|Drafts>
+
+  <math|ln p<around*|(|\<theta\>\|D|)>=ln p<around*|(|\<theta\>|)>+ln
+  p<around*|(|D\|\<theta\>|)>>.
+
+  <math|<big|sum><rsub|j>q<around*|(|\<theta\><rsub|j>|)>
+  <around*|{|<around*|\<nobracket\>|ln p<around*|(|\<theta\><rsub|j>,D|\<nobracket\>>|)>-ln
+  q<around*|(|\<theta\><rsub|j>|)>|}>=???>
 </body>
 
 <\initial>
@@ -428,7 +437,7 @@
     <associate|auto-32|<tuple|8.1|?>>
     <associate|auto-33|<tuple|8.1.1|?>>
     <associate|auto-34|<tuple|8.1.2|?>>
-    <associate|auto-35|<tuple|8.1.3|?>>
+    <associate|auto-35|<tuple|9|?>>
     <associate|auto-4|<tuple|2.1|1>>
     <associate|auto-5|<tuple|2.2|1>>
     <associate|auto-6|<tuple|2.3|1>>
@@ -461,7 +470,7 @@
       <with|mode|<quote|math>|a<rsub|2>> so that only one peak is essentially
       left, and it is just around <with|mode|<quote|math>|500> steps of
       iterations that the two losses get together. (For the source code, see
-      <with|mode|<quote|prog>|prog-language|<quote|cpp>|font-family|<quote|rm>|'nn4post/tests/shadow_neural_network.py'>.)|<pageref|auto-27>>
+      <with|mode|<quote|prog>|prog-language|<quote|cpp>|font-family|<quote|rm>|'nn4post/tests/shallow_neural_network.py'>.)|<pageref|auto-27>>
     </associate>
     <\associate|toc>
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|1<space|2spc>Notations>

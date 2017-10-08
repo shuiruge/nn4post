@@ -30,6 +30,7 @@ from tools import Timer, get_accuracy, get_variable_value_dict
 import mnist
 import time
 import pickle
+from KLqp_tf import KLqp
 
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # turn off the TF noise.
@@ -39,7 +40,7 @@ ed.set_seed(42)  # for debugging.
 
 # DATA
 noise_std = 0.1
-batch_size = 16  # test!
+batch_size = 16
 mnist_ = mnist.MNIST(noise_std, batch_size)
 batch_generator = mnist_.batch_generator()
 
@@ -102,7 +103,7 @@ with tf.name_scope("model"):
         print('Instead, use hand-waved prior.')
 
         n_inputs = 28 * 28  # number of input features.
-        n_hiddens = 10  # number of perceptrons in the (single) hidden layer.
+        n_hiddens = 15  # number of perceptrons in the (single) hidden layer.
         n_outputs = 10  # number of perceptrons in the output layer.
 
         w_h = NormalWithSoftplusScale(
@@ -213,126 +214,122 @@ with tf.name_scope("posterior"):
 
 
 # PLAY
-@profile
-def main():
+# Set the parameters of training
+n_epochs = 1
+#n_iter = mnist_.n_batches_per_epoch * n_epochs
+n_iter = 3
+n_samples = 10
+scale = {y: mnist_.n_data / mnist_.batch_size}
+logdir = '../dat/logs'
 
-    # Set the parameters of training
-    n_epochs = 1
-    #n_iter = mnist_.n_batches_per_epoch * n_epochs
-    n_iter = 3  # test!
-    n_samples = 10  # test!
-    scale = {y: mnist_.n_data / mnist_.batch_size}
-    logdir = '../dat/logs'
-
-    y_ph = tf.placeholder(tf.float32, [None, n_outputs],
-                          name='y')
-    inference = ed.KLqp(latent_vars={w_h: qw_h, b_h: qb_h,
-                                     w_a: qw_a, b_a: qb_a},
-                        data={y: y_ph})
-    inference.initialize(
-        n_iter=n_iter,
-        n_samples=n_samples,
-        scale=scale,
-        logdir=logdir)
-    tf.global_variables_initializer().run()
+y_ph = tf.placeholder(tf.float32, [None, n_outputs],
+                      name='y')
+inference = KLqp(latent_vars={w_h: qw_h, b_h: qb_h,
+                                 w_a: qw_a, b_a: qb_a},
+                    data={y: y_ph})
+inference.initialize(
+    n_iter=n_iter,
+    n_samples=n_samples,
+    scale=scale,
+    logdir=logdir)
+tf.global_variables_initializer().run()
 
 
-    sess = ed.get_session()
+sess = ed.get_session()
 
 
-    # Add node of posterior to graph
-    prediction_post = ed.copy(prediction,
-                              { w_h: qw_h, b_h: qb_h,
-                                w_a: qw_a, b_a: qb_a })
+# Add node of posterior to graph
+prediction_post = ed.copy(prediction,
+                          { w_h: qw_h, b_h: qb_h,
+                            w_a: qw_a, b_a: qb_a })
 
-    #with tf.contrib.tfprof.ProfileContext('../dat/train_dir') as pctx:
-    time_start = time.time()
-    time_start_epoch = time_start
+#with tf.contrib.tfprof.ProfileContext('../dat/train_dir') as pctx:
+time_start = time.time()
+time_start_epoch = time_start
+validate = False
 
-    for i in range(inference.n_iter):
+for i in range(inference.n_iter):
 
-        x_batch, y_batch, y_error_batch = next(batch_generator)
-        feed_dict = {x: x_batch,
-                        y_ph: y_batch,
-                        y_error: y_error_batch}
+    x_batch, y_batch, y_error_batch = next(batch_generator)
+    feed_dict = {x: x_batch,
+                    y_ph: y_batch,
+                    y_error: y_error_batch}
 
-        _, t, loss = sess.run(
-            [ inference.train, inference.increment_t,
-              inference.loss ],
-            feed_dict)
+    _, t, loss = sess.run(
+        [ inference.train, inference.increment_t,
+          inference.loss ],
+        feed_dict)
 
-        # Validation for each epoch
-        if (i+1) % mnist_.n_batches_per_epoch == 0:
-
-            epoch = int( (i+1) / mnist_.n_batches_per_epoch )
-            print('\nFinished the {0}-th epoch'.format(epoch))
-            print('Elapsed time {0} sec.'.format(time.time()-time_start_epoch))
-
-            # Get validation data
-            x_valid, y_valid, y_error_valid = mnist_.validation_data
-            x_valid, y_valid, y_error_valid = \
-                shuffle(x_valid, y_valid, y_error_valid)
-            x_valid, y_valid, y_error_valid = \
-                x_valid[:128], y_valid[:128], y_error_valid[:128]
-
-            # Get accuracy
-            n_models = 100  # number of Monte Carlo neural network models.
-            # shape: [n_models, n_test_data, n_outputs]
-            softmax_vals = [prediction_post.eval(feed_dict={x: x_valid})
-                            for i in range(n_models)]
-            # shape: [n_test_data, n_outputs]
-            mean_softmax_vals = np.mean(softmax_vals, axis=0)
-            # shape: [n_test_data]
-            y_pred = np.argmax(mean_softmax_vals, axis=-1)
-            accuracy = get_accuracy(y_pred, y_valid)
-
-            print('Accuracy on validation data: {0} %'\
-                    .format(accuracy/mnist_.batch_size*100))
-            time_start_epoch = time.time()  # re-initialize.
-
-    time_end = time.time()
-    print('------ Elapsed {0} sec in training'.format(time_end-time_start))
+    inference.print_progress({'t': t, 'loss': loss})
 
 
+    # Validation for each epoch
+    if validate and (i+1) % mnist_.n_batches_per_epoch == 0:
 
-    '''
-    # EVALUATE
-    x_test, y_test, y_error_test = mnist_.test_data
-    n_test_data = len(y_test)
-    print('{0} test data.'.format(n_test_data))
+        epoch = int( (i+1) / mnist_.n_batches_per_epoch )
+        print('\nFinished the {0}-th epoch'.format(epoch))
+        print('Elapsed time {0} sec.'.format(time.time()-time_start_epoch))
 
-    n_models = 500  # number of Monte Carlo neural network models.
-    # shape: [n_models, n_test_data, n_outputs]
-    prediction_vals = [prediction_post.eval(feed_dict={x: x_test})
+        # Get validation data
+        x_valid, y_valid, y_error_valid = mnist_.validation_data
+        x_valid, y_valid, y_error_valid = \
+            shuffle(x_valid, y_valid, y_error_valid)
+        x_valid, y_valid, y_error_valid = \
+            x_valid[:128], y_valid[:128], y_error_valid[:128]
+
+        # Get accuracy
+        n_models = 100  # number of Monte Carlo neural network models.
+        # shape: [n_models, n_test_data, n_outputs]
+        softmax_vals = [prediction_post.eval(feed_dict={x: x_valid})
                         for i in range(n_models)]
+        # shape: [n_test_data, n_outputs]
+        mean_softmax_vals = np.mean(softmax_vals, axis=0)
+        # shape: [n_test_data]
+        y_pred = np.argmax(mean_softmax_vals, axis=-1)
+        accuracy = get_accuracy(y_pred, y_valid)
 
-    # Get accuracy
-    n_models = 100  # number of Monte Carlo neural network models.
-    # shape: [n_models, n_test_data, n_outputs]
-    softmax_vals = [prediction_post.eval(feed_dict={x: x_test})
+        print('Accuracy on validation data: {0} %'\
+                .format(accuracy/mnist_.batch_size*100))
+        time_start_epoch = time.time()  # re-initialize.
+
+time_end = time.time()
+print('------ Elapsed {0} sec in training'.format(time_end-time_start))
+
+
+
+# EVALUATE
+x_test, y_test, y_error_test = mnist_.test_data
+n_test_data = len(y_test)
+print('{0} test data.'.format(n_test_data))
+
+n_models = 500  # number of Monte Carlo neural network models.
+# shape: [n_models, n_test_data, n_outputs]
+prediction_vals = [prediction_post.eval(feed_dict={x: x_test})
                     for i in range(n_models)]
-    # shape: [n_test_data, n_outputs]
-    mean_softmax_vals = np.mean(softmax_vals, axis=0)
-    # shape: [n_test_data]
-    y_pred = np.argmax(mean_softmax_vals, axis=-1)
-    accuracy = get_accuracy(y_pred, y_test)
 
-    print('Accuracy on test data: {0} %'\
-            .format(accuracy/mnist_.batch_size*100))
+# Get accuracy
+n_models = 100  # number of Monte Carlo neural network models.
+# shape: [n_models, n_test_data, n_outputs]
+softmax_vals = [prediction_post.eval(feed_dict={x: x_test})
+                for i in range(n_models)]
+# shape: [n_test_data, n_outputs]
+mean_softmax_vals = np.mean(softmax_vals, axis=0)
+# shape: [n_test_data]
+y_pred = np.argmax(mean_softmax_vals, axis=-1)
+accuracy = get_accuracy(y_pred, y_test)
 
-    # Save the training result
-    pretrained = get_variable_value_dict(sess)
-    print(pretrained.keys())
-    try:
-        pickle.dump(pretrained, open(path_to_pretrained, 'wb'))
-    except Exception as e:
-        print('Fail in saving trained variable to disk - ', e)
-    '''
+print('Accuracy on test data: {0} %'\
+        .format(accuracy/mnist_.batch_size*100))
+
+## Save the training result
+#pretrained = get_variable_value_dict(sess)
+#print(pretrained.keys())
+#try:
+#    pickle.dump(pretrained, open(path_to_pretrained, 'wb'))
+#except Exception as e:
+#    print('Fail in saving trained variable to disk - ', e)
 
 
-if __name__ == '__main__':
-
-    main()
 
 
 ''' Conclusion:
