@@ -119,35 +119,54 @@ class KLqp(edward.KLqp):
 
     It seems that `edward.utils.copy` is costy, and seems non-essential. Thus
     we shall avoid employing it.
+
+
+    NOTE:
+      Let `z` in `self.latent_vars`. Demand that the `z.name` and the name of
+      `z` shall be the same, at least temporally.
     """
 
     # --- Construct `loss` ---
-    p_log_prob = [0.0] * self.n_samples
+
+    # Get model argument names in order
+    def get_arg_names(fn):
+      n_args = fn.__code__.co_argcount
+      arg_names = fn.__code__.co_varnames[:n_args]
+      return arg_names
+    model_arg_names = get_arg_names(model)
 
     # Get all samples in one go
     dict_samples = {}
     for z, qz in six.iteritems(self.latent_vars):
       z_samples = qz.sample(self.n_samples)
-      z_samples = tf.unstack(z_samples)
-      dict_samples[z] = z_samples  # the `z` is for labeling.
+      dict_samples[z.name] = z_samples
+      # To list ordered by `model_arg_names`
+      samples = [dict_samples[_] for _ in model_arg_names]
 
-    # For computing likelihood
+    # Define likelihood (unvectorized for sampling)
     # (Temporally) assume that the data obeys a normal distribution,
     # realized by Gauss's limit-theorem
-    dict_chi_square = {}
-    for y, y_data in six.iteritems(self.data):
-      normal = NormalWithSoftplusScale(loc=y_data, scale=y.scale)
-      dict_chi_square[y] = lambda x: normal.log_prob(x)
+    def chi_square(model_output):
+      chi_square_val = 0.0
+      for y, y_data in six.iteritems(self.data):
+        normal = NormalWithSoftplusScale(loc=y_data, scale=y.scale)
+        chi_square_val += tf.reduce_mean(
+            normal.log_prob(model_output) \
+            * self.scale.get(y, 1.0) )
+      return chi_square_val
+    def log_likelihood(*model_args):
+      return chi_square(self.model(*model_args))
 
-    # Construct `p_log_prob` by sampling
-    for s in range(self.n_samples):
-      # Compute prior values
-      for z in six.iterkeys(self.latent_vars):
-        p_log_prob[s] += tf.reduce_sum(
-            z.log_prob(dict_samples[z][s]) \
-            * self.scale.get(z, 1.0)
-        )
-      # Compute likelihood values
+    # Define prior (unvectorized for sampling)  # XXX: now here.
+    def prior(*model_args):
+      return sum([
+          tf.reduce_sum(
+              z.log_prob() \  # XXX
+              * self.scale.get(z, 1.0) )
+          for z in six.iterkeys(self.latent_vars) ])
+
+
+      # Compute likelihood values  XXX: to delete
       params = {}
       for z, z_samples in six.iteritems(dict_samples):
         params[z.name] = z_samples[s]
@@ -156,6 +175,11 @@ class KLqp(edward.KLqp):
             dict_chi_square[y](self.model(**params))
             * self.scale.get(y, 1.0)
         )
+
+
+
+    log_posterior = log_likelihood + log_prior
+    p_log_prob = tf.map_fn(log_posterior, samples)
     p_log_prob = tf.reduce_mean(p_log_prob)
 
     # Construct `q_log_prob` by analytic method
