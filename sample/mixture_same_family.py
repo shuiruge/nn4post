@@ -229,7 +229,8 @@ class MixtureSameFamily(distribution.Distribution):
           depth=self._num_components,                        # == k
           on_value=np.ones([], dtype=npdt),
           off_value=np.zeros([], dtype=npdt))                # [n, B, k]
-      mask = self._pad_mix_dims(mask)                        # [n, B, k, [1]*e]
+      #mask = self._pad_mix_dims(mask)                        # [n, B, k, [1]*e]
+      # Committing out the previous gets things through.
       return math_ops.reduce_sum(
           x * mask, axis=-1 - self._event_ndims)             # [n, B, E]
 
