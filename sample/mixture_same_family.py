@@ -323,9 +323,6 @@ class MixtureSameFamily(distribution.Distribution):
       ], axis=0))
       return x
 
-  def _entropy_lower_bound(self):
-      pass  # XXX: to be employed by nn4post.
-
 
 def _outer_squared_difference(x, y):
   """Convenience function analogous to tf.squared_difference."""

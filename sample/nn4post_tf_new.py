@@ -66,7 +66,7 @@ minimum of the loss-function, as expected.
 
 ### On Edward
 
-It seems that `edward.utils.copy` is costy, and seems non-essential. Thus
+It seems that `edward.util.copy` is costy, and seems non-essential. Thus
 we shall avoid employing it.
 """
 
@@ -81,7 +81,11 @@ from tensorflow.contrib.distributions import \
 from tensorflow.contrib.bayesflow import entropy
 # -- To be changed in TF 1.4
 from mixture_same_family import MixtureSameFamily
-from tools import ensure_directory
+from tools import ensure_directory, Timer
+import mnist
+from edward.util import Progbar
+import pickle
+import time
 
 
 # For testing (and debugging)
@@ -89,12 +93,20 @@ tf.set_random_seed(42)
 np.random.seed(42)
 
 
+# --- Data ---
+
+noise_std = 0.1
+batch_size = 128  # test!
+mnist_ = mnist.MNIST(noise_std, batch_size)
+batch_generator = mnist_.batch_generator()
+
+
 
 # --- Parameters ---
 
-N_CATS = 1
+N_CATS = 10
 N_SAMPLES = 100
-SCALE = 1
+SCALE = mnist_.n_data / mnist_.batch_size
 LOG_DIR = '../dat/logs/'
 DIR_TO_CKPT = '../dat/checkpoints'
 
@@ -129,7 +141,7 @@ with tf.name_scope('model'):
 with tf.name_scope('prior'):
 
     n_inputs = 28 * 28  # number of input features.
-    n_hiddens = 25  # number of perceptrons in the (single) hidden layer.
+    n_hiddens = 100  # number of perceptrons in the (single) hidden layer.
     n_outputs = 10  # number of perceptrons in the output layer.
 
     w_h = NormalWithSoftplusScale(
@@ -249,17 +261,19 @@ with tf.name_scope('inference'):
 
       with tf.name_scope('variables'):
 
+          # Initial values
+          init_cat_logits = tf.zeros([param_space_dim, N_CATS])
+          init_loc = tf.random_normal([param_space_dim, N_CATS])
+          init_softplus_scale = tf.zeros([param_space_dim, N_CATS])
+
           cat_logits = tf.Variable(
-              tf.zeros([param_space_dim, N_CATS]),
-              dtype=tf.float32,
+              init_cat_logits,
               name='cat_logits')
           loc = tf.Variable(
-              tf.random_normal([param_space_dim, N_CATS]),
-              dtype=tf.float32,
+              init_loc,
               name='loc')
           softplus_scale = tf.Variable(
-              tf.zeros([param_space_dim, N_CATS]),
-              dtype=tf.float32,
+              init_softplus_scale,
               name='softplus_scale')
 
       with tf.name_scope('q_distribution'):
@@ -278,20 +292,105 @@ with tf.name_scope('loss'):
 
     # shape: `[N_SAMPLES, param_space_dim]`
     thetas = q.sample(N_SAMPLES)
+
     # shape: `[N_SAMPLES]`
     log_p = tf.map_fn(log_posterior, thetas)
     log_p_mean = tf.reduce_mean(log_p)
 
-    ''' `entropy_lower_bound` has not been implemented yet.
-    try:
-        q_entropy = tf.reduce_mean(q.entropy())
-    except NotImplementedError:
-        q_entropy = tf.reduce_mean(q.entropy_lower_bound())
+    # Get `q_entropy`
+    # C.f. [here](http://www.biopsychology.org/norwich/isp/chap8.pdf).
+    cat_weights = tf.nn.softmax(cat_logits)
+    gauss_entropies = (
+        0.5 * np.log(2. * np.pi * np.e)
+        + tf.log(tf.nn.softplus(softplus_scale))
+    )
+    entropy_lower_bound =  tf.reduce_sum(cat_weights * gauss_entropies)
+    q_entropy = entropy_lower_bound  # as the approximation.
 
     loss = - ( log_p_mean + q_entropy )
+
+
+    ''' Or use TF implementation
+    def log_p(thetas):
+        return tf.map_fn(log_posterior, thetas)
+
+    elbos = entropy.elbo_ratio(log_p, q, z=thetas)
+    loss = - tf.reduce_mean(elbos)
+    # NOTE:
+    #   TF uses direct Monte Carlo integral to compute the `q_entropy`,
+    #   thus is quite slow.
     '''
 
 
 
 with tf.name_scope('optimization'):
-    pass
+
+    #optimizer = tf.train.RMSPropOptimizer
+    optimizer = tf.train.AdamOptimizer
+    learning_rate = 0.01
+    optimize = optimizer(learning_rate).minimize(loss)
+
+
+
+
+# --- Training ---
+
+time_start = time.time()
+
+with tf.Session() as sess:
+
+    sess.run(tf.global_variables_initializer())
+
+    n_epochs = 1
+    n_iter = mnist_.n_batches_per_epoch * n_epochs
+    progbar = Progbar(n_iter)
+
+    for i in range(n_iter):
+
+        x_batch, y_batch, y_err_batch = next(batch_generator)
+        feed_dict = {x: x_batch,
+                        y: y_batch,
+                        y_err: y_err_batch}
+
+        _, loss_val = sess.run([optimize, loss], feed_dict)
+        progbar.update(i, {'Loss': loss_val})
+
+        '''
+        # Validation for each epoch
+        if (i+1) % mnist_.n_batches_per_epoch == 0:
+
+            epoch = int( (i+1) / mnist_.n_batches_per_epoch )
+            print('\nFinished the {0}-th epoch'.format(epoch))
+            print('Elapsed time {0} sec.'.format(time.time()-time_start_epoch))
+
+            # Get validation data
+            x_valid, y_valid, y_error_valid = mnist_.validation_data
+            x_valid, y_valid, y_error_valid = \
+                shuffle(x_valid, y_valid, y_error_valid)
+            x_valid, y_valid, y_error_valid = \
+                x_valid[:128], y_valid[:128], y_error_valid[:128]
+
+            # Get accuracy
+            n_models = 100  # number of Monte Carlo neural network models.
+            # shape: [n_models, n_test_data, n_outputs]
+            softmax_vals = [XXX.eval(feed_dict={x: x_valid})
+                            for i in range(n_models)]
+            # shape: [n_test_data, n_outputs]
+            mean_softmax_vals = np.mean(softmax_vals, axis=0)
+            # shape: [n_test_data]
+            y_pred = np.argmax(mean_softmax_vals, axis=-1)
+            accuracy = get_accuracy(y_pred, y_valid)
+
+            print('Accuracy on validation data: {0} %'\
+                    .format(accuracy/mnist_.batch_size*100))
+        '''
+
+    time_end = time.time()
+    print(' --- Elapsed {0} sec in training'.format(time_end-time_start))
+
+
+    variable_vals = {
+        'cat_logits': cat_logits.eval(),
+        'loc': loc.eval(),
+        'softplus_scale': softplus_scale.eval()
+    }

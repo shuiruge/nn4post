@@ -39,7 +39,7 @@ ed.set_seed(42)  # for debugging.
 
 # DATA
 noise_std = 0.1
-batch_size = 16  # test!
+batch_size = 128
 mnist_ = mnist.MNIST(noise_std, batch_size)
 batch_generator = mnist_.batch_generator()
 
@@ -102,7 +102,7 @@ with tf.name_scope("model"):
         print('Instead, use hand-waved prior.')
 
         n_inputs = 28 * 28  # number of input features.
-        n_hiddens = 10  # number of perceptrons in the (single) hidden layer.
+        n_hiddens = 100  # number of perceptrons in the (single) hidden layer.
         n_outputs = 10  # number of perceptrons in the output layer.
 
         w_h = NormalWithSoftplusScale(
@@ -213,14 +213,12 @@ with tf.name_scope("posterior"):
 
 
 # PLAY
-@profile
 def main():
 
     # Set the parameters of training
     n_epochs = 1
-    #n_iter = mnist_.n_batches_per_epoch * n_epochs
-    n_iter = 3  # test!
-    n_samples = 10  # test!
+    n_iter = mnist_.n_batches_per_epoch * n_epochs
+    n_samples = 100
     scale = {y: mnist_.n_data / mnist_.batch_size}
     logdir = '../dat/logs'
 
@@ -260,6 +258,7 @@ def main():
             [ inference.train, inference.increment_t,
               inference.loss ],
             feed_dict)
+        inference.progbar.update(t, {'Loss': loss})
 
         # Validation for each epoch
         if (i+1) % mnist_.n_batches_per_epoch == 0:
