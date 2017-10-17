@@ -68,6 +68,11 @@ minimum of the loss-function, as expected.
 
 It seems that `edward.util.copy` is costy, and seems non-essential. Thus
 we shall avoid employing it.
+
+
+### TODO
+Find that the memory usage varies greatly while training. Try to find out the
+reason.
 """
 
 
@@ -81,11 +86,13 @@ from tensorflow.contrib.distributions import \
 from tensorflow.contrib.bayesflow import entropy
 # -- To be changed in TF 1.4
 from mixture_same_family import MixtureSameFamily
-from tools import ensure_directory, Timer
+from tools import ensure_directory, Timer, TimeLiner
 import mnist
 from edward.util import Progbar
 import pickle
 import time
+from tensorflow.python.client import timeline
+
 
 
 # For testing (and debugging)
@@ -262,9 +269,10 @@ with tf.name_scope('inference'):
       with tf.name_scope('variables'):
 
           # Initial values
-          init_cat_logits = tf.zeros([param_space_dim, N_CATS])
+          init_cat_logits = tf.zeros([N_CATS])
           init_loc = tf.random_normal([param_space_dim, N_CATS])
           init_softplus_scale = tf.zeros([param_space_dim, N_CATS])
+          # Or using the values in the previous calling of this script.
 
           cat_logits = tf.Variable(
               init_cat_logits,
@@ -332,17 +340,42 @@ with tf.name_scope('optimization'):
 
 
 
+with tf.name_scope('auxiliary_ops'):
+
+    with tf.name_scope('summarizer'):
+
+        with tf.name_scope('loss'):
+            tf.summary.scalar('loss', loss)
+            tf.summary.histogram('loss', loss)
+
+        ## It seems that, up to TF version 1.3,
+        ## `tensor_summary` is still under building
+        #with tf.name_scope('variables'):
+        #    tf.summary.tensor_summary('cat_logits', cat_logits)
+        #    tf.summary.tensor_summary('loc', loc)
+        #    tf.summary.tensor_summary('softplus_scale', softplus_scale)
+
+        # -- And Merge them All
+        summary = tf.summary.merge_all()
+
+
+
+
 
 # --- Training ---
 
 time_start = time.time()
+logdir = '../dat/logs'
+writer = tf.summary.FileWriter(logdir)
+
 
 with tf.Session() as sess:
 
     sess.run(tf.global_variables_initializer())
 
     n_epochs = 1
-    n_iter = mnist_.n_batches_per_epoch * n_epochs
+    #n_iter = mnist_.n_batches_per_epoch * n_epochs
+    n_iter = 3  # test!
     progbar = Progbar(n_iter)
 
     for i in range(n_iter):
@@ -352,8 +385,21 @@ with tf.Session() as sess:
                         y: y_batch,
                         y_err: y_err_batch}
 
-        _, loss_val = sess.run([optimize, loss], feed_dict)
+        run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+        run_metadata = tf.RunMetadata()
+        many_runs_timeline = TimeLiner()
+
+        _, loss_val, summary_val = sess.run(
+            [optimize, loss, summary],
+            feed_dict)
+        writer.add_run_metadata(run_metadata, 'step%d' % i)
+        writer.add_summary(summary_val, global_step=i)
+        # `add_graph`? XXX
         progbar.update(i, {'Loss': loss_val})
+
+        fetched_timeline = timeline.Timeline(run_metadata.step_stats)
+        chrome_trace = fetched_timeline.generate_chrome_trace_format()
+        many_runs_timeline.update_timeline(chrome_trace)
 
         '''
         # Validation for each epoch

@@ -17,57 +17,9 @@
   <math|D<rsub|m>\<assign\><around*|{|<around*|(|x<rsub|i>,y<rsub|i>,\<sigma\><rsub|i>|)>:i=1,\<ldots\>,N<rsub|m>|}>\<subset\>D>
   as a mini-batch, with batch-size <math|N<rsub|m>\<leqslant\>N<rsub|D>>.
 
-  <section|Preliminary>
+  <section|Bayesian>
 
-  <subsection|The Bayesian Formula>
-
-  By Bayes's formula, the posterior can be computed by a valid set of
-  likelihood and prior, as
-
-  <\equation*>
-    ln p<around*|(|\<theta\>\|D|)>=ln p*<around*|(|D\|\<theta\>|)>+ln
-    p<around*|(|\<theta\>|)>-ln p<around*|(|*D|)>.
-  </equation*>
-
-  <subsection|The General Form of Likelihood>
-
-  It's very practical to propose that the data are all independent and
-  Gaussian. Indeed, since observations are generally independently taken,
-  this gives the independence; observations with many times of repeatations
-  gives Gaussianity. Then, the likelihood becomes
-
-  <\eqnarray*>
-    <tformat|<table|<row|<cell|ln p<around*|(|D\|\<theta\>|)>>|<cell|=>|<cell|ln<around*|(|<big|prod><rsub|i=1><rsup|N<rsub|D>><frac|1|<sqrt|2
-    \<pi\> \<sigma\><rsub|i><rsup|2>>> exp<around*|{|-<frac|1|2>
-    <around*|(|<frac|y<rsub|i>-f<around*|(|x<rsub|i>;\<theta\>|)>|\<sigma\><rsub|i>>|)><rsup|2>|}>|)>>>|<row|<cell|>|<cell|=>|<cell|<big|sum><rsub|i=1><rsup|N<rsub|D>><around*|{|-<frac|1|2>ln
-    <around*|(|2 \<pi\> \<sigma\><rsub|i><rsup|2>|)>-<frac|1|2>
-    <around*|(|<frac|y<rsub|i>-f<around*|(|x<rsub|i>;\<theta\>|)>|\<sigma\><rsub|i>>|)><rsup|2>|}>.>>>>
-  </eqnarray*>
-
-  <subsection|Assumption on Prior>
-
-  Assumption on prior shall take lots of cares and considerations. A bad (or
-  unreasonable) choice of prior ruins all.
-
-  <subsubsection|Priors in Bayesian Neural Network>
-
-  As an example, consider Bayesian neural network. Herein, the prior on
-  weights and that on biases are intrinsically different. For prior on
-  weights, we employ Gaussian, and then averaged; and for that on biases, we
-  take uniform instead. This can be illustrated in the section 2.1.1 of Neal
-  (1995) in principle, and in <hlink|section 2.3.1 (``Regularization'') of
-  Nealson (eq. (85) therein)|http://neuralnetworksanddeeplearning.com/chap3.html#regularization>
-  in practice.
-
-  <subsection|Bayesian Inference>
-
-  Sample <math|m> samples from <math|p<around*|(|\<theta\>\|D|)>>,
-  <math|<around*|{|\<theta\><rsub|<around*|(|s|)>>:s=1,\<ldots\>,m|}>>. Thus,
-  the Bayesian inference gives prediction from <math|x> to <math|y> as
-
-  <\eqnarray*>
-    <tformat|<table|<row|<cell|<wide|y|^>>|<cell|=>|<cell|\<bbb-E\><rsub|\<theta\>\<sim\>p<around*|(|\<theta\>\|D|)>><around*|[|f<around*|(|x;\<theta\>|)>|]>>>|<row|<cell|>|<cell|\<approx\>>|<cell|<around*|(|<frac|1|m><big|sum><rsub|s=1><rsup|m>|)>f<around*|(|x;\<theta\><rsub|<around*|(|s|)>>|)>.>>>>
-  </eqnarray*>
+  <subsection|Prior-Posterior Iteration>
 
   <subsection|Bayesian as Information Encoder>
 
@@ -103,14 +55,14 @@
   Thus, we have the fitting function
 
   <\equation*>
-    q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>=<big|sum><rsub|i=1><rsup|N<rsub|c>>w<rsub|i><around*|(|a|)><around*|{|<big|prod><rsub|j=1><rsup|d>\<Phi\><around*|(|\<theta\><rsub|j>-\<mu\><rsub|i
+    q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>=<big|sum><rsub|i=1><rsup|N<rsub|c>>c<rsub|i><around*|(|a|)><around*|{|<big|prod><rsub|j=1><rsup|d>\<Phi\><around*|(|\<theta\><rsub|j>-\<mu\><rsub|i
     j>,\<sigma\><around*|(|\<zeta\><rsub|i j>|)>|)>|}>,
   </equation*>
 
   where
 
   <\eqnarray*>
-    <tformat|<table|<row|<cell|w<rsub|i><around*|(|a|)>>|<cell|=>|<cell|<frac|exp<around*|(|a<rsub|i>|)>|<big|sum><rsub|j=1><rsup|N>exp<around*|(|a<rsub|j>|)>>=softmax<around*|(|i;a|)>;>>|<row|<cell|\<sigma\><around*|(|\<zeta\><rsub|i
+    <tformat|<table|<row|<cell|c<rsub|i><around*|(|a|)>>|<cell|=>|<cell|<frac|exp<around*|(|a<rsub|i>|)>|<big|sum><rsub|j=1><rsup|N>exp<around*|(|a<rsub|j>|)>>=softmax<around*|(|i;a|)>;>>|<row|<cell|\<sigma\><around*|(|\<zeta\><rsub|i
     j>|)>>|<cell|=>|<cell|ln<around*|(|1+exp<around*|(|\<zeta\><rsub|i
     j>|)>|)>,>>>>
   </eqnarray*>
@@ -157,7 +109,7 @@
   j>,\<sigma\><around*|(|\<zeta\><rsub|i j>|)>|)>> corresponds to
   multi-dimensional Gaussian distribution (denote
   <math|<with|math-font|cal|N>>), with all dimensions independent with each
-  other. The <math|<around*|{|w<rsub|i><around*|(|a|)>|}>> is a categorical
+  other. The <math|<around*|{|c<rsub|i><around*|(|a|)>|}>> is a categorical
   distribution, randomly choosing the Gaussian distributions. Thus
   <math|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>> is a composition:
   <math|categorical \<rightarrow\> Gaussian>. This is the <hlink|<em|mixture
@@ -171,6 +123,25 @@
   variational inference. Remark that mean-field variational inference is a
   mature algorithm and has been successfully established on many practical
   applications.
+
+  <subsubsection|As a Neural Network>
+
+  <subsection|Marginalization>
+
+  This model can be marginalized easily. This then benefits the transfering
+  of the model components. Precisely, for any dimension-index <math|l> given,
+  we can marginalize all other dimensions directly, leaving
+
+  <\eqnarray*>
+    <tformat|<table|<row|<cell|q<around*|(|\<theta\><rsub|l>;a,\<mu\>,\<zeta\>|)>>|<cell|=>|<cell|<big|prod><rsub|\<forall\>i\<neq\>l><big|int>\<mathd\>\<theta\><rsub|i>
+    <big|sum><rsub|i=1><rsup|N<rsub|c>>c<rsub|i><around*|(|a|)><around*|{|<big|prod><rsub|j=1><rsup|d>\<Phi\><around*|(|\<theta\><rsub|j>-\<mu\><rsub|i
+    j>,\<sigma\><around*|(|\<zeta\><rsub|i
+    j>|)>|)>|}>>>|<row|<cell|>|<cell|=>|<cell|<big|sum><rsub|i=1><rsup|N<rsub|c>>c<rsub|i><around*|(|a|)>
+    \<Phi\><around*|(|\<theta\><rsub|l>-\<mu\><rsub|i
+    l>,\<sigma\><around*|(|\<zeta\><rsub|i l>|)>|)>,>>>>
+  </eqnarray*>
+
+  where employed the normalization of <math|\<Phi\>>.
 
   <subsection|Loss-Function>
 
@@ -232,19 +203,6 @@
   stochastic optimization in Bayesian mode, the factor
   <math|N<rsub|D>/N<rsub|m>> of likelihood has to be taken into account. We
   have to know how many data we actrually have, thus how confident we are.
-
-  <subsection|When Enlarging Dataset>
-
-  When enlarging the dataset, i.e. increasing <math|N<rsub|D>>, the posterior
-  <math|p<around*|(|\<theta\>;D|)>>, as the target function of variational
-  inference, will be changed, since we become more confident. Does it mean
-  that we have to re-train all the trained?
-
-  Indeed we have to keep training as appending these new data, but start at
-  what we have trained. Since we use gradient based optimizer, it may be
-  beneficial if tune <math|N<rsub|D>> progressively while adding new data
-  progressively, making the change smooth. The optimizer will not ``jump and
-  get lost'' (like the case in RNN without gradient-clipping).
 
   <section|Computational Resource of Training>
 
@@ -372,33 +330,7 @@
   So, even for Bayesian neural network, a layer by layer abstraction along
   depth cannot be absent.
 
-  <section|Problems>
-
-  <subsection|Generalization Problems>
-
-  <subsubsection|Model Transfer>
-
-  Since all components of <math|\<theta\>> in
-  <math|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>> are not independent,
-  transfering the model by copying its subgraph (e.g. several based layers)
-  and then attaching directly to other model's graph cannot be taken. XXX
-
-  <subsubsection|A Solution: Mean-Field Approximation>
-
-  I mean, not the Gaussian <math|q<around*|(|\<theta\><rsub|i>,\<lambda\><rsub|i>|)>>
-  where <math|\<lambda\>>s denotes arbitrary parameters, but a general form
-  of it. However, the <math|q<around*|(|\<theta\>;\<lambda\>|)>> can be
-  decomposited as <math|q<around*|(|\<theta\>;\<lambda\>|)>=<big|prod><rsub|i>q<around*|(|\<theta\><rsub|i>;\<lambda\><rsub|i>|)>>.
-  This solves the provious problem. XXX
-
-  <section|Drafts>
-
-  <math|ln p<around*|(|\<theta\>\|D|)>=ln p<around*|(|\<theta\>|)>+ln
-  p<around*|(|D\|\<theta\>|)>>.
-
-  <math|<big|sum><rsub|j>q<around*|(|\<theta\><rsub|j>|)>
-  <around*|{|<around*|\<nobracket\>|ln p<around*|(|\<theta\><rsub|j>,D|\<nobracket\>>|)>-ln
-  q<around*|(|\<theta\><rsub|j>|)>|}>=???>
+  <section|Transfer Learning>
 </body>
 
 <\initial>
@@ -410,40 +342,40 @@
 <\references>
   <\collection>
     <associate|auto-1|<tuple|1|1>>
-    <associate|auto-10|<tuple|3|1>>
-    <associate|auto-11|<tuple|3.1|2>>
-    <associate|auto-12|<tuple|3.1.1|2>>
-    <associate|auto-13|<tuple|3.2|2>>
-    <associate|auto-14|<tuple|3.2.1|2>>
-    <associate|auto-15|<tuple|3.2.2|3>>
-    <associate|auto-16|<tuple|3.3|3>>
-    <associate|auto-17|<tuple|4|3>>
-    <associate|auto-18|<tuple|4.1|3>>
-    <associate|auto-19|<tuple|4.2|3>>
+    <associate|auto-10|<tuple|3.2.1|1>>
+    <associate|auto-11|<tuple|3.2.2|2>>
+    <associate|auto-12|<tuple|3.2.3|2>>
+    <associate|auto-13|<tuple|3.3|2>>
+    <associate|auto-14|<tuple|3.4|2>>
+    <associate|auto-15|<tuple|4|3>>
+    <associate|auto-16|<tuple|4.1|3>>
+    <associate|auto-17|<tuple|5|3>>
+    <associate|auto-18|<tuple|5.1|3>>
+    <associate|auto-19|<tuple|5.1.1|3>>
     <associate|auto-2|<tuple|1.1|1>>
-    <associate|auto-20|<tuple|5|3>>
-    <associate|auto-21|<tuple|5.1|4>>
-    <associate|auto-22|<tuple|5.1.1|4>>
-    <associate|auto-23|<tuple|5.1.2|4>>
-    <associate|auto-24|<tuple|5.1.3|4>>
-    <associate|auto-25|<tuple|5.1.4|5>>
-    <associate|auto-26|<tuple|5.2|5>>
-    <associate|auto-27|<tuple|1|5>>
-    <associate|auto-28|<tuple|5.3|?>>
-    <associate|auto-29|<tuple|6|?>>
+    <associate|auto-20|<tuple|5.1.2|3>>
+    <associate|auto-21|<tuple|5.1.3|4>>
+    <associate|auto-22|<tuple|5.1.4|4>>
+    <associate|auto-23|<tuple|5.2|4>>
+    <associate|auto-24|<tuple|1|4>>
+    <associate|auto-25|<tuple|5.3|5>>
+    <associate|auto-26|<tuple|6|5>>
+    <associate|auto-27|<tuple|7|5>>
+    <associate|auto-28|<tuple|8|?>>
+    <associate|auto-29|<tuple|8|?>>
     <associate|auto-3|<tuple|2|1>>
-    <associate|auto-30|<tuple|7|?>>
-    <associate|auto-31|<tuple|8|?>>
-    <associate|auto-32|<tuple|8.1|?>>
-    <associate|auto-33|<tuple|8.1.1|?>>
+    <associate|auto-30|<tuple|9|?>>
+    <associate|auto-31|<tuple|10|?>>
+    <associate|auto-32|<tuple|11|?>>
+    <associate|auto-33|<tuple|9|?>>
     <associate|auto-34|<tuple|8.1.2|?>>
     <associate|auto-35|<tuple|9|?>>
     <associate|auto-4|<tuple|2.1|1>>
     <associate|auto-5|<tuple|2.2|1>>
-    <associate|auto-6|<tuple|2.3|1>>
-    <associate|auto-7|<tuple|2.3.1|1>>
-    <associate|auto-8|<tuple|2.4|1>>
-    <associate|auto-9|<tuple|2.5|1>>
+    <associate|auto-6|<tuple|3|1>>
+    <associate|auto-7|<tuple|3.1|1>>
+    <associate|auto-8|<tuple|3.1.1|1>>
+    <associate|auto-9|<tuple|3.2|1>>
     <associate|figure: 1|<tuple|1|4>>
     <associate|footnote-1|<tuple|1|2>>
     <associate|footnote-2|<tuple|2|2>>
@@ -604,6 +536,10 @@
       <with|par-left|<quote|2tab>|8.1.2<space|2spc>A Solution: Mean-Field
       Approximation <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-34>>
+
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|9<space|2spc>Drafts>
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-35><vspace|0.5fn>
     </associate>
   </collection>
 </auxiliary>

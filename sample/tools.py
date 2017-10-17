@@ -89,7 +89,7 @@ def get_variable_value_dict(sess):
 
 
 
-class TimeLiner:
+class TimeLiner(object):
     """ Focked from [here](https://github.com/ikhlestov/tensorflow_profiling/\
     blob/master/03_merged_timeline_example.py). """
 
