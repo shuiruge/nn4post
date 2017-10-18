@@ -268,11 +268,11 @@ with tf.name_scope('inference'):
 
       with tf.name_scope('variables'):
 
-          # Initial values
-          init_cat_logits = tf.zeros([N_CATS])
-          init_loc = tf.random_normal([param_space_dim, N_CATS])
-          init_softplus_scale = tf.zeros([param_space_dim, N_CATS])
-          # Or using the values in the previous calling of this script.
+          with tf.name_scope('initial_values'):
+            init_cat_logits = tf.zeros([N_CATS])
+            init_loc = tf.random_normal([param_space_dim, N_CATS])
+            init_softplus_scale = tf.zeros([param_space_dim, N_CATS])
+            # Or using the values in the previous calling of this script.
 
           cat_logits = tf.Variable(
               init_cat_logits,
@@ -298,22 +298,28 @@ with tf.name_scope('inference'):
 
 with tf.name_scope('loss'):
 
-    # shape: `[N_SAMPLES, param_space_dim]`
-    thetas = q.sample(N_SAMPLES)
+    with tf.name_scope('param_samples'):
+        # shape: `[N_SAMPLES, param_space_dim]`
+        thetas = q.sample(N_SAMPLES)
 
     # shape: `[N_SAMPLES]`
-    log_p = tf.map_fn(log_posterior, thetas)
-    log_p_mean = tf.reduce_mean(log_p)
+    with tf.name_scope('log_p'):
+        log_ps = tf.map_fn(log_posterior, thetas, name='log_ps')
+        log_p_mean = tf.reduce_mean(log_ps, name='log_p_mean')
 
-    # Get `q_entropy`
-    # C.f. [here](http://www.biopsychology.org/norwich/isp/chap8.pdf).
-    cat_weights = tf.nn.softmax(cat_logits)
-    gauss_entropies = (
-        0.5 * np.log(2. * np.pi * np.e)
-        + tf.log(tf.nn.softplus(softplus_scale))
-    )
-    entropy_lower_bound =  tf.reduce_sum(cat_weights * gauss_entropies)
-    q_entropy = entropy_lower_bound  # as the approximation.
+    with tf.name_scope('q_entropy'):
+        # Get `q_entropy`
+        # C.f. [here](http://www.biopsychology.org/norwich/isp/chap8.pdf).
+        with tf.name_scope('cat_weights'):
+            cat_weights = tf.nn.softmax(cat_logits)
+        with tf.name_scope('gauss_entropies'):
+            gauss_entropies = (
+                0.5 * np.log(2. * np.pi * np.e)
+                + tf.log(tf.nn.softplus(softplus_scale))
+            )
+        with tf.name_scope('entropy_lower_bound'):
+            entropy_lower_bound =  tf.reduce_sum(cat_weights * gauss_entropies)
+        q_entropy = entropy_lower_bound  # as the approximation.
 
     loss = - ( log_p_mean + q_entropy )
 
@@ -366,7 +372,7 @@ with tf.name_scope('auxiliary_ops'):
 
 time_start = time.time()
 logdir = '../dat/logs'
-writer = tf.summary.FileWriter(logdir)
+writer = tf.summary.FileWriter(logdir, graph=tf.get_default_graph())
 
 
 with tf.Session() as sess:
@@ -391,10 +397,12 @@ with tf.Session() as sess:
 
         _, loss_val, summary_val = sess.run(
             [optimize, loss, summary],
-            feed_dict)
+            feed_dict,
+            options=run_options,
+            run_metadata=run_metadata,
+        )
         writer.add_run_metadata(run_metadata, 'step%d' % i)
         writer.add_summary(summary_val, global_step=i)
-        # `add_graph`? XXX
         progbar.update(i, {'Loss': loss_val})
 
         fetched_timeline = timeline.Timeline(run_metadata.step_stats)
@@ -431,6 +439,7 @@ with tf.Session() as sess:
                     .format(accuracy/mnist_.batch_size*100))
         '''
 
+    many_runs_timeline.save('../dat/timelines/timeline.json')
     time_end = time.time()
     print(' --- Elapsed {0} sec in training'.format(time_end-time_start))
 
@@ -440,3 +449,15 @@ with tf.Session() as sess:
         'loc': loc.eval(),
         'softplus_scale': softplus_scale.eval()
     }
+
+
+'''Profiling
+
+By checking TensorBoard and timeline (by chrome://tracing), we found that the
+most temporally costy is the "Mul" ops in multiplications between the standard
+Gaussian samples and scales, and between the Gaussian samples and categorical
+samples. So, we expect that GPU can make this script quite faster.
+
+The memory costs come from anywhere that a large tensor with shape
+`[N_SAMPLES, param_space_dim]` is generate.
+'''

@@ -6,6 +6,7 @@
 \catcode`\|=\active \def|{
 \fontencoding{T1}\selectfont\symbol{124}\fontencoding{\encodingdefault}}
 \newcommand{\assign}{:=}
+\newcommand{\mathd}{\mathrm{d}}
 \newcommand{\tmcodeinline}[2][]{{\ttfamily{#2}}}
 \newcommand{\tmem}[1]{{\em #1\/}}
 \newcommand{\tmop}[1]{\ensuremath{\operatorname{#1}}}
@@ -26,55 +27,9 @@ $y_{i}$. We may employ mini-batch technique, thus denote $D_{m} \assign \{ (
 x_{i} ,y_{i} , \sigma_{i} ) :i=1, \ldots ,N_{m} \} \subset D$ as a mini-batch,
 with batch-size $N_{m} \leqslant N_{D}$.
 
-\section{Preliminary}
+\section{Bayesian}
 
-\subsection{The Bayesian Formula}
-
-By Bayes's formula, the posterior can be computed by a valid set of likelihood
-and prior, as
-\[ \ln  p ( \theta |D ) = \ln  p ( D| \theta ) + \ln  p ( \theta ) - \ln  p (
-   D ) . \]
-
-\subsection{The General Form of Likelihood}
-
-It's very practical to propose that the data are all independent and Gaussian.
-Indeed, since observations are generally independently taken, this gives the
-independence; observations with many times of repeatations gives Gaussianity.
-Then, the likelihood becomes
-\begin{eqnarray*}
-  \ln  p ( D| \theta ) & = & \ln \left( \prod_{i=1}^{N_{D}} \frac{1}{\sqrt{2 
-  \pi   \sigma_{i}^{2}}}   \exp \left\{ - \frac{1}{2}   \left( \frac{y_{i} -f
-  ( x_{i} ; \theta )}{\sigma_{i}} \right)^{2} \right\} \right)\\
-  & = & \sum_{i=1}^{N_{D}} \left\{ - \frac{1}{2} \ln   ( 2  \pi  
-  \sigma_{i}^{2} ) - \frac{1}{2}   \left( \frac{y_{i} -f ( x_{i} ; \theta
-  )}{\sigma_{i}} \right)^{2} \right\} .
-\end{eqnarray*}
-
-\subsection{Assumption on Prior}
-
-Assumption on prior shall take lots of cares and considerations. A bad (or
-unreasonable) choice of prior ruins all.
-
-\subsubsection{Priors in Bayesian Neural Network}
-
-As an example, consider Bayesian neural network. Herein, the prior on weights
-and that on biases are intrinsically different. For prior on weights, we
-employ Gaussian, and then averaged; and for that on biases, we take uniform
-instead. This can be illustrated in the section 2.1.1 of Neal (1995) in
-principle, and in
-\href{http://neuralnetworksanddeeplearning.com/chap3.html#regularization}{section
-2.3.1 (``Regularization'') of Nealson (eq. (85) therein)} in practice.
-
-\subsection{Bayesian Inference}
-
-Sample $m$ samples from $p ( \theta |D )$, $\{ \theta_{( s )} :s=1, \ldots ,m
-\}$. Thus, the Bayesian inference gives prediction from $x$ to $y$ as
-\begin{eqnarray*}
-  \hat{y} & = & \mathbbm{E}_{\theta \sim p ( \theta |D )} [ f ( x; \theta )
-  ]\\
-  & \approx & \left( \frac{1}{m} \sum_{s=1}^{m} \right) f ( x; \theta_{( s )}
-  ) .
-\end{eqnarray*}
+\subsection{Prior-Posterior Iteration}
 
 \subsection{Bayesian as Information Encoder}
 
@@ -102,12 +57,12 @@ support) but decrease exponentially fast as $\| \theta \| \rightarrow +
 \infty$. With this assumption, $\ln  p ( \theta ;D )$ is well-defined. For
 ANN, we propose using Gaussian function as the activation-function. Thus, we
 have the fitting function
-\[ q ( \theta ;a, \mu , \zeta ) = \sum_{i=1}^{N_{c}} w_{i} ( a ) \left\{
+\[ q ( \theta ;a, \mu , \zeta ) = \sum_{i=1}^{N_{c}} c_{i} ( a ) \left\{
    \prod_{j=1}^{d} \Phi ( \theta_{j} - \mu_{i j} , \sigma ( \zeta_{i j} ) )
    \right\} , \]
 where
 \begin{eqnarray*}
-  w_{i} ( a ) & = & \frac{\exp ( a_{i} )}{\sum_{j=1}^{N} \exp ( a_{j} )} =
+  c_{i} ( a ) & = & \frac{\exp ( a_{i} )}{\sum_{j=1}^{N} \exp ( a_{j} )} =
   \tmop{softmax} ( i;a ) ;\\
   \sigma ( \zeta_{i j} ) & = & \ln ( 1+ \exp ( \zeta_{i j} ) ) ,
 \end{eqnarray*}
@@ -144,7 +99,7 @@ the horizon-singularity of Schwarzschild solution of black hole.
 $q ( \theta ;a, \mu , \zeta )$ has a probabilistic interpretation.
 $\prod_{j=1}^{d} \Phi ( \theta_{j} - \mu_{i j} , \sigma ( \zeta_{i j} ) )$
 corresponds to multi-dimensional Gaussian distribution (denote $\mathcal{N}$),
-with all dimensions independent with each other. The $\{ w_{i} ( a ) \}$ is a
+with all dimensions independent with each other. The $\{ c_{i} ( a ) \}$ is a
 categorical distribution, randomly choosing the Gaussian distributions. Thus
 $q ( \theta ;a, \mu , \zeta )$ is a composition: $\tmop{categorical}  
 \rightarrow   \tmop{Gaussian}$. This is the
@@ -158,6 +113,22 @@ This model can also be interpreted as a direct generalization of
 Indeed, let $N_{c} =1$, this model reduces to mean-field variational
 inference. Remark that mean-field variational inference is a mature algorithm
 and has been successfully established on many practical applications.
+
+\subsubsection{As a Neural Network}
+
+\subsection{Marginalization}
+
+This model can be marginalized easily. This then benefits the transfering of
+the model components. Precisely, for any dimension-index $l$ given, we can
+marginalize all other dimensions directly, leaving
+\begin{eqnarray*}
+  q ( \theta_{l} ;a, \mu , \zeta ) & = & \prod_{\forall i \neq l} \int \mathd
+  \theta_{i}   \sum_{i=1}^{N_{c}} c_{i} ( a ) \left\{ \prod_{j=1}^{d} \Phi (
+  \theta_{j} - \mu_{i j} , \sigma ( \zeta_{i j} ) ) \right\}\\
+  & = & \sum_{i=1}^{N_{c}} c_{i} ( a )   \Phi ( \theta_{l} - \mu_{i l} ,
+  \sigma ( \zeta_{i l} ) ) ,
+\end{eqnarray*}
+where employed the normalization of $\Phi$.
 
 \subsection{Loss-Function}
 
@@ -204,19 +175,6 @@ number of data gives more confidence. So, while using stochastic optimization
 in Bayesian mode, the factor $N_{D} /N_{m}$ of likelihood has to be taken into
 account. We have to know how many data we actrually have, thus how confident
 we are.
-
-\subsection{When Enlarging Dataset}
-
-When enlarging the dataset, i.e. increasing $N_{D}$, the posterior $p ( \theta
-;D )$, as the target function of variational inference, will be changed, since
-we become more confident. Does it mean that we have to re-train all the
-trained?
-
-Indeed we have to keep training as appending these new data, but start at what
-we have trained. Since we use gradient based optimizer, it may be beneficial
-if tune $N_{D}$ progressively while adding new data progressively, making the
-change smooth. The optimizer will not ``jump and get lost'' (like the case in
-RNN without gradient-clipping).
 
 \section{Computational Resource of Training}
 
@@ -330,22 +288,8 @@ intrinsically intactable.
 So, even for Bayesian neural network, a layer by layer abstraction along depth
 cannot be absent.
 
-\section{Problems}
+\section{Transfer Learning}
 
-\subsection{Generalization Problems}
-
-\subsubsection{Model Transfer}
-
-Since all components of $\theta$ in $q ( \theta ;a, \mu , \zeta )$ are not
-independent, transfering the model by copying its subgraph (e.g. several based
-layers) and then attaching directly to other model's graph cannot be taken.
-XXX
-
-\subsubsection{A Solution: Mean-Field Approximation}
-
-I mean, not the Gaussian $q ( \theta_{i} , \lambda_{i} )$ where $\lambda$s
-denotes arbitrary parameters, but a general form of it. However, the $q (
-\theta ; \lambda )$ can be decomposited as $q ( \theta ; \lambda ) = \prod_{i}
-q ( \theta_{i} ; \lambda_{i} )$. This solves the provious problem. XXX
+\section{Why not MCMC?}
 
 \end{document}
