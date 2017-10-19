@@ -81,8 +81,10 @@ import six
 import tensorflow as tf
 import numpy as np
 # -- `contrib` module in TF 1.3
-from tensorflow.contrib.distributions import \
-    Categorical, NormalWithSoftplusScale
+from tensorflow.contrib.distributions import (
+    Categorical, NormalWithSoftplusScale,
+    MultivariateNormalDiagWithSoftplusScale, Mixture
+)
 from tensorflow.contrib.bayesflow import entropy
 # -- To be changed in TF 1.4
 from mixture_same_family import MixtureSameFamily
@@ -116,6 +118,7 @@ N_SAMPLES = 100
 SCALE = mnist_.n_data / mnist_.batch_size
 LOG_DIR = '../dat/logs/'
 DIR_TO_CKPT = '../dat/checkpoints'
+USE_MIXTURE = False
 
 
 # --- Setup Computational Graph ---
@@ -286,13 +289,21 @@ with tf.name_scope('inference'):
 
       with tf.name_scope('q_distribution'):
 
-          mixture_distribution = Categorical(logits=cat_logits)
+          if USE_MIXTURE:
+              cat = Categorical(logits=cat_logits)
+              locs = tf.unstack(loc, axis=1)
+              softplus_scales = tf.unstack(softplus_scale, axis=1)
+              components = [
+                  MultivariateNormalDiagWithSoftplusScale(
+                      locs[i], softplus_scales[i])
+                  for i in range(N_CATS)
+              ]
+              q = Mixture(cat, components)
 
-          components_distribution = \
-              NormalWithSoftplusScale(loc=loc, scale=softplus_scale)
-
-          q = MixtureSameFamily(mixture_distribution,
-                                components_distribution)
+          else:
+              mixture_dist = Categorical(logits=cat_logits)
+              components_dist = NormalWithSoftplusScale(loc, softplus_scale)
+              q = MixtureSameFamily(mixture_dist, components_dist)
 
 
 
@@ -460,4 +471,6 @@ samples. So, we expect that GPU can make this script quite faster.
 
 The memory costs come from anywhere that a large tensor with shape
 `[N_SAMPLES, param_space_dim]` is generate.
+
+Setting `USE_MIXTURE = True` costs less memory and timing.
 '''
