@@ -94,6 +94,7 @@ from edward.util import Progbar
 import pickle
 import time
 from tensorflow.python.client import timeline
+from independent import Independent
 
 
 
@@ -294,9 +295,9 @@ with tf.name_scope('inference'):
               locs = tf.unstack(loc, axis=1)
               softplus_scales = tf.unstack(softplus_scale, axis=1)
               components = [
-                  MultivariateNormalDiagWithSoftplusScale(
-                      locs[i], softplus_scales[i])
-                  for i in range(N_CATS)
+                  Independent(
+                      NormalWithSoftplusScale(locs[i], softplus_scales[i])
+                  ) for i in range(N_CATS)
               ]
               q = Mixture(cat, components)
 
@@ -328,11 +329,20 @@ with tf.name_scope('loss'):
                 0.5 * np.log(2. * np.pi * np.e)
                 + tf.log(tf.nn.softplus(softplus_scale))
             )
-        with tf.name_scope('entropy_lower_bound'):
-            entropy_lower_bound =  tf.reduce_sum(cat_weights * gauss_entropies)
-        q_entropy = entropy_lower_bound  # as the approximation.
+        if USE_MIXTURE:
+            q_entropy = q.entropy_lower_bound()
+        else:
+            with tf.name_scope('entropy_lower_bound'):
+                entropy_lower_bound =  tf.reduce_sum(cat_weights * gauss_entropies)
+            q_entropy = entropy_lower_bound  # as the approximation.
 
-    loss = - ( log_p_mean + q_entropy )
+    with tf.name_scope('approximate_loss'):
+        approximate_loss = - ( log_p_mean + q_entropy )
+    with tf.name_scope('accurate_loss'):
+        if USE_MIXTURE:
+            accurate_loss = - (log_p_mean + q.entropy_shannon(z=thetas))
+        else:
+            accurate_loss = approximate_loss
 
 
     ''' Or use TF implementation
@@ -353,7 +363,7 @@ with tf.name_scope('optimization'):
     #optimizer = tf.train.RMSPropOptimizer
     optimizer = tf.train.AdamOptimizer
     learning_rate = 0.01
-    optimize = optimizer(learning_rate).minimize(loss)
+    optimize = optimizer(learning_rate).minimize(approximate_loss)
 
 
 
@@ -361,9 +371,12 @@ with tf.name_scope('auxiliary_ops'):
 
     with tf.name_scope('summarizer'):
 
-        with tf.name_scope('loss'):
-            tf.summary.scalar('loss', loss)
-            tf.summary.histogram('loss', loss)
+        with tf.name_scope('approximate_loss'):
+            tf.summary.scalar('approximate_loss', approximate_loss)
+            tf.summary.histogram('approximate_loss', approximate_loss)
+        with tf.name_scope('accurate_loss'):
+            tf.summary.scalar('accurate_loss', accurate_loss)
+            tf.summary.histogram('accurate_loss', accurate_loss)
 
         ## It seems that, up to TF version 1.3,
         ## `tensor_summary` is still under building
@@ -391,8 +404,8 @@ with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
 
     n_epochs = 1
-    #n_iter = mnist_.n_batches_per_epoch * n_epochs
-    n_iter = 3  # test!
+    n_iter = mnist_.n_batches_per_epoch * n_epochs
+    #n_iter = 3  # test!
     progbar = Progbar(n_iter)
 
     for i in range(n_iter):
@@ -406,15 +419,15 @@ with tf.Session() as sess:
         run_metadata = tf.RunMetadata()
         many_runs_timeline = TimeLiner()
 
-        _, loss_val, summary_val = sess.run(
-            [optimize, loss, summary],
+        _, approximate_loss_val, accurate_loss_val, summary_val = sess.run(
+            [optimize, approximate_loss, accurate_loss, summary],
             feed_dict,
             options=run_options,
             run_metadata=run_metadata,
         )
         writer.add_run_metadata(run_metadata, 'step%d' % i)
         writer.add_summary(summary_val, global_step=i)
-        progbar.update(i, {'Loss': loss_val})
+        progbar.update(i, {'Loss': accurate_loss_val})
 
         fetched_timeline = timeline.Timeline(run_metadata.step_stats)
         chrome_trace = fetched_timeline.generate_chrome_trace_format()
@@ -460,6 +473,10 @@ with tf.Session() as sess:
         'loc': loc.eval(),
         'softplus_scale': softplus_scale.eval()
     }
+    
+    with open('../dat/vars.pkl', 'wb') as f:
+        pickle.dump(variable_vals, f)
+
 
 
 '''Profiling
