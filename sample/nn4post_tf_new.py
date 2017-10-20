@@ -90,7 +90,6 @@ from tensorflow.contrib.bayesflow import entropy
 from mixture_same_family import MixtureSameFamily
 from tools import ensure_directory, Timer, TimeLiner
 import mnist
-from edward.util import Progbar
 import pickle
 import time
 from tensorflow.python.client import timeline
@@ -119,7 +118,8 @@ N_SAMPLES = 100
 SCALE = mnist_.n_data / mnist_.batch_size
 LOG_DIR = '../dat/logs/'
 DIR_TO_CKPT = '../dat/checkpoints'
-USE_MIXTURE = False
+LOG_ACCURATE_LOSS = True
+DEBUG = False
 
 
 # --- Setup Computational Graph ---
@@ -270,41 +270,41 @@ with tf.name_scope('posterior'):
 
 with tf.name_scope('inference'):
 
-      with tf.name_scope('variables'):
+    with tf.name_scope('variables'):
 
-          with tf.name_scope('initial_values'):
+        with tf.name_scope('initial_values'):
+
             init_cat_logits = tf.zeros([N_CATS])
             init_loc = tf.random_normal([param_space_dim, N_CATS])
             init_softplus_scale = tf.zeros([param_space_dim, N_CATS])
             # Or using the values in the previous calling of this script.
 
-          cat_logits = tf.Variable(
-              init_cat_logits,
-              name='cat_logits')
-          loc = tf.Variable(
-              init_loc,
-              name='loc')
-          softplus_scale = tf.Variable(
-              init_softplus_scale,
-              name='softplus_scale')
+            cat_logits = tf.Variable(
+                init_cat_logits,
+                name='cat_logits')
+            loc = tf.Variable(
+                init_loc,
+                name='loc')
+            softplus_scale = tf.Variable(
+                init_softplus_scale,
+                name='softplus_scale')
 
-      with tf.name_scope('q_distribution'):
+    with tf.name_scope('q_distribution'):
 
-          if USE_MIXTURE:
-              cat = Categorical(logits=cat_logits)
-              locs = tf.unstack(loc, axis=1)
-              softplus_scales = tf.unstack(softplus_scale, axis=1)
-              components = [
-                  Independent(
-                      NormalWithSoftplusScale(locs[i], softplus_scales[i])
-                  ) for i in range(N_CATS)
-              ]
-              q = Mixture(cat, components)
-
-          else:
-              mixture_dist = Categorical(logits=cat_logits)
-              components_dist = NormalWithSoftplusScale(loc, softplus_scale)
-              q = MixtureSameFamily(mixture_dist, components_dist)
+        # NOTE:
+        #   Using `Mixture` + `NormalWithSoftplusScale` + `Independent` out-
+        #   performs to 1) using `MixtureSameFamily` and 2) `Mixture` +
+        #   `MultivariateNormalDiagWithSoftplusScale` on both timming and
+        #   memory profiling. The (1) is very memory costy.
+        cat = Categorical(logits=cat_logits)
+        locs = tf.unstack(loc, axis=1)
+        softplus_scales = tf.unstack(softplus_scale, axis=1)
+        components = [
+            Independent(
+                NormalWithSoftplusScale(locs[i], softplus_scales[i])
+            ) for i in range(N_CATS)
+        ]
+        q = Mixture(cat, components)
 
 
 
@@ -316,8 +316,12 @@ with tf.name_scope('loss'):
 
     # shape: `[N_SAMPLES]`
     with tf.name_scope('log_p'):
-        log_ps = tf.map_fn(log_posterior, thetas, name='log_ps')
-        log_p_mean = tf.reduce_mean(log_ps, name='log_p_mean')
+
+        def log_p(thetas):
+            """Vectorize `log_posterior`."""
+            return tf.map_fn(log_posterior, thetas)
+
+        log_p_mean = tf.reduce_mean(log_p(thetas), name='log_p_mean')
 
     with tf.name_scope('q_entropy'):
         # Get `q_entropy`
@@ -329,20 +333,14 @@ with tf.name_scope('loss'):
                 0.5 * np.log(2. * np.pi * np.e)
                 + tf.log(tf.nn.softplus(softplus_scale))
             )
-        if USE_MIXTURE:
-            q_entropy = q.entropy_lower_bound()
-        else:
-            with tf.name_scope('entropy_lower_bound'):
-                entropy_lower_bound =  tf.reduce_sum(cat_weights * gauss_entropies)
-            q_entropy = entropy_lower_bound  # as the approximation.
+        q_entropy = q.entropy_lower_bound()
 
     with tf.name_scope('approximate_loss'):
         approximate_loss = - ( log_p_mean + q_entropy )
-    with tf.name_scope('accurate_loss'):
-        if USE_MIXTURE:
-            accurate_loss = - (log_p_mean + q.entropy_shannon(z=thetas))
-        else:
-            accurate_loss = approximate_loss
+
+    if LOG_ACCURATE_LOSS:
+        with tf.name_scope('accurate_loss'):
+            accurate_loss = - entropy.elbo_ratio(log_p, q, z=thetas)
 
 
     ''' Or use TF implementation
@@ -362,7 +360,8 @@ with tf.name_scope('optimization'):
 
     #optimizer = tf.train.RMSPropOptimizer
     optimizer = tf.train.AdamOptimizer
-    learning_rate = 0.01
+    learning_rate = tf.placeholder(shape=[], dtype=tf.float32,
+                                   name='learning_rate')
     optimize = optimizer(learning_rate).minimize(approximate_loss)
 
 
@@ -374,9 +373,11 @@ with tf.name_scope('auxiliary_ops'):
         with tf.name_scope('approximate_loss'):
             tf.summary.scalar('approximate_loss', approximate_loss)
             tf.summary.histogram('approximate_loss', approximate_loss)
-        with tf.name_scope('accurate_loss'):
-            tf.summary.scalar('accurate_loss', accurate_loss)
-            tf.summary.histogram('accurate_loss', accurate_loss)
+
+        if LOG_ACCURATE_LOSS:
+            with tf.name_scope('accurate_loss'):
+                tf.summary.scalar('accurate_loss', accurate_loss)
+                tf.summary.histogram('accurate_loss', accurate_loss)
 
         ## It seems that, up to TF version 1.3,
         ## `tensor_summary` is still under building
@@ -404,34 +405,45 @@ with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
 
     n_epochs = 1
-    n_iter = mnist_.n_batches_per_epoch * n_epochs
-    #n_iter = 3  # test!
-    progbar = Progbar(n_iter)
+    #n_iter = mnist_.n_batches_per_epoch * n_epochs
+    n_iter = 3  # test!
 
     for i in range(n_iter):
 
         x_batch, y_batch, y_err_batch = next(batch_generator)
-        feed_dict = {x: x_batch,
-                        y: y_batch,
-                        y_err: y_err_batch}
+        feed_dict = {
+            x: x_batch,
+            y: y_batch,
+            y_err: y_err_batch,
+            learning_rate: 0.01,
+        }
 
-        run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-        run_metadata = tf.RunMetadata()
-        many_runs_timeline = TimeLiner()
+        if DEBUG:
+            run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+            run_metadata = tf.RunMetadata()
+            many_runs_timeline = TimeLiner()
 
-        _, approximate_loss_val, accurate_loss_val, summary_val = sess.run(
-            [optimize, approximate_loss, accurate_loss, summary],
-            feed_dict,
-            options=run_options,
-            run_metadata=run_metadata,
-        )
-        writer.add_run_metadata(run_metadata, 'step%d' % i)
+        with Timer():
+
+            if DEBUG:
+                _, approximate_loss_val, summary_val = sess.run(
+                    [optimize, approximate_loss, summary],
+                    feed_dict,
+                    options=run_options,
+                    run_metadata=run_metadata
+                )
+                writer.add_run_metadata(run_metadata, 'step%d' % i)
+                fetched_timeline = timeline.Timeline(run_metadata.step_stats)
+                chrome_trace = fetched_timeline.generate_chrome_trace_format()
+                many_runs_timeline.update_timeline(chrome_trace)
+
+            else:
+                _, approximate_loss_val, summary_val = sess.run(
+                    [optimize, approximate_loss, summary],
+                    feed_dict
+                )
+
         writer.add_summary(summary_val, global_step=i)
-        progbar.update(i, {'Loss': accurate_loss_val})
-
-        fetched_timeline = timeline.Timeline(run_metadata.step_stats)
-        chrome_trace = fetched_timeline.generate_chrome_trace_format()
-        many_runs_timeline.update_timeline(chrome_trace)
 
         '''
         # Validation for each epoch
@@ -463,7 +475,9 @@ with tf.Session() as sess:
                     .format(accuracy/mnist_.batch_size*100))
         '''
 
-    many_runs_timeline.save('../dat/timelines/timeline.json')
+    if DEBUG:
+        many_runs_timeline.save('../dat/timelines/timeline.json')
+
     time_end = time.time()
     print(' --- Elapsed {0} sec in training'.format(time_end-time_start))
 
@@ -473,7 +487,7 @@ with tf.Session() as sess:
         'loc': loc.eval(),
         'softplus_scale': softplus_scale.eval()
     }
-    
+
     with open('../dat/vars.pkl', 'wb') as f:
         pickle.dump(variable_vals, f)
 
