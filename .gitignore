@@ -106,6 +106,7 @@ ENV/
 dat/logs/*
 dat/pretrained/*
 dat/timelines/*
+dat/checkpoints/*
 
 docs/.DS_Store
 .DS_Store
