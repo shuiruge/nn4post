@@ -37,12 +37,6 @@ tf.set_random_seed(42)
 np.random.seed(42)
 
 
-# --- Data ---
-
-noise_std = 0.1
-batch_size = 128  # test!
-
-
 
 # --- Parameters ---
 
@@ -94,7 +88,7 @@ with tf.name_scope('inference'):
 
             init_cat_logits = tf.zeros([N_CATS])
             init_loc = tf.random_normal([PARAM_SPACE_DIM, N_CATS]) * 5.0
-            init_softplus_scale = tf.ones([PARAM_SPACE_DIM, N_CATS]) * 5.0
+            init_softplus_scale = tf.ones([PARAM_SPACE_DIM, N_CATS])
             # Or using the values in the previous calling of this script.
 
             cat_logits = tf.Variable(
@@ -171,13 +165,13 @@ with tf.name_scope('loss'):
 
 with tf.name_scope('optimization'):
 
-    #optimizer = tf.train.RMSPropOptimizer
+    optimizer = tf.train.RMSPropOptimizer
     #optimizer = tf.contrib.opt.NadamOptimizer
-    optimizer = tf.train.AdamOptimizer
+    #optimizer = tf.train.AdamOptimizer
     learning_rate = tf.placeholder(shape=[], dtype=tf.float32,
                                    name='learning_rate')
-    #optimize = optimizer(learning_rate).minimize(approximate_loss)
-    optimize = optimizer(learning_rate).minimize(accurate_loss)  # test!
+    optimize = optimizer(learning_rate).minimize(approximate_loss)
+    #optimize = optimizer(learning_rate).minimize(accurate_loss)  # test!
 
 
 with tf.name_scope('auxiliary_ops'):
@@ -287,38 +281,8 @@ with sess:
 
 
 
-        if (i + 1) % 100 == 0:
-            print(i + 1, approximate_loss_val)
-
-        '''
-        # Validation for each epoch
-        if (i+1) % mnist_.n_batches_per_epoch == 0:
-
-            epoch = int( (i+1) / mnist_.n_batches_per_epoch )
-            print('\nFinished the {0}-th epoch'.format(epoch))
-            print('Elapsed time {0} sec.'.format(time.time()-time_start_epoch))
-
-            # Get validation data
-            x_valid, y_valid, y_error_valid = mnist_.validation_data
-            x_valid, y_valid, y_error_valid = \
-                shuffle(x_valid, y_valid, y_error_valid)
-            x_valid, y_valid, y_error_valid = \
-                x_valid[:128], y_valid[:128], y_error_valid[:128]
-
-            # Get accuracy
-            n_models = 100  # number of Monte Carlo neural network models.
-            # shape: [n_models, n_test_data, n_outputs]
-            softmax_vals = [XXX.eval(feed_dict={x: x_valid})
-                            for i in range(n_models)]
-            # shape: [n_test_data, n_outputs]
-            mean_softmax_vals = np.mean(softmax_vals, axis=0)
-            # shape: [n_test_data]
-            y_pred = np.argmax(mean_softmax_vals, axis=-1)
-            accuracy = get_accuracy(y_pred, y_valid)
-
-            print('Accuracy on validation data: {0} %'\
-                    .format(accuracy/mnist_.batch_size*100))
-        '''
+        if step % 100 == 0:
+            print(step, approximate_loss_val)
 
     if PROFILING:
         many_runs_timeline.save('../dat/timelines/timeline.json')
@@ -332,6 +296,8 @@ with sess:
         'loc': loc.eval(),
         'softplus_scale': softplus_scale.eval()
     }
+
+    print(variable_vals['cat_logits'])
 
     with open('../dat/vars.pkl', 'wb') as f:
         pickle.dump(variable_vals, f)

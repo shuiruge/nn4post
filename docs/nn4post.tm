@@ -333,6 +333,15 @@
   <section|Transfer Learning>
 
   <section|Why not MCMC?>
+
+  <section|Drafts>
+
+  The problem of optimization appearing in <shell|gaussian_mixture_model.py>
+  may be caused by the ``non-normalization'' of paramter-space,XXX
+
+  A possible strategy is iteratively adding peaks. While doing so, at each
+  iteration, first normalize the paramter-space by the positions of the peaks
+  found at the previous iteration.XXX
 </body>
 
 <\initial>
@@ -366,7 +375,7 @@
     <associate|auto-28|<tuple|8|?>>
     <associate|auto-29|<tuple|9|?>>
     <associate|auto-3|<tuple|2|1>>
-    <associate|auto-30|<tuple|9|?>>
+    <associate|auto-30|<tuple|10|?>>
     <associate|auto-31|<tuple|10|?>>
     <associate|auto-32|<tuple|11|?>>
     <associate|auto-33|<tuple|9|?>>
@@ -514,6 +523,10 @@
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|8<space|2spc>Transfer
       Learning> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-28><vspace|0.5fn>
+
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|9<space|2spc>Why
+      not MCMC?> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-29><vspace|0.5fn>
     </associate>
   </collection>
 </auxiliary>
