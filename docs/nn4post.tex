@@ -138,8 +138,8 @@ of lower bound'' (ELBO)} as loss. It is ensured to have a unique global
 minimal, at which $p ( \theta ;D ) =q ( \theta ;a, \mu , \zeta )$.
 \begin{eqnarray*}
   \tmop{ELBO} ( a, \mu , \zeta ) & \assign & \mathbbm{E}_{\theta \sim q (
-  \theta ;w,b )} [ \ln  p ( \theta ;D ) - \ln  q ( \theta ;a, \mu , \zeta )
-  ]\\
+  \theta ;a, \mu , \zeta )} [ \ln  p ( \theta ;D ) - \ln  q ( \theta ;a, \mu ,
+  \zeta ) ]\\
   & \approx & \left( \frac{1}{n}   \sum_{\theta_{( s )}} \right) \{ \ln  p (
   \theta_{( s )} ;D ) - \ln  q ( \theta_{( s )} ;a, \mu , \zeta ) \} ,
 \end{eqnarray*}
@@ -175,6 +175,52 @@ number of data gives more confidence. So, while using stochastic optimization
 in Bayesian mode, the factor $N_{D} /N_{m}$ of likelihood has to be taken into
 account. We have to know how many data we actrually have, thus how confident
 we are.
+
+\section{ADVI}
+
+Automatic differentation variational inference (ADVI)\footnote{See,
+\href{https://arxiv.org/abs/1603.00788}{Kucukelbir, et al, 2016}.} has the
+advantage that the variance of its Monte Carlo integral is orderly smaller
+than that of black box variational inference (i.e. optimization directly using
+ELBO without further reparameterization).
+
+Precisely, let $\mathbbm{E}$ for mean value, $\mathbbm{H}$ for shannon
+entropy, $\Phi$ for Gaussian, and $\sigma ( . )$ for softplus function. By
+\[ q ( \theta ;a, \mu , \zeta ) = \sum_{i=1}^{N_{c}} w_{i} ( a )   \Phi (
+   \theta ; \mu_{i} , \sigma ( \zeta_{i} ) ) , \]
+we have
+\begin{eqnarray*}
+  \tmop{ELBO} & = & \mathbbm{E}_{q ( \theta ;a, \mu , \zeta )} [ \ln  p (
+  \theta ;D ) ] +\mathbbm{H} [ q ( \theta ;a, \mu , \zeta ) ]\\
+  & = & \sum_{i}^{N_{c}} w_{i} ( a )  \mathbbm{E}_{\Phi_{i} ( \theta ;
+  \mu_{i} , \sigma ( \zeta_{i} ) )} [ \ln  p ( \theta ;D ) ] +\mathbbm{H} [ q
+  ( \theta ;a, \mu , \zeta ) ]\\
+  & =: & E_{1} +E_{2} .
+\end{eqnarray*}
+($E_{2}$ is analytic and independent of $p ( \theta ;D )$, so we leave it for
+later.) Then, for $\forall i=1, \ldots ,N_{c}$, $\forall \alpha =1, \ldots
+,N_{d}$, let
+\[ \eta_{\alpha} \assign \frac{\theta_{\alpha} - \mu_{i \alpha}}{\sigma (
+   \zeta_{i \alpha} )} , \]
+we have $\theta_{\alpha} = \sigma ( \zeta_{i \alpha} )   \eta_{\alpha} +
+\mu_{i \alpha}$ ($\theta = \sigma ( \zeta_{i} )   \eta + \mu_{i}$ if hides the
+$\alpha$ index). So, for any $i$-components in the $E_{1}$ of $\tmop{ELBO}$,
+we transform
+\[ \mathbbm{E}_{\Phi ( \theta ; \mu_{i} , \sigma ( \zeta_{i} ) )} [ \ln  p (
+   \theta ;D ) ] =\mathbbm{E}_{\Phi ( \eta ;0,1 )} [ \ln  p ( \sigma (
+   \zeta_{i} )   \eta + \mu_{i} ;D ) ] . \]
+Thus, we have derivatives
+\begin{eqnarray*}
+  \frac{\partial E_{1}}{\partial \mu_{i \alpha}} & = & w_{i} ( a ) 
+  \mathbbm{E}_{\Phi ( \eta ;0,1 )} \left[ \frac{\partial \ln  p}{\partial
+  \theta_{\alpha}} ( \theta = \sigma ( \zeta_{i} )   \eta + \mu_{i} ;D )
+  \right] ;\\
+  \frac{\partial E_{1}}{\partial \mu_{i \alpha}} & = & w_{i} ( a ) 
+  \mathbbm{E}_{\Phi ( \eta ;0,1 )} \left[ \frac{\partial \ln  p}{\partial
+  \theta_{\alpha}} ( \theta = \sigma ( \zeta_{i} )   \eta + \mu_{i} ;D )  
+  \eta_{\alpha} \right] .
+\end{eqnarray*}
+So, for these two, value of $\ln  p ( \theta ;D )$ is regardless.
 
 \section{Computational Resource of Training}
 
@@ -291,5 +337,15 @@ cannot be absent.
 \section{Transfer Learning}
 
 \section{Why not MCMC?}
+
+\section{Drafts}
+
+The problem of optimization appearing in
+\tmcodeinline[shell]{gaussian\_mixture\_model.py} may be caused by the
+``non-normalization'' of paramter-space,XXX
+
+A possible strategy is iteratively adding peaks. While doing so, at each
+iteration, first normalize the paramter-space by the positions of the peaks
+found at the previous iteration.XXX
 
 \end{document}

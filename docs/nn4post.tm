@@ -151,7 +151,7 @@
   <math|p<around*|(|\<theta\>;D|)>=q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>>.
 
   <\eqnarray*>
-    <tformat|<table|<row|<cell|ELBO<around*|(|a,\<mu\>,\<zeta\>|)>>|<cell|\<assign\>>|<cell|\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>;w,b|)>><around*|[|ln
+    <tformat|<table|<row|<cell|ELBO<around*|(|a,\<mu\>,\<zeta\>|)>>|<cell|\<assign\>>|<cell|\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>><around*|[|ln
     p<around*|(|\<theta\>;D|)>-ln q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>|]>>>|<row|<cell|>|<cell|\<approx\>>|<cell|<around*|(|<frac|1|n>
     <big|sum><rsub|\<theta\><rsub|<around*|(|s|)>>>|)><around*|{|ln
     p<around*|(|\<theta\><rsub|<around*|(|s|)>>;D|)>-ln
@@ -203,6 +203,69 @@
   stochastic optimization in Bayesian mode, the factor
   <math|N<rsub|D>/N<rsub|m>> of likelihood has to be taken into account. We
   have to know how many data we actrually have, thus how confident we are.
+
+  <section|ADVI>
+
+  Automatic differentation variational inference (ADVI)<\footnote>
+    See, <hlink|Kucukelbir, et al, 2016|https://arxiv.org/abs/1603.00788>.
+  </footnote> has the advantage that the variance of its Monte Carlo integral
+  is orderly smaller than that of black box variational inference (i.e.
+  optimization directly using ELBO without further reparameterization).
+
+  Precisely, let <math|\<bbb-E\>> for mean value, <math|\<bbb-H\>> for
+  shannon entropy, <math|\<Phi\>> for Gaussian, and
+  <math|\<sigma\><around*|(|.|)>> for softplus function. By
+
+  <\equation*>
+    q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>=<big|sum><rsub|i=1><rsup|N<rsub|c>>w<rsub|i><around*|(|a|)>
+    \<Phi\><around*|(|\<theta\>;\<mu\><rsub|i>,\<sigma\><around*|(|\<zeta\><rsub|i>|)>|)>,
+  </equation*>
+
+  we have
+
+  <\eqnarray*>
+    <tformat|<table|<row|<cell|ELBO>|<cell|=>|<cell|\<bbb-E\><rsub|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>><around*|[|ln
+    p<around*|(|\<theta\>;D|)>|]>+\<bbb-H\><around*|[|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>|]>>>|<row|<cell|>|<cell|=>|<cell|<big|sum><rsub|i><rsup|N<rsub|c>>w<rsub|i><around*|(|a|)>
+    \<bbb-E\><rsub|\<Phi\><rsub|i><around*|(|\<theta\>;\<mu\><rsub|i>,\<sigma\><around*|(|\<zeta\><rsub|i>|)>|)>><around*|[|ln
+    p<around*|(|\<theta\>;D|)>|]>+\<bbb-H\><around*|[|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>|]>>>|<row|<cell|>|<cell|=:>|<cell|E<rsub|1>+E<rsub|2>.>>>>
+  </eqnarray*>
+
+  (<math|E<rsub|2>> is analytic and independent of
+  <math|p<around*|(|\<theta\>;D|)>>, so we leave it for later.) Then, for
+  <math|\<forall\>i=1,\<ldots\>,N<rsub|c>>,
+  <math|\<forall\>\<alpha\>=1,\<ldots\>,N<rsub|d>>, let
+
+  <\equation*>
+    \<eta\><rsub|\<alpha\>>\<assign\><frac|\<theta\><rsub|\<alpha\>>-\<mu\><rsub|i\<alpha\>>|\<sigma\><around*|(|\<zeta\><rsub|i\<alpha\>>|)>>,
+  </equation*>
+
+  we have <math|\<theta\><rsub|\<alpha\>>=\<sigma\><around*|(|\<zeta\><rsub|i\<alpha\>>|)>
+  \<eta\><rsub|\<alpha\>>+\<mu\><rsub|i\<alpha\>>>
+  (<math|\<theta\>=\<sigma\><around*|(|\<zeta\><rsub|i>|)>
+  \<eta\>+\<mu\><rsub|i>> if hides the <math|\<alpha\>> index). So, for any
+  <math|i>-components in the <math|E<rsub|1>> of <math|ELBO>, we transform
+
+  <\equation*>
+    \<bbb-E\><rsub|\<Phi\><around*|(|\<theta\>;\<mu\><rsub|i>,\<sigma\><around*|(|\<zeta\><rsub|i>|)>|)>><around*|[|ln
+    p<around*|(|\<theta\>;D|)>|]>=\<bbb-E\><rsub|\<Phi\><around*|(|\<eta\>;0,1|)>><around*|[|ln
+    p<around*|(|\<sigma\><around*|(|\<zeta\><rsub|i>|)>
+    \<eta\>+\<mu\><rsub|i>;D|)>|]>.
+  </equation*>
+
+  Thus, we have derivatives
+
+  <\eqnarray*>
+    <tformat|<table|<row|<cell|<frac|\<partial\>E<rsub|1>|\<partial\>\<mu\><rsub|i\<alpha\>>>>|<cell|=>|<cell|w<rsub|i><around*|(|a|)>
+    \<bbb-E\><rsub|\<Phi\><around*|(|\<eta\>;0,1|)>><around*|[|<frac|\<partial\>ln
+    p|\<partial\>\<theta\><rsub|\<alpha\>>><around*|(|\<theta\>=\<sigma\><around*|(|\<zeta\><rsub|i>|)>
+    \<eta\>+\<mu\><rsub|i>;D|)>|]>;>>|<row|<cell|<frac|\<partial\>E<rsub|1>|\<partial\>\<mu\><rsub|i\<alpha\>>>>|<cell|=>|<cell|w<rsub|i><around*|(|a|)>
+    \<bbb-E\><rsub|\<Phi\><around*|(|\<eta\>;0,1|)>><around*|[|<frac|\<partial\>ln
+    p|\<partial\>\<theta\><rsub|\<alpha\>>><around*|(|\<theta\>=\<sigma\><around*|(|\<zeta\><rsub|i>|)>
+    \<eta\>+\<mu\><rsub|i>;D|)> \<eta\><rsub|\<alpha\>>|]>.>>>>
+  </eqnarray*>
+
+  So, for these two, value of <math|ln p<around*|(|\<theta\>;D|)>> is
+  regardless.
 
   <section|Computational Resource of Training>
 
@@ -361,22 +424,22 @@
     <associate|auto-15|<tuple|4|3>>
     <associate|auto-16|<tuple|4.1|3>>
     <associate|auto-17|<tuple|5|3>>
-    <associate|auto-18|<tuple|5.1|3>>
-    <associate|auto-19|<tuple|5.1.1|3>>
+    <associate|auto-18|<tuple|6|3>>
+    <associate|auto-19|<tuple|6.1|3>>
     <associate|auto-2|<tuple|1.1|1>>
-    <associate|auto-20|<tuple|5.1.2|3>>
-    <associate|auto-21|<tuple|5.1.3|4>>
-    <associate|auto-22|<tuple|5.1.4|4>>
-    <associate|auto-23|<tuple|5.2|4>>
-    <associate|auto-24|<tuple|1|4>>
-    <associate|auto-25|<tuple|5.3|5>>
-    <associate|auto-26|<tuple|6|5>>
+    <associate|auto-20|<tuple|6.1.1|3>>
+    <associate|auto-21|<tuple|6.1.2|4>>
+    <associate|auto-22|<tuple|6.1.3|4>>
+    <associate|auto-23|<tuple|6.1.4|4>>
+    <associate|auto-24|<tuple|6.2|4>>
+    <associate|auto-25|<tuple|1|5>>
+    <associate|auto-26|<tuple|6.3|5>>
     <associate|auto-27|<tuple|7|5>>
     <associate|auto-28|<tuple|8|?>>
     <associate|auto-29|<tuple|9|?>>
     <associate|auto-3|<tuple|2|1>>
     <associate|auto-30|<tuple|10|?>>
-    <associate|auto-31|<tuple|10|?>>
+    <associate|auto-31|<tuple|11|?>>
     <associate|auto-32|<tuple|11|?>>
     <associate|auto-33|<tuple|9|?>>
     <associate|auto-34|<tuple|8.1.2|?>>
@@ -392,10 +455,12 @@
     <associate|footnote-2|<tuple|2|2>>
     <associate|footnote-3|<tuple|3|4>>
     <associate|footnote-4|<tuple|4|5>>
+    <associate|footnote-5|<tuple|5|?>>
     <associate|footnr-1|<tuple|1|1>>
     <associate|footnr-2|<tuple|2|1>>
     <associate|footnr-3|<tuple|3|4>>
     <associate|footnr-4|<tuple|4|5>>
+    <associate|footnr-5|<tuple|5|?>>
   </collection>
 </references>
 
@@ -527,6 +592,10 @@
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|9<space|2spc>Why
       not MCMC?> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-29><vspace|0.5fn>
+
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|10<space|2spc>Drafts>
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-30><vspace|0.5fn>
     </associate>
   </collection>
 </auxiliary>

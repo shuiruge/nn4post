@@ -33,25 +33,28 @@ from tensorflow.python import debug as tf_debug
 
 
 # For testing (and debugging)
-tf.set_random_seed(42)
-np.random.seed(42)
+seed = 123456
+tf.set_random_seed(seed)
+np.random.seed(seed)
 
 
 
 # --- Parameters ---
 
-N_CATS = 3  # shall be varied.
+N_CATS = 2  # shall be varied.
 N_SAMPLES = 100
-PARAM_SPACE_DIM = 10**5
+PARAM_SPACE_DIM = 2
 TARGET_N_CATS = 3  # shall be fixed.
 LOG_ACCURATE_LOSS = True
 PROFILING = False
 DEBUG = False
 SKIP_STEP = 20
-LOG_DIR = '../dat/logs/gaussian_mixture_model/{0}_{1}'\
-          .format(TARGET_N_CATS, N_CATS)
-DIR_TO_CKPT = '../dat/checkpoints/gaussian_mixture_model/{0}_{1}'\
-              .format(TARGET_N_CATS, N_CATS)
+#LOG_DIR = '../dat/logs/gaussian_mixture_model/{0}_{1}'\
+#          .format(TARGET_N_CATS, N_CATS)
+#DIR_TO_CKPT = '../dat/checkpoints/gaussian_mixture_model/{0}_{1}'\
+#              .format(TARGET_N_CATS, N_CATS)
+LOG_DIR = None
+DIR_TO_CKPT = None
 if DIR_TO_CKPT is not None:
     ensure_directory(DIR_TO_CKPT)
 
@@ -63,10 +66,11 @@ if DIR_TO_CKPT is not None:
 
 with tf.name_scope('posterior'):
 
-    target_cat_logits = tf.zeros([TARGET_N_CATS])  # shall be equally weighted.
-    target_loc = tf.random_normal([PARAM_SPACE_DIM, TARGET_N_CATS]) * TARGET_N_CATS
-    target_softplus_scale = tf.random_normal([PARAM_SPACE_DIM, TARGET_N_CATS])
-    print(target_loc.shape)
+    target_cat_logits = tf.constant([-1., 0., 1.])  # shall be equally weighted.
+    target_loc = tf.stack(
+        [ tf.ones([PARAM_SPACE_DIM]) * (i - 1) * 3 for i in range(TARGET_N_CATS) ],
+        axis=1)
+    target_softplus_scale = tf.zeros([PARAM_SPACE_DIM, TARGET_N_CATS])
 
     p = Mixture(
         Categorical(logits=target_cat_logits),
@@ -87,19 +91,22 @@ with tf.name_scope('inference'):
         with tf.name_scope('initial_values'):
 
             init_cat_logits = tf.zeros([N_CATS])
-            init_loc = tf.random_normal([PARAM_SPACE_DIM, N_CATS]) * 5.0
-            init_softplus_scale = tf.ones([PARAM_SPACE_DIM, N_CATS])
+            init_locs = [tf.random_normal([PARAM_SPACE_DIM]) * 5.0
+                        for i in range(N_CATS) ]
+            init_softplus_scales = [tf.ones([PARAM_SPACE_DIM]) * (1.0)
+                                   for i in range(N_CATS)]
             # Or using the values in the previous calling of this script.
 
             cat_logits = tf.Variable(
                 init_cat_logits,
                 name='cat_logits')
-            loc = tf.Variable(
-                init_loc,
-                name='loc')
-            softplus_scale = tf.Variable(
-                init_softplus_scale,
-                name='softplus_scale')
+            locs = [tf.ones([PARAM_SPACE_DIM]) * 3.] \
+                 + [ tf.Variable(init_locs[i], name='loc_{}'.format(i))
+                     for i in range(1, N_CATS) ]
+            softplus_scales = [tf.zeros([PARAM_SPACE_DIM])] \
+                            + [ tf.Variable(init_softplus_scales[i],
+                                            name='softplus_scale_{}'.format(i))
+                                for i in range(1, N_CATS) ]
 
     with tf.name_scope('q_distribution'):
 
@@ -111,8 +118,6 @@ with tf.name_scope('inference'):
         #   `MultivariateNormalDiagWithSoftplusScale` on both timming and
         #   memory profiling. The (1) is very memory costy.
         cat = Categorical(logits=cat_logits)
-        locs = tf.unstack(loc, axis=1)
-        softplus_scales = tf.unstack(softplus_scale, axis=1)
         components = [
             Independent(
                 NormalWithSoftplusScale(locs[i], softplus_scales[i])
@@ -120,7 +125,6 @@ with tf.name_scope('inference'):
         ]
         q = Mixture(cat, components)
         something = q.sample(n_samples)
-        print('--- hahaha', something.shape)
 
 
 
@@ -170,8 +174,13 @@ with tf.name_scope('optimization'):
     #optimizer = tf.train.AdamOptimizer
     learning_rate = tf.placeholder(shape=[], dtype=tf.float32,
                                    name='learning_rate')
-    optimize = optimizer(learning_rate).minimize(approximate_loss)
-    #optimize = optimizer(learning_rate).minimize(accurate_loss)  # test!
+
+    optimize_approximate_loss = \
+        optimizer(learning_rate).minimize(approximate_loss)
+    optimize_accurate_loss = \
+        optimizer(learning_rate).minimize(accurate_loss)
+    #optimize = optimize_approximate_loss
+    optimize = optimize_accurate_loss
 
 
 with tf.name_scope('auxiliary_ops'):
@@ -204,8 +213,10 @@ with tf.name_scope('auxiliary_ops'):
 # --- Training ---
 
 time_start = time.time()
-writer = tf.summary.FileWriter(LOG_DIR, graph=tf.get_default_graph())
-saver = tf.train.Saver()
+if LOG_DIR:
+    writer = tf.summary.FileWriter(LOG_DIR, graph=tf.get_default_graph())
+if DIR_TO_CKPT:
+    saver = tf.train.Saver()
 
 sess = tf.Session()
 
@@ -237,15 +248,19 @@ with sess:
     print(target_loc.eval())
     print(target_softplus_scale.eval())
 
+    print(cat_logits.eval())
+    print(np.array([_.eval() for _ in locs]))
+    print(np.array([_.eval() for _ in softplus_scales]))
 
-    n_iter = 10 ** 3
+
+    n_iter = 10 ** 3 * 2
 
     for i in range(n_iter):
 
         step = initial_step + (i + 1)
 
         feed_dict = {
-            learning_rate: 0.05,
+            learning_rate: 0.01,
             n_samples: N_SAMPLES,
         }
 
@@ -260,10 +275,12 @@ with sess:
                 options=run_options,
                 run_metadata=run_metadata
             )
-            writer.add_run_metadata(run_metadata, 'step%d' % step)
             fetched_timeline = timeline.Timeline(run_metadata.step_stats)
             chrome_trace = fetched_timeline.generate_chrome_trace_format()
             many_runs_timeline.update_timeline(chrome_trace)
+
+        if LOG_DIR:
+            writer.add_run_metadata(run_metadata, 'step%d' % step)
 
         else:
             _, approximate_loss_val, summary_val = sess.run(
@@ -271,7 +288,8 @@ with sess:
                 feed_dict
             )
 
-        writer.add_summary(summary_val, global_step=step)
+        if LOG_DIR:
+            writer.add_summary(summary_val, global_step=step)
 
         # Save checkpoint
         if DIR_TO_CKPT is not None:
@@ -279,10 +297,12 @@ with sess:
             if step % SKIP_STEP == 0:
                 saver.save(sess, path_to_ckpt, global_step=step)
 
-
-
         if step % 100 == 0:
             print(step, approximate_loss_val)
+            print(cat_logits.eval())
+            print(np.array([_.eval() for _ in locs]))
+            print(np.array([_.eval() for _ in softplus_scales]))
+
 
     if PROFILING:
         many_runs_timeline.save('../dat/timelines/timeline.json')
@@ -290,17 +310,6 @@ with sess:
     time_end = time.time()
     print(' --- Elapsed {0} sec in training'.format(time_end-time_start))
 
-
-    variable_vals = {
-        'cat_logits': cat_logits.eval(),
-        'loc': loc.eval(),
-        'softplus_scale': softplus_scale.eval()
-    }
-
-    print(variable_vals['cat_logits'])
-
-    with open('../dat/vars.pkl', 'wb') as f:
-        pickle.dump(variable_vals, f)
 
 
 
