@@ -18,8 +18,9 @@ np.random.seed(SEED)
 
 
 
+
 def get_gaussian_entropy(sigma):
-  """Get the entropy of a multivariate Gaussian distribution with
+  """Entropy of a multivariate Gaussian distribution with
   ALL DIMENSIONS INDEPENDENT.
 
   C.f. eq.(8.7) of [here](http://www.biopsychology.org/norwich/isp/\
@@ -55,20 +56,22 @@ def build_inference(n_c, n_d, log_posterior,
       with tf.name_scope('variables'):
 
         if init_vars is None:
-          init_a = np.array([0.0 for i in range(n_c)],
+          init_c = np.array([ 1 / n_c for i in range(n_c) ],
                             dtype='float32')
           init_mu = np.array(
-              [np.random.normal(size=[n_d]) * 5.0 for i in range(n_c)],
+              [ np.random.normal(size=[n_d]) * 5.0 for i in range(n_c) ],
               dtype='float32')
-          init_zeta = np.array([np.ones([n_d]) * 5.0 for i in range(n_c)],
-                              dtype='float32')
+          init_zeta = np.array([ np.ones([n_d]) * 5.0 for i in range(n_c) ],
+                               dtype='float32')
         else:
-          init_a = init_vars['a']
+          init_c = init_vars['a']
           init_mu = init_vars['mu']
           init_zeta = init_vars['zeta']
 
-        a = [
-            tf.Variable(init_a[i], name='a_{}'.format(i))  # shape: `[]`.
+        assert sum(init_c) == 1
+
+        c = [
+            tf.Variable(init_c[i], name='c_{}'.format(i))  # shape: `[]`.
             for i in range(n_c)
         ]
         mu = [
@@ -98,9 +101,6 @@ def build_inference(n_c, n_d, log_posterior,
 
 
       with tf.name_scope('loss'):
-
-        c = tf.nn.softmax(0.001 * tf.stack(a), name='c')  # `[n_c, n_d]`.  # test!
-
 
         with tf.name_scope('log_p_part'):
 
@@ -164,17 +164,22 @@ def build_inference(n_c, n_d, log_posterior,
             shape=[], dtype=tf.float32, name='learning_rate')
 
         if optimizer is None:
-          _optimizer = tf.train.AdamOptimizer
+          _optimizer = tf.train.AdamOptimizer(learning_rate)
         else:
-          _optimizer = optimizer
+          _optimizer = optimizer(learning_rate)
 
-        train_op = _optimizer(learning_rate).minimize(loss)
+        with tf.name_scope('grad_c'):
+
+          gradients = _optimizer.compute_gradients(loss)
+          # XXX
+
+        train_op = _optimizer.apply_gradients(gradients)
 
 
     # -- Collections
     ops = {
         'vars': {
-            'a': tf.stack(a, axis=0),
+            'c': tf.stack(c, axis=0),
             'mu': tf.stack(mu, axis=0),
             'zeta': tf.stack(zeta, axis=0),
         },
@@ -217,7 +222,6 @@ if __name__ == '__main__':
   LOG_ACCURATE_LOSS = True
   PROFILING = False
   DEBUG = False
-  LR = 0.03
   N_ITERS = 10 ** 3
   SKIP_STEP = 10
   #LOG_DIR = '../dat/logs/gaussian_mixture_model/{0}_{1}'\
@@ -282,7 +286,7 @@ if __name__ == '__main__':
 
         feed_ops = ops['feed']
         feed_dict = {
-            feed_ops['learning_rate']: LR,
+            feed_ops['learning_rate']: 0.03,
             feed_ops['n_samples']: N_SAMPLES,
         }
 
@@ -302,13 +306,11 @@ if __name__ == '__main__':
 
 '''Trial
 
-With `N_C = 5`, we find that `N_ITERS = 10**3` with `LR = 0.03` (`SEED = 123`)
-is enough for finding out all three peaks of the target Gaussian mixture
-distribution, as well as their variance, with high accuracy.
+With `N_C = 5`, we find that `N_ITERS = 10**3` with `LR = 0.03` is enough for
+finding out all three peaks of the target Gaussian mixture distribution, as
+well as their variance, with high accuracy.
 
-The only trouble is the value of `a`. It has correct order relation between the
-values of its components. But the values are not correct. I GUESS that this is
-caused by the numerical instability of softmax.
-
-The RAM cost is quite small (~100 M).
+The only trouble is the value of `a`. It has correct order between the values of
+its components. But the values are not correct. I GUESS that this is caused by
+the numerical instability of softmax.
 '''

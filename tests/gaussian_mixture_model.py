@@ -33,7 +33,7 @@ from tensorflow.python import debug as tf_debug
 
 
 # For testing (and debugging)
-seed = 123456
+seed = 123
 tf.set_random_seed(seed)
 np.random.seed(seed)
 
@@ -41,7 +41,7 @@ np.random.seed(seed)
 
 # --- Parameters ---
 
-N_CATS = 2  # shall be varied.
+N_CATS = 5  # shall be varied.
 N_SAMPLES = 100
 PARAM_SPACE_DIM = 2
 TARGET_N_CATS = 3  # shall be fixed.
@@ -253,14 +253,14 @@ with sess:
     print(np.array([_.eval() for _ in softplus_scales]))
 
 
-    n_iter = 10 ** 3 * 2
+    n_iter = 10 ** 3
 
     for i in range(n_iter):
 
         step = initial_step + (i + 1)
 
         feed_dict = {
-            learning_rate: 0.01,
+            learning_rate: 0.03,
             n_samples: N_SAMPLES,
         }
 
