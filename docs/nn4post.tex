@@ -3,6 +3,8 @@
 \usepackage{amsmath,amssymb,bbm,hyperref}
 
 %%%%%%%%%% Start TeXmacs macros
+\catcode`\>=\active \def>{
+\fontencoding{T1}\selectfont\symbol{62}\fontencoding{\encodingdefault}}
 \catcode`\|=\active \def|{
 \fontencoding{T1}\selectfont\symbol{124}\fontencoding{\encodingdefault}}
 \newcommand{\assign}{:=}
@@ -24,7 +26,9 @@ distribution. Let $D$ denotes a set of observations, $D \assign \{ ( x_{i}
 input, $y_{i}$ its observed value, and $\sigma_{i}$ the observational error of
 $y_{i}$. We may employ mini-batch technique, thus denote $D_{m} \assign \{ (
 x_{i} ,y_{i} , \sigma_{i} ) :i=1, \ldots ,N_{m} \} \subset D$ as a mini-batch,
-with batch-size $N_{m} \leqslant N_{D}$.
+with batch-size $N_{m} \leqslant N_{D}$. We use $\mathbbm{E}_{f ( \theta )} [
+g ( \theta ) ]$ represent the expectation of function $g$ of a random variable
+obeys the p.d.f. $f$. $\Phi$ is for Gaussian p.d.f..
 
 \section{Bayesian}
 
@@ -56,20 +60,24 @@ support) but decrease exponentially fast as $\| \theta \| \rightarrow +
 \infty$. With this assumption, $\ln  p ( \theta ;D )$ is well-defined. For
 ANN, we propose using Gaussian function as the activation-function. Thus, we
 have the fitting function
-\[ q ( \theta ;a, \mu , \zeta ) = \sum_{i=1}^{N_{c}} c_{i} ( a ) \left\{
-   \prod_{\alpha =1}^{d} \Phi ( \theta_{\alpha} - \mu_{i  \alpha} , \sigma (
-   \zeta_{i  \alpha} ) ) \right\} , \]
+\begin{equation}
+  q ( \theta ;a, \mu , \zeta ) \assign \sum_{i=1}^{N_{c}} c_{i} ( a ) \left\{
+  \prod_{\alpha =1}^{d} \Phi ( \theta_{\alpha} - \mu_{i  \alpha} , \sigma (
+  \zeta_{i  \alpha} ) ) \right\} ,
+\end{equation}
 where
-\begin{eqnarray*}
-  c_{i} ( a ) & = & \frac{\exp ( a_{i} )}{\sum_{j=1}^{N} \exp ( a_{j} )} =
-  \tmop{softmax} ( i;a ) ;\\
-  \sigma ( \zeta_{i  \alpha} ) & = & \ln ( 1+ \exp ( \zeta_{i  \alpha} ) ) ,
-\end{eqnarray*}
+\begin{eqnarray}
+  c_{i} ( a ) & = & \frac{\exp ( a_{i} )}{\sum_{j=1}^{N_{c}} \exp ( a_{j} )} =
+  \tmop{softmax} ( i;a ) ; \\
+  \sigma ( \zeta_{i  \alpha} ) & = & \ln ( 1+ \exp ( \zeta_{i  \alpha} ) ) , 
+\end{eqnarray}
 and $a_{i} , \mu_{i  \alpha} , \zeta_{i  \alpha} \in \mathbbm{R}$ for $\forall
 i, \forall \alpha$ and
-\[ \Phi ( x; \mu , \sigma ) \assign \sqrt{\frac{1}{2  \pi   \sigma^{2}}}  
-   \exp \left( - \frac{( x- \mu )^{2}}{2  \sigma^{2}} \right) \]
-being the Gaussian PDF. The introduction of $\zeta$ is for numerical
+\begin{equation}
+  \Phi ( x; \mu , \sigma ) \assign \sqrt{\frac{1}{2  \pi   \sigma^{2}}}   \exp
+  \left( - \frac{( x- \mu )^{2}}{2  \sigma^{2}} \right)
+\end{equation}
+being the Gaussian p.d.f.. The introduction of $\zeta$ is for numerical
 consideration, see below.
 
 \subsubsection{Numerical Consideration}
@@ -120,53 +128,198 @@ and has been successfully established on many practical applications.
 This model can be marginalized easily. This then benefits the transfering of
 the model components. Precisely, for any dimension-index $\beta$ given, we can
 marginalize all other dimensions directly, leaving
-\begin{eqnarray*}
+\begin{eqnarray}
   q ( \theta_{\beta} ;a, \mu , \zeta ) & = & \prod_{\forall \gamma \neq \beta}
   \int \mathd \theta_{\gamma}   \sum_{i=1}^{N_{c}} c_{i} ( a ) \left\{
   \prod_{\alpha =1}^{d} \Phi ( \theta_{\alpha} ; \mu_{i  \alpha} , \sigma (
-  \zeta_{i  \alpha} ) ) \right\}\\
+  \zeta_{i  \alpha} ) ) \right\} \\
   & = & \sum_{i=1}^{N_{c}} c_{i} ( a )   \Phi ( \theta_{\beta} ; \mu_{i 
-  \beta} , \sigma ( \zeta_{i  \beta} ) ) ,
-\end{eqnarray*}
+  \beta} , \sigma ( \zeta_{i  \beta} ) ) , 
+\end{eqnarray}
 where employed the normalization of $\Phi$.
 
 \subsection{Loss-Function}
 
-We use
+We employ
 \href{http://www.umiacs.umd.edu/~xyang35/files/understanding-variational-lower.pdf}{``evidence
-of lower bound'' (ELBO)} as loss. It is ensured to have a unique global
-minimal, at which $p ( \theta ;D ) =q ( \theta ;a, \mu , \zeta )$.
-\begin{eqnarray*}
-  \tmop{ELBO} ( a, \mu , \zeta ) & \assign & \mathbbm{E}_{\theta \sim q (
-  \theta ;a, \mu , \zeta )} [ \ln  p ( \theta ;D ) - \ln  q ( \theta ;a, \mu ,
-  \zeta ) ]\\
-  & \approx & \left( \frac{1}{n}   \sum_{\theta_{( s )}} \right) \{ \ln  p (
-  \theta_{( s )} ;D ) - \ln  q ( \theta_{( s )} ;a, \mu , \zeta ) \} ,
-\end{eqnarray*}
-where $\{ \theta_{( s )} : s=1, \ldots ,n \}$ is sampled from $q ( \theta ;a,
-\mu , \zeta )$ as a distribution. Since there's no compact support for both $p
-( \theta ;D )$ and $q ( \theta ;a, \mu , \zeta )$, $\tmop{ELBO}$ is
-well-defined, as the loss-function (or say loss-function, performance, etc) of
-the fitting.
+of lower bound'' (ELBO)}\footnote{The relation between ELBO and KL-divergence
+is that $\tmop{ELBO} =- \tmop{KL} ( q\|p ) + \tmop{Const}$.}. It is ensured to
+have a unique global maximum, at which $p ( \theta ;D ) =q ( \theta ;a, \mu ,
+\zeta )$.
+\[ \tmop{ELBO} ( a, \mu , \zeta ) \assign \mathbbm{E}_{\theta \sim q ( \theta
+   ;a, \mu , \zeta )} [ \ln  p ( \theta ;D ) - \ln  q ( \theta ;a, \mu , \zeta
+   ) ] . \]
+Since there's no compact support for both $p ( \theta ;D )$ and $q ( \theta
+;a, \mu , \zeta )$, $\tmop{ELBO}$ is well-defined. The loss-function (or say
+loss-function, performance, etc) of the fitting is then defined as
+$\mathcal{L} =- \tmop{ELBO}$, i.e.
+\[ \mathcal{\mathcal{L} ( a, \mu , \zeta )} =-\mathbbm{E}_{\theta \sim q (
+   \theta ;a, \mu , \zeta )} [ \ln  p ( \theta ;D ) - \ln  q ( \theta ;a, \mu
+   , \zeta ) ] , \]
+or, recall $\mathbbm{H} [ q ] \assign -\mathbbm{E}_{q} [ \ln  q ]$ for any
+distribution $q$,
+\[ \mathcal{\mathcal{L} ( a, \mu , \zeta )} =-\mathbbm{E}_{\theta \sim q (
+   \theta ;a, \mu , \zeta )} [ \ln  p ( \theta ;D ) ] -\mathbbm{H} [ q (
+   \theta ;a, \mu , \zeta ) ] . \]
 
-\section{Stochastic Optimization}
+\section{Optimization}
 
-\subsection{Difference between Bayesian and Traditional Methods}
+\subsection{ADVI}
+
+Automatic differentation variational inference (ADVI)\footnote{See,
+\href{https://arxiv.org/abs/1603.00788}{Kucukelbir, et al, 2016}.} has the
+advantage that the variance of its Monte Carlo integral is orderly smaller
+than that of black box variational inference (i.e. optimization directly using
+ELBO without further reparameterization).
+
+\subsubsection{Derivation}
+
+Precisely, recall $\mathbbm{E}$ for mean value, $\Phi$ for Gaussian p.d.f.,
+$\sigma ( . )$ for softplus function, $c ( . )$ for softmax function, and
+\begin{equation}
+  q ( \theta ;a, \mu , \zeta ) = \sum_{i=1}^{N_{c}} c_{i} ( a )   \Phi (
+  \theta ; \mu_{i} , \sigma ( \zeta_{i} ) ) ,
+\end{equation}
+we have, for any function $f$,
+\begin{eqnarray}
+  \mathbbm{E}_{q ( \theta ;a, \mu , \zeta )} [ f ( \theta ) ] & = & \int
+  \mathd \theta   \sum_{i=1}^{N_{c}} c_{i} ( a )   \Phi ( \theta ; \mu_{i} ,
+  \sigma ( \zeta_{i} ) )  f ( \theta ) \\
+  & = & \sum_{i=1}^{N_{c}} c_{i} ( a )   \int \mathd \theta   \Phi ( \theta ;
+  \mu_{i} , \sigma ( \zeta_{i} ) )  f ( \theta ) \\
+  & = & \sum_{i=1}^{N_{c}} c_{i} ( a )  \mathbbm{E}_{\Phi ( \theta ; \mu_{i}
+  , \sigma ( \zeta_{i} ) )} [ f ( \theta ) ] . 
+\end{eqnarray}
+With this general relation, we get
+\begin{eqnarray}
+  \mathcal{\mathcal{L} ( a, \mu , \zeta )} & = & - \{ \mathbbm{E}_{q ( \theta
+  ;a, \mu , \zeta )} [ \ln  p ( \theta ;D ) ] -\mathbbm{E}_{q ( \theta ;a, \mu
+  , \zeta )} [ \ln  q ( \theta ;a, \mu , \zeta ) ] \} \\
+  & = & - \sum_{i}^{N_{c}} c_{i} ( a )  \mathbbm{E}_{\Phi_{i} ( \theta ;
+  \mu_{i} , \sigma ( \zeta_{i} ) )} [ \ln  p ( \theta ;D ) - \ln  q ( \theta
+  ;a, \mu , \zeta ) ] 
+\end{eqnarray}
+Then, for $\forall i=1, \ldots ,N_{c}$, $\forall \alpha =1, \ldots ,N_{d}$,
+let
+\begin{equation}
+  \eta_{\alpha} \assign \frac{\theta_{\alpha} - \mu_{i \alpha}}{\sigma (
+  \zeta_{i \alpha} )} ,
+\end{equation}
+we have
+\begin{equation}
+  \theta_{\alpha} = \sigma ( \zeta_{i \alpha} )   \eta_{\alpha} + \mu_{i
+  \alpha}
+\end{equation}
+(or $\theta = \sigma ( \zeta_{i} )   \eta + \mu_{i}$ if hide the $\alpha$
+index). So, for any $i$-component, we transform
+\begin{eqnarray}
+  \theta & \rightarrow & \sigma ( \zeta_{i} )   \eta + \mu_{i} ; \\
+  \mathbbm{E}_{\Phi ( \theta ; \mu_{i} , \sigma ( \zeta_{i} ) )} [ f ( \theta
+  ) ] & \rightarrow & \mathbbm{E}_{\Phi ( \eta ;0,1 )} [ f ( \sigma (
+  \zeta_{i} )   \eta + \mu_{i} ) ] , 
+\end{eqnarray}
+where function $f$ is arbitrary, thus holds for both $\ln  p ( .;D )$ and $\ln
+q ( .;a, \mu , \zeta )$.
+
+With this setting, the derivatives to $\mu$ and to $\zeta$ are completely
+independent of $\mathbbm{E} [ . ]$. And now, the loss function becomes
+\[ \mathcal{L} ( a, \mu , \zeta ) =- \sum_{i}^{N_{c}} c_{i} ( a ) 
+   \mathbbm{E}_{\Phi ( \eta ;0,1 )} [ \ln  p ( \sigma ( \zeta_{i} )   \eta +
+   \mu_{i} ;D ) - \ln  q ( \sigma ( \zeta_{i} )   \eta + \mu_{i} ;a, \mu ,
+   \zeta ) ] . \]
+
+\subsection{Redefination of $\partial \mathcal{L} / \partial a$}
+
+Let $\Delta r$ the learning-rate. Then the updation of $a_{i}$ at one
+iteration by gradient decent method is
+\[ \Delta a_{i} = \frac{\partial \mathcal{L}}{\partial a_{i}} ( a, \mu , \zeta
+   )   \Delta r. \]
+Notice that redefine the $\partial \mathcal{L} / \partial a$ by
+\[ \frac{\partial \mathcal{L}}{\partial a_{i}} ( a, \mu , \zeta ) \rightarrow
+   \frac{\partial \mathcal{L}}{\partial a_{i}} ( a, \mu , \zeta ) +C, \]
+where $C$ can be any constant, leaves the updation of $c_{i} ( a )$ invariant,
+since it makes
+\[ \Delta a_{i} \rightarrow \frac{\partial \mathcal{L}}{\partial a_{i}} ( a,
+   \mu , \zeta )   \Delta r+C  \Delta r, \]
+thus
+\[ c_{i} ( a+ \Delta a ) \rightarrow \frac{\exp ( a_{i} + \Delta a_{i} +C 
+   \Delta r )}{\sum_{j} \exp ( a_{j} + \Delta a_{j} +C  \Delta r )} =
+   \frac{\exp ( a_{i} + \Delta a_{i} )}{\sum_{j} \exp ( a_{j} + \Delta a_{j}
+   )} =c_{i} ( a+ \Delta a ) . \]
+This $C$ thus provides an additional dof. We can tune the value of $C$ so that
+the updation of $a_{i}$ is numerically stable. Indeed, let $C$ be the average
+of $\{ \partial \mathcal{L} / \partial a_{i} :i=1, \ldots ,N_{c} \}$, we find
+a pretty stability of $a$ as well as a pretty accuracy of $c$ in the iteration
+process of optimization.
+
+\subsubsection{Re-scaling of $a$}
+
+
+
+\subsection{Approximations}
+
+Comparing to the traditional MAP approach, using multi-peak mixture model
+makes the $\mathbbm{H} ( q )$ complicated, especially in the optimization
+process.
+
+\subsubsection{Entropy Lower Bound}
+
+Consider any mixture distribution with p.d.f. $\sum_{i}^{N_{c}} c_{i}  q_{i}$
+where $c$s are the categorical probabilities and $q_{i}$ the p.d.f. of the
+component distributions of the mixture.
+\[ \mathbbm{H} \left[ \sum_{i}^{N_{c}} c_{i}  q_{i} \right] \geqslant
+   \sum_{i}^{N_{c}} c_{i}  \mathbbm{H} [ q_{i} ] . \]
+So, if define
+\begin{equation}
+  \mathcal{\mathcal{L}'} ( a, \mu , \zeta ) \assign - \sum_{i}^{N_{c}}  c_{i}
+  ( a )   \{ \mathbbm{E}_{\Phi ( \eta ;0,1 )} [ \ln  p ( \sigma ( \zeta_{i} ) 
+  \eta + \mu_{i} ;D ) ] +\mathbbm{H} [ \Phi ( \theta , \mu_{i} , \sigma (
+  \zeta_{i} ) ) ] \} ,
+\end{equation}
+then we have
+\[ \mathcal{L}' \geqslant \mathcal{L \geqslant \min ( \mathcal{L} ) >- \infty}
+   , \]
+thus $\mathcal{L}'$ has an global minimum. In this way, the entropy part
+becomes completely analytic (and simple).
+
+\subsubsection{Application}
+
+\begin{eqnarray}
+  \frac{\partial \mathcal{\mathcal{L}'}}{\partial a_{i}} ( a, \mu , \zeta ) &
+  = & -c_{i} ( a )   \{ \mathbbm{E}_{\Phi ( \theta ; \mu_{i} , \sigma (
+  \zeta_{i} ) )} [ \ln  p ( \theta ;D ) ] +\mathbbm{H} [ \Phi ( \theta ,
+  \mu_{i} , \sigma ( \zeta_{i} ) ) ] + \mathcal{L}' ( a, \mu , \zeta ) \} ; \\
+  \frac{\partial \mathcal{L}'}{\partial \mu_{i \alpha}} ( a, \mu , \zeta ) & =
+  & \frac{\partial \mathcal{L}_{p}}{\partial \mu_{i  \alpha}} ( a, \mu , \zeta
+  ) +0; \\
+  \frac{\partial \mathcal{L}'}{\partial \zeta_{i \alpha}} ( a, \mu , \zeta ) &
+  = & \ldots 
+\end{eqnarray}
+
+\subsection{Stochastic Optimization}
+
+\subsubsection{Difference between Bayesian and Traditional Methods}
 
 Suppose, instead of use the whole dataset, we employ mini-batch technique.
 Since all data are independent, if suppose that $D_{m}$ is unbiased in $D$,
 then we have,
-\[ \ln  p ( D| \theta ) = \sum_{D} p ( ( x_{i} ,y_{i} , \sigma_{i} ) | \theta
-   ) \approx \frac{N_{D}}{N_{m}} \sum_{D_{m}} p ( ( x_{i} ,y_{i} , \sigma_{i}
-   ) | \theta ) = \frac{N_{D}}{N_{m}}   \ln  p ( D_{m} | \theta ) . \]
+\begin{equation}
+  \ln  p ( D| \theta ) = \sum_{D} p ( ( x_{i} ,y_{i} , \sigma_{i} ) | \theta )
+  \approx \frac{N_{D}}{N_{m}} \sum_{D_{m}} p ( ( x_{i} ,y_{i} , \sigma_{i} ) |
+  \theta ) = \frac{N_{D}}{N_{m}}   \ln  p ( D_{m} | \theta ) .
+\end{equation}
 Then,
-\[ \ln  p ( \theta ;D ) = \ln  p ( D| \theta ) + \ln  p ( \theta ) =
-   \frac{N_{D}}{N_{m}}   \ln  p ( D_{m} | \theta ) + \ln  p ( \theta ) , \]
+\begin{equation}
+  \ln  p ( \theta ;D ) = \ln  p ( D| \theta ) + \ln  p ( \theta ) =
+  \frac{N_{D}}{N_{m}}   \ln  p ( D_{m} | \theta ) + \ln  p ( \theta ) ,
+\end{equation}
 thus as previous
-\[ \ln  p ( \theta ;D ) = \frac{N_{D}}{N_{m}} \sum_{( x_{i} ,y_{i} ,
-   \sigma_{i} ) \in D_{m}} \left\{ - \frac{1}{2} \ln   ( 2  \pi  
-   \sigma_{i}^{2} ) - \frac{1}{2}   \left( \frac{y_{i} -f ( x_{i} ; \theta
-   )}{\sigma_{i}} \right)^{2} \right\} + \ln  p ( \theta ) . \]
+\begin{equation}
+  \ln  p ( \theta ;D ) = \frac{N_{D}}{N_{m}} \sum_{( x_{i} ,y_{i} , \sigma_{i}
+  ) \in D_{m}} \left\{ - \frac{1}{2} \ln   ( 2  \pi   \sigma_{i}^{2} ) -
+  \frac{1}{2}   \left( \frac{y_{i} -f ( x_{i} ; \theta )}{\sigma_{i}}
+  \right)^{2} \right\} + \ln  p ( \theta ) .
+\end{equation}
 In this we meet one of the main differences between the Bayesian and the
 traditional. In the traditional method, $N_{D}$ does not matters in training,
 being absent in the optimizer. However, in Bayesian, the number of data that
@@ -175,53 +328,6 @@ number of data gives more confidence. So, while using stochastic optimization
 in Bayesian mode, the factor $N_{D} /N_{m}$ of likelihood has to be taken into
 account. We have to know how many data we actrually have, thus how confident
 we are.
-
-\section{ADVI}
-
-Automatic differentation variational inference (ADVI)\footnote{See,
-\href{https://arxiv.org/abs/1603.00788}{Kucukelbir, et al, 2016}.} has the
-advantage that the variance of its Monte Carlo integral is orderly smaller
-than that of black box variational inference (i.e. optimization directly using
-ELBO without further reparameterization).
-
-Precisely, let $\mathbbm{E}$ for mean value, $\mathbbm{H}$ for shannon
-entropy, $\Phi$ for Gaussian, and $\sigma ( . )$ for softplus function. By
-\[ q ( \theta ;a, \mu , \zeta ) = \sum_{i=1}^{N_{c}} w_{i} ( a )   \Phi (
-   \theta ; \mu_{i} , \sigma ( \zeta_{i} ) ) , \]
-we have
-\begin{eqnarray*}
-  \tmop{ELBO} & = & \mathbbm{E}_{q ( \theta ;a, \mu , \zeta )} [ \ln  p (
-  \theta ;D ) ] +\mathbbm{H} [ q ( \theta ;a, \mu , \zeta ) ]\\
-  & = & \sum_{i}^{N_{c}} w_{i} ( a )  \mathbbm{E}_{\Phi_{i} ( \theta ;
-  \mu_{i} , \sigma ( \zeta_{i} ) )} [ \ln  p ( \theta ;D ) ] +\mathbbm{H} [ q
-  ( \theta ;a, \mu , \zeta ) ]\\
-  & =: & E_{1} +E_{2} .
-\end{eqnarray*}
-($E_{2}$ is analytic and independent of $p ( \theta ;D )$, so we leave it for
-later.) Then, for $\forall i=1, \ldots ,N_{c}$, $\forall \alpha =1, \ldots
-,N_{d}$, let
-\[ \eta_{\alpha} \assign \frac{\theta_{\alpha} - \mu_{i \alpha}}{\sigma (
-   \zeta_{i \alpha} )} , \]
-we have $\theta_{\alpha} = \sigma ( \zeta_{i \alpha} )   \eta_{\alpha} +
-\mu_{i \alpha}$ ($\theta = \sigma ( \zeta_{i} )   \eta + \mu_{i}$ if hides the
-$\alpha$ index). So, for any $i$-components in the $E_{1}$ of $\tmop{ELBO}$,
-we transform
-\[ \mathbbm{E}_{\Phi ( \theta ; \mu_{i} , \sigma ( \zeta_{i} ) )} [ \ln  p (
-   \theta ;D ) ] =\mathbbm{E}_{\Phi ( \eta ;0,1 )} [ \ln  p ( \sigma (
-   \zeta_{i} )   \eta + \mu_{i} ;D ) ] . \]
-Thus, we have derivatives
-\begin{eqnarray*}
-  \frac{\partial E_{1}}{\partial \mu_{i \alpha}} & = & w_{i} ( a ) 
-  \mathbbm{E}_{\Phi ( \eta ;0,1 )} [ \nabla_{\alpha} \ln  p ( \sigma (
-  \zeta_{i} )   \eta + \mu_{i} ;D ) ] ;\\
-  \frac{\partial E_{1}}{\partial \zeta_{i \alpha}} & = & w_{i} ( a ) 
-  \mathbbm{E}_{\Phi ( \eta ;0,1 )} \left[ \nabla_{\alpha} \ln  p ( \sigma (
-  \zeta_{i} )   \eta + \mu_{i} ;D )   \eta_{\alpha}   \frac{\partial
-  \sigma}{\partial \zeta_{i \alpha}} ( \zeta_{i} ) \right] ,
-\end{eqnarray*}
-where $\nabla_{\alpha} \ln  p \assign \partial \ln  p/ \partial
-\theta_{\alpha}$ as the formal derivative. So, for these two, value of $\ln  p
-( \theta ;D )$ is regardless.
 
 \section{Deep Learning}
 

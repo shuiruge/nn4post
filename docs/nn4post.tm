@@ -417,7 +417,7 @@
 <\references>
   <\collection>
     <associate|auto-1|<tuple|1|1>>
-    <associate|auto-10|<tuple|3.2.1|1>>
+    <associate|auto-10|<tuple|3.2.1|2>>
     <associate|auto-11|<tuple|3.2.2|2>>
     <associate|auto-12|<tuple|3.2.3|2>>
     <associate|auto-13|<tuple|3.3|2>>
@@ -425,17 +425,17 @@
     <associate|auto-15|<tuple|4|3>>
     <associate|auto-16|<tuple|4.1|3>>
     <associate|auto-17|<tuple|4.1.1|3>>
-    <associate|auto-18|<tuple|4.2|3>>
-    <associate|auto-19|<tuple|4.2.1|3>>
+    <associate|auto-18|<tuple|4.2|4>>
+    <associate|auto-19|<tuple|4.2.1|4>>
     <associate|auto-2|<tuple|1.1|1>>
-    <associate|auto-20|<tuple|4.3|3>>
+    <associate|auto-20|<tuple|4.3|4>>
     <associate|auto-21|<tuple|4.3.1|4>>
-    <associate|auto-22|<tuple|4.3.2|4>>
-    <associate|auto-23|<tuple|4.4|4>>
-    <associate|auto-24|<tuple|4.4.1|4>>
+    <associate|auto-22|<tuple|4.3.2|5>>
+    <associate|auto-23|<tuple|4.4|5>>
+    <associate|auto-24|<tuple|4.4.1|5>>
     <associate|auto-25|<tuple|5|5>>
-    <associate|auto-26|<tuple|6|5>>
-    <associate|auto-27|<tuple|7|5>>
+    <associate|auto-26|<tuple|6|6>>
+    <associate|auto-27|<tuple|7|6>>
     <associate|auto-28|<tuple|9|?>>
     <associate|auto-29|<tuple|10|?>>
     <associate|auto-3|<tuple|2|1>>
@@ -449,18 +449,18 @@
     <associate|auto-5|<tuple|2.2|1>>
     <associate|auto-6|<tuple|3|1>>
     <associate|auto-7|<tuple|3.1|1>>
-    <associate|auto-8|<tuple|3.1.1|1>>
-    <associate|auto-9|<tuple|3.2|1>>
+    <associate|auto-8|<tuple|3.1.1|2>>
+    <associate|auto-9|<tuple|3.2|2>>
     <associate|figure: 1|<tuple|1|4>>
-    <associate|footnote-1|<tuple|1|2>>
-    <associate|footnote-2|<tuple|2|2>>
-    <associate|footnote-3|<tuple|3|4>>
-    <associate|footnote-4|<tuple|4|5>>
+    <associate|footnote-1|<tuple|1|1>>
+    <associate|footnote-2|<tuple|2|1>>
+    <associate|footnote-3|<tuple|3|2>>
+    <associate|footnote-4|<tuple|4|3>>
     <associate|footnote-5|<tuple|5|?>>
     <associate|footnr-1|<tuple|1|1>>
     <associate|footnr-2|<tuple|2|1>>
-    <associate|footnr-3|<tuple|3|4>>
-    <associate|footnr-4|<tuple|4|5>>
+    <associate|footnr-3|<tuple|3|2>>
+    <associate|footnr-4|<tuple|4|3>>
     <associate|footnr-5|<tuple|5|?>>
   </collection>
 </references>
@@ -524,29 +524,58 @@
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-14>>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|4<space|2spc>Stochastic
-      Optimization> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|4<space|2spc>Optimization>
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-15><vspace|0.5fn>
 
-      <with|par-left|<quote|1tab>|4.1<space|2spc>Difference between Bayesian
-      and Traditional Methods <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <with|par-left|<quote|1tab>|4.1<space|2spc>ADVI
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-16>>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|5<space|2spc>ADVI>
+      <with|par-left|<quote|2tab>|4.1.1<space|2spc>Derivation
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-17><vspace|0.5fn>
+      <no-break><pageref|auto-17>>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|6<space|2spc>Deep
+      <with|par-left|<quote|1tab>|4.2<space|2spc>Redefination of
+      <with|mode|<quote|math>|\<partial\><with|math-font|<quote|cal>|L>/\<partial\>a>
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-18>>
+
+      <with|par-left|<quote|2tab>|4.2.1<space|2spc>Re-scaling of
+      <with|mode|<quote|math>|a> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-19>>
+
+      <with|par-left|<quote|1tab>|4.3<space|2spc>Approximations
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-20>>
+
+      <with|par-left|<quote|2tab>|4.3.1<space|2spc>Entropy Lower Bound
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-21>>
+
+      <with|par-left|<quote|2tab>|4.3.2<space|2spc>Application
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-22>>
+
+      <with|par-left|<quote|1tab>|4.4<space|2spc>Stochastic Optimization
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-23>>
+
+      <with|par-left|<quote|2tab>|4.4.1<space|2spc>Difference between
+      Bayesian and Traditional Methods <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-24>>
+
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|5<space|2spc>Deep
       Learning> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-18><vspace|0.5fn>
+      <no-break><pageref|auto-25><vspace|0.5fn>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|7<space|2spc>Transfer
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|6<space|2spc>Transfer
       Learning> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-19><vspace|0.5fn>
+      <no-break><pageref|auto-26><vspace|0.5fn>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|8<space|2spc>Why
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|7<space|2spc>Why
       not MCMC?> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-20><vspace|0.5fn>
+      <no-break><pageref|auto-27><vspace|0.5fn>
     </associate>
   </collection>
 </auxiliary>
