@@ -3,15 +3,15 @@
 """
 Description
 -----------
-ADVI implementation of "nerual network for posterior" with accurate entropy of
-q-distribution.
+ADVI implementation of "nerual network for posterior" with entropy lower bound
+employed.
 """
 
 
 import tensorflow as tf
 import numpy as np
 # -- `contrib` module in TF 1.3
-from tensorflow.contrib.distributions import Normal, Mixture
+from tensorflow.contrib.distributions import Normal
 from tools import Timer
 from independent import Independent
 
@@ -23,37 +23,27 @@ tf.set_random_seed(SEED)
 np.random.seed(SEED)
 
 
-def get_gaussian_mixture_log_prob(cat_probs, gauss_mu, gauss_sigma):
-  """Get the logrithmic p.d.f. of a Gaussian mixture model.
+
+def gaussian_entropy(sigma):
+  """Get the entropy of a multivariate Gaussian distribution with
+  ALL DIMENSIONS INDEPENDENT.
+
+  C.f. eq.(8.7) of [here](http://www.biopsychology.org/norwich/isp/\
+  chap8.pdf).
+
+  NOTE:
+    Gaussian entropy is independent of its center `mu`.
 
   Args:
-    cat_probs:
-      `1-D` tensor with unit (reduce) sum, as the categorical probabilities.
-
-    gauss_mu:
-      List of tensors, with the length the shape of `cat_probs`, as the `mu`
-      values of the Gaussian components. All these tensors shall share the
-      same shape (as, e.g., `gauss_mu[0]`)
-
-    gauss_sigma:
-      List of tensors, with the length the shape of `cat_probs`, as the `sigma`
-      values of the Gaussian components. Thus shall be all positive, and shall
-      be all the same shape as `gauss_mu[0]`.
+    sigma:
+      Tensor of shape `[None]`.
 
   Returns:
-    Callable, mapping from tensor of the shape of `gauss_mu[0]` to scalar, as
-    the p.d.f..
+    Scalar.
   """
-
-  n_cats = cat_probs.shape[0]
-  cat = Categorical(probs=cat_probs)
-  components = [
-      Independent( Normal(gauss_mu[i], gauss_sigma[i]) )
-      for i in range(n_cats)
-  ]
-  distribution = Mixture(cat=cat, components=components)
-
-  return distribution.log_prob
+  n_dims = np.prod(sigma.get_shape().as_list())
+  return 0.5 * n_dims * tf.log(2. * np.pi * np.e) \
+         + tf.reduce_sum(tf.log(sigma))
 
 
 
@@ -80,6 +70,7 @@ def build_inference(n_c, n_d, log_posterior,
               dtype='float32')
           init_zeta = np.array([np.ones([n_d]) * 1.0 for i in range(n_c)],
                               dtype='float32')
+
         else:
           init_a = init_vars['a']
           init_mu = init_vars['mu']
@@ -130,9 +121,9 @@ def build_inference(n_c, n_d, log_posterior,
         with tf.name_scope('samples'):
 
           n_samples = tf.placeholder(shape=[], dtype=tf.int32,
-                                      name='n_samples')
+                                     name='n_samples')
           eta_samples = [
-              std_normal[i].sample(n_samples)  # `[n_samples, n_d]`
+              std_normal[i].sample(n_samples)  # `[n_samples, n_d]`.
               for i in range(n_c)
           ]
 
@@ -168,26 +159,16 @@ def build_inference(n_c, n_d, log_posterior,
         with tf.name_scope('q_part'):
 
 
-          with tf.name_scope('log_q'):
-
-            gaussian_mixture_log_prob = \
-                get_gaussian_mixture_log_prob(c, mu, sigma)
-
-            def log_q(theta_samples):
-              """Vectorize `log_q`."""
-              return tf.map_fn(gaussian_mixture_log_prob, theta_samples)
-
-
           with tf.name_scope('expect_log_q'):
 
             expect_log_q = [
-                tf.reduce_mean( log_q(theta_samples[i]) )
+                -1 * gaussian_entropy(sigma[i])
                 for i in range(n_c)
             ]
 
 
           loss_q_part = tf.add_n(
-              [ c[i] * expect_log_q [i] for i in range(n_c) ]
+              [ c[i] * expect_log_q[i] for i in range(n_c) ]
           )
 
 
@@ -264,9 +245,6 @@ def build_inference(n_c, n_d, log_posterior,
         },
         'train': {
             'train_op': train_op,
-        },
-        'test': {
-            'grad_a': grad_a_op,
         }
     }
     for class_name, op_dict in ops.items():
@@ -380,17 +358,15 @@ if __name__ == '__main__':
         train_op = ops['train']['train_op']
         loss = ops['loss']['loss']
 
-        _, loss_val, a_val, c_val, mu_val, zeta_val, grad_a_val = \
+        _, loss_val, a_val, c_val, mu_val, zeta_val = \
             sess.run([ train_op, loss, var_ops['a'],
-                       var_ops['c'], var_ops['mu'], var_ops['zeta'],
-                       ops['test']['grad_a'] ],
+                       var_ops['c'], var_ops['mu'], var_ops['zeta'] ],
                      feed_dict)
 
         # Display Trained Values
         if i % SKIP_STEP == 0:
           print('--- {0:5}  | {1}'.format(i, loss_val))
           print('c:\n', c_val)
-          print('grad_a:\n', grad_a_val)
           print('a:\n', a_val)
           print('mu:\n', mu_val)
           print('zeta:\n', zeta_val)
@@ -404,8 +380,8 @@ With `N_C = 5` and `N_D = 2`, we find that `N_ITERS = 10**3` with `LR = 0.03`
 (`SEED = 123`) is enough for finding out all three peaks of the target
 Gaussian mixture distribution, as well as their variance, with high accuracy.
 
-Comparing to the same ADVI implementation but employing entropy lower bound,
-herein, the accuracy of `c` is much pretty.
+Comparing to the same ADVI implementation but without employing entropy lower
+bound, herein, the accuracy of `c` is not that pretty.
 
 The RAM cost is quite small (~100 M).
 

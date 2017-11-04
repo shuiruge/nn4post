@@ -15,7 +15,10 @@
   observed value, and <math|\<sigma\><rsub|i>> the observational error of
   <math|y<rsub|i>>. We may employ mini-batch technique, thus denote
   <math|D<rsub|m>\<assign\><around*|{|<around*|(|x<rsub|i>,y<rsub|i>,\<sigma\><rsub|i>|)>:i=1,\<ldots\>,N<rsub|m>|}>\<subset\>D>
-  as a mini-batch, with batch-size <math|N<rsub|m>\<leqslant\>N<rsub|D>>.
+  as a mini-batch, with batch-size <math|N<rsub|m>\<leqslant\>N<rsub|D>>. We
+  use <math|\<bbb-E\><rsub|f<around*|(|\<theta\>|)>><around*|[|g<around*|(|\<theta\>|)>|]>>
+  represent the expectation of function <math|g> of a random variable obeys
+  the p.d.f. <math|f>. <math|\<Phi\>> is for Gaussian p.d.f..
 
   <section|Bayesian>
 
@@ -54,29 +57,29 @@
   For ANN, we propose using Gaussian function as the activation-function.
   Thus, we have the fitting function
 
-  <\equation*>
-    q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>=<big|sum><rsub|i=1><rsup|N<rsub|c>>c<rsub|i><around*|(|a|)><around*|{|<big|prod><rsub|\<alpha\>=1><rsup|d>\<Phi\><around*|(|\<theta\><rsub|\<alpha\>>-\<mu\><rsub|i
+  <\equation>
+    q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>\<assign\><big|sum><rsub|i=1><rsup|N<rsub|c>>c<rsub|i><around*|(|a|)><around*|{|<big|prod><rsub|\<alpha\>=1><rsup|d>\<Phi\><around*|(|\<theta\><rsub|\<alpha\>>-\<mu\><rsub|i
     \<alpha\>>,\<sigma\><around*|(|\<zeta\><rsub|i \<alpha\>>|)>|)>|}>,
-  </equation*>
+  </equation>
 
   where
 
   <\eqnarray*>
-    <tformat|<table|<row|<cell|c<rsub|i><around*|(|a|)>>|<cell|=>|<cell|<frac|exp<around*|(|a<rsub|i>|)>|<big|sum><rsub|j=1><rsup|N>exp<around*|(|a<rsub|j>|)>>=softmax<around*|(|i;a|)>;>>|<row|<cell|\<sigma\><around*|(|\<zeta\><rsub|i
+    <tformat|<table|<row|<cell|c<rsub|i><around*|(|a|)>>|<cell|=>|<cell|<frac|exp<around*|(|a<rsub|i>|)>|<big|sum><rsub|j=1><rsup|N<rsub|c>>exp<around*|(|a<rsub|j>|)>>=softmax<around*|(|i;a|)>;<eq-number>>>|<row|<cell|\<sigma\><around*|(|\<zeta\><rsub|i
     \<alpha\>>|)>>|<cell|=>|<cell|ln<around*|(|1+exp<around*|(|\<zeta\><rsub|i
-    \<alpha\>>|)>|)>,>>>>
+    \<alpha\>>|)>|)>,<eq-number>>>>>
   </eqnarray*>
 
   and <math|a<rsub|i>,\<mu\><rsub|i \<alpha\>>,\<zeta\><rsub|i
   \<alpha\>>\<in\>\<bbb-R\>> for <math|\<forall\>i,\<forall\>\<alpha\>> and
 
-  <\equation*>
+  <\equation>
     \<Phi\><around*|(|x;\<mu\>,\<sigma\>|)>\<assign\><sqrt|<frac|1|2 \<pi\>
     \<sigma\><rsup|2>>> exp<around*|(|-<frac|<around*|(|x-\<mu\>|)><rsup|2>|2
     \<sigma\><rsup|2>>|)>
-  </equation*>
+  </equation>
 
-  being the Gaussian PDF. The introduction of <math|\<zeta\>> is for
+  being the Gaussian p.d.f.. The introduction of <math|\<zeta\>> is for
   numerical consideration, see below.
 
   <subsubsection|Numerical Consideration>
@@ -136,64 +139,246 @@
     <tformat|<table|<row|<cell|q<around*|(|\<theta\><rsub|\<beta\>>;a,\<mu\>,\<zeta\>|)>>|<cell|=>|<cell|<big|prod><rsub|\<forall\>\<gamma\>\<neq\>\<beta\>><big|int>\<mathd\>\<theta\><rsub|\<gamma\>>
     <big|sum><rsub|i=1><rsup|N<rsub|c>>c<rsub|i><around*|(|a|)><around*|{|<big|prod><rsub|\<alpha\>=1><rsup|d>\<Phi\><around*|(|\<theta\><rsub|\<alpha\>>;\<mu\><rsub|i
     \<alpha\>>,\<sigma\><around*|(|\<zeta\><rsub|i
-    \<alpha\>>|)>|)>|}>>>|<row|<cell|>|<cell|=>|<cell|<big|sum><rsub|i=1><rsup|N<rsub|c>>c<rsub|i><around*|(|a|)>
+    \<alpha\>>|)>|)>|}><eq-number>>>|<row|<cell|>|<cell|=>|<cell|<big|sum><rsub|i=1><rsup|N<rsub|c>>c<rsub|i><around*|(|a|)>
     \<Phi\><around*|(|\<theta\><rsub|\<beta\>>;\<mu\><rsub|i
-    \<beta\>>,\<sigma\><around*|(|\<zeta\><rsub|i \<beta\>>|)>|)>,>>>>
+    \<beta\>>,\<sigma\><around*|(|\<zeta\><rsub|i
+    \<beta\>>|)>|)>,<eq-number>>>>>
   </eqnarray*>
 
   where employed the normalization of <math|\<Phi\>>.
 
   <subsection|Loss-Function>
 
-  We use <hlink|\Pevidence of lower bound\Q
-  (ELBO)|http://www.umiacs.umd.edu/~xyang35/files/understanding-variational-lower.pdf>
-  as loss. It is ensured to have a unique global minimal, at which
+  We employ <hlink|\Pevidence of lower bound\Q
+  (ELBO)|http://www.umiacs.umd.edu/~xyang35/files/understanding-variational-lower.pdf><\footnote>
+    The relation between ELBO and KL-divergence is that
+    <math|ELBO=-KL<around*|(|q\<\|\|\>p|)>+Const>.
+  </footnote>. It is ensured to have a unique global maximum, at which
   <math|p<around*|(|\<theta\>;D|)>=q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>>.
 
+  <\equation*>
+    ELBO<around*|(|a,\<mu\>,\<zeta\>|)>\<assign\>\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>><around*|[|ln
+    p<around*|(|\<theta\>;D|)>-ln q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>|]>.
+  </equation*>
+
+  Since there's no compact support for both <math|p<around*|(|\<theta\>;D|)>>
+  and <math|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>>, <math|ELBO> is
+  well-defined. The loss-function (or say loss-function, performance, etc) of
+  the fitting is then defined as <math|<with|math-font|cal|L>=-ELBO>, i.e.
+
+  <\equation*>
+    <with|math-font|cal|<with|math-font|cal|L><around*|(|a,\<mu\>,\<zeta\>|)>>=-\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>><around*|[|ln
+    p<around*|(|\<theta\>;D|)>-ln q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>|]>,
+  </equation*>
+
+  or, recall <math|\<bbb-H\><around*|[|q|]>\<assign\>-\<bbb-E\><rsub|q><around*|[|ln
+  q|]>> for any distribution <math|q>,
+
+  <\equation*>
+    <with|math-font|cal|<with|math-font|cal|L><around*|(|a,\<mu\>,\<zeta\>|)>>=-\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>><around*|[|ln
+    p<around*|(|\<theta\>;D|)>|]>-\<bbb-H\><around*|[|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>|]>.
+  </equation*>
+
+  <section|Optimization>
+
+  <subsection|ADVI>
+
+  Automatic differentation variational inference (ADVI)<\footnote>
+    See, <hlink|Kucukelbir, et al, 2016|https://arxiv.org/abs/1603.00788>.
+  </footnote> has the advantage that the variance of its Monte Carlo integral
+  is orderly smaller than that of black box variational inference (i.e.
+  optimization directly using ELBO without further reparameterization).
+
+  <subsubsection|Derivation>
+
+  Precisely, recall <math|\<bbb-E\>> for mean value, <math|\<Phi\>> for
+  Gaussian p.d.f., <math|\<sigma\><around*|(|.|)>> for softplus function,
+  <math|c<around*|(|.|)>> for softmax function, and
+
+  <\equation>
+    q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>=<big|sum><rsub|i=1><rsup|N<rsub|c>>c<rsub|i><around*|(|a|)>
+    \<Phi\><around*|(|\<theta\>;\<mu\><rsub|i>,\<sigma\><around*|(|\<zeta\><rsub|i>|)>|)>,
+  </equation>
+
+  we have, for any function <math|f>,
+
   <\eqnarray*>
-    <tformat|<table|<row|<cell|ELBO<around*|(|a,\<mu\>,\<zeta\>|)>>|<cell|\<assign\>>|<cell|\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>><around*|[|ln
-    p<around*|(|\<theta\>;D|)>-ln q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>|]>>>|<row|<cell|>|<cell|\<approx\>>|<cell|<around*|(|<frac|1|n>
-    <big|sum><rsub|\<theta\><rsub|<around*|(|s|)>>>|)><around*|{|ln
-    p<around*|(|\<theta\><rsub|<around*|(|s|)>>;D|)>-ln
-    q<around*|(|\<theta\><rsub|<around*|(|s|)>>;a,\<mu\>,\<zeta\>|)>|}>,>>>>
+    <tformat|<table|<row|<cell|\<bbb-E\><rsub|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>><around*|[|f<around*|(|\<theta\>|)>|]>>|<cell|=>|<cell|<big|int>\<mathd\>\<theta\>
+    <big|sum><rsub|i=1><rsup|N<rsub|c>>c<rsub|i><around*|(|a|)>
+    \<Phi\><around*|(|\<theta\>;\<mu\><rsub|i>,\<sigma\><around*|(|\<zeta\><rsub|i>|)>|)>
+    f<around*|(|\<theta\>|)><eq-number>>>|<row|<cell|>|<cell|=>|<cell|<big|sum><rsub|i=1><rsup|N<rsub|c>>c<rsub|i><around*|(|a|)>
+    <big|int>\<mathd\>\<theta\> \<Phi\><around*|(|\<theta\>;\<mu\><rsub|i>,\<sigma\><around*|(|\<zeta\><rsub|i>|)>|)>
+    f<around*|(|\<theta\>|)><eq-number>>>|<row|<cell|>|<cell|=>|<cell|<big|sum><rsub|i=1><rsup|N<rsub|c>>c<rsub|i><around*|(|a|)>
+    \<bbb-E\><rsub|\<Phi\><around*|(|\<theta\>;\<mu\><rsub|i>,\<sigma\><around*|(|\<zeta\><rsub|i>|)>|)>><around*|[|f<around*|(|\<theta\>|)>|]>.<eq-number>>>>>
   </eqnarray*>
 
-  where <math|<around*|{|\<theta\><rsub|<around*|(|s|)>>: s=1,\<ldots\>,n|}>>
-  is sampled from <math|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>> as a
-  distribution. Since there's no compact support for both
-  <math|p<around*|(|\<theta\>;D|)>> and <math|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>>,
-  <math|ELBO> is well-defined, as the loss-function (or say loss-function,
-  performance, etc) of the fitting.
+  With this general relation, we get
 
-  <section|Stochastic Optimization>
+  <\eqnarray*>
+    <tformat|<table|<row|<cell|<with|math-font|cal|<with|math-font|cal|L><around*|(|a,\<mu\>,\<zeta\>|)>>>|<cell|=>|<cell|-<around*|{|\<bbb-E\><rsub|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>><around*|[|ln
+    p<around*|(|\<theta\>;D|)>|]>-\<bbb-E\><rsub|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>><around*|[|ln
+    q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>|]>|}><eq-number>>>|<row|<cell|>|<cell|=>|<cell|-<big|sum><rsub|i><rsup|N<rsub|c>>c<rsub|i><around*|(|a|)>
+    \<bbb-E\><rsub|\<Phi\><rsub|i><around*|(|\<theta\>;\<mu\><rsub|i>,\<sigma\><around*|(|\<zeta\><rsub|i>|)>|)>><around*|[|ln
+    p<around*|(|\<theta\>;D|)>-ln q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>|]><eq-number>>>>>
+  </eqnarray*>
 
-  <subsection|Difference between Bayesian and Traditional Methods>
+  Then, for <math|\<forall\>i=1,\<ldots\>,N<rsub|c>>,
+  <math|\<forall\>\<alpha\>=1,\<ldots\>,N<rsub|d>>, let
+
+  <\equation>
+    \<eta\><rsub|\<alpha\>>\<assign\><frac|\<theta\><rsub|\<alpha\>>-\<mu\><rsub|i\<alpha\>>|\<sigma\><around*|(|\<zeta\><rsub|i\<alpha\>>|)>>,
+  </equation>
+
+  we have
+
+  <\equation>
+    \<theta\><rsub|\<alpha\>>=\<sigma\><around*|(|\<zeta\><rsub|i\<alpha\>>|)>
+    \<eta\><rsub|\<alpha\>>+\<mu\><rsub|i\<alpha\>>
+  </equation>
+
+  (or <math|\<theta\>=\<sigma\><around*|(|\<zeta\><rsub|i>|)>
+  \<eta\>+\<mu\><rsub|i>> if hide the <math|\<alpha\>> index). So, for any
+  <math|i>-component, we transform
+
+  <\eqnarray*>
+    <tformat|<table|<row|<cell|\<theta\>>|<cell|\<rightarrow\>>|<cell|\<sigma\><around*|(|\<zeta\><rsub|i>|)>
+    \<eta\>+\<mu\><rsub|i>;<eq-number>>>|<row|<cell|\<bbb-E\><rsub|\<Phi\><around*|(|\<theta\>;\<mu\><rsub|i>,\<sigma\><around*|(|\<zeta\><rsub|i>|)>|)>><around*|[|f<around*|(|\<theta\>|)>|]>>|<cell|\<rightarrow\>>|<cell|\<bbb-E\><rsub|\<Phi\><around*|(|\<eta\>;0,1|)>><around*|[|f<around*|(|\<sigma\><around*|(|\<zeta\><rsub|i>|)>
+    \<eta\>+\<mu\><rsub|i>|)>|]>,<eq-number>>>>>
+  </eqnarray*>
+
+  where function <math|f> is arbitrary, thus holds for both <math|ln
+  p<around*|(|.;D|)>> and <math|ln q<around*|(|.;a,\<mu\>,\<zeta\>|)>>.
+
+  With this setting, the derivatives to <math|\<mu\>> and to <math|\<zeta\>>
+  are completely independent of <math|\<bbb-E\><around*|[|.|]>>. And now, the
+  loss function becomes
+
+  <\equation*>
+    <with|math-font|cal|L><around*|(|a,\<mu\>,\<zeta\>|)>=-<big|sum><rsub|i><rsup|N<rsub|c>>c<rsub|i><around*|(|a|)>
+    \<bbb-E\><rsub|\<Phi\><around*|(|\<eta\>;0,1|)>><around*|[|ln
+    p<around*|(|\<sigma\><around*|(|\<zeta\><rsub|i>|)>
+    \<eta\>+\<mu\><rsub|i>;D|)>-ln q<around*|(|\<sigma\><around*|(|\<zeta\><rsub|i>|)>
+    \<eta\>+\<mu\><rsub|i>;a,\<mu\>,\<zeta\>|)>|]>.
+  </equation*>
+
+  <subsection|Redefination of <math|\<partial\><with|math-font|cal|L>/\<partial\>a>>
+
+  Let <math|\<Delta\>r> the learning-rate. Then the updation of
+  <math|a<rsub|i>> at one iteration by gradient decent method is
+
+  <\equation*>
+    \<Delta\>a<rsub|i>=<frac|\<partial\><with|math-font|cal|L>|\<partial\>a<rsub|i>><around*|(|a,\<mu\>,\<zeta\>|)>
+    \<Delta\>r.
+  </equation*>
+
+  Notice that redefine the <math|\<partial\><with|math-font|cal|L>/\<partial\>a>
+  by
+
+  <\equation*>
+    <frac|\<partial\><with|math-font|cal|L>|\<partial\>a<rsub|i>><around*|(|a,\<mu\>,\<zeta\>|)>\<rightarrow\><frac|\<partial\><with|math-font|cal|L>|\<partial\>a<rsub|i>><around*|(|a,\<mu\>,\<zeta\>|)>+C,
+  </equation*>
+
+  where <math|C> can be any constant, leaves the updation of
+  <math|c<rsub|i><around*|(|a|)>> invariant, since it makes
+
+  <\equation*>
+    \<Delta\>a<rsub|i>\<rightarrow\><frac|\<partial\><with|math-font|cal|L>|\<partial\>a<rsub|i>><around*|(|a,\<mu\>,\<zeta\>|)>
+    \<Delta\>r+C \<Delta\>r,
+  </equation*>
+
+  thus
+
+  <\equation*>
+    c<rsub|i><around*|(|a+\<Delta\>a|)>\<rightarrow\><frac|exp<around*|(|a<rsub|i>+\<Delta\>a<rsub|i>+C
+    \<Delta\>r|)>|<big|sum><rsub|j>exp<around*|(|a<rsub|j>+\<Delta\>a<rsub|j>+C
+    \<Delta\>r|)>>=<frac|exp<around*|(|a<rsub|i>+\<Delta\>a<rsub|i>|)>|<big|sum><rsub|j>exp<around*|(|a<rsub|j>+\<Delta\>a<rsub|j>|)>>=c<rsub|i><around*|(|a+\<Delta\>a|)>.
+  </equation*>
+
+  This <math|C> thus provides an additional dof. We can tune the value of
+  <math|C> so that the updation of <math|a<rsub|i>> is numerically stable.
+  Indeed, let <math|C> be the average of <math|<around*|{|\<partial\><with|math-font|cal|L>/\<partial\>a<rsub|i>:i=1,\<ldots\>,N<rsub|c>|}>>,
+  we find a pretty stability of <math|a> as well as a pretty accuracy of
+  <math|c> in the iteration process of optimization.
+
+  <subsubsection|Re-scaling of <math|a>>
+
+  \;
+
+  <subsection|Approximations>
+
+  Comparing to the traditional MAP approach, using multi-peak mixture model
+  makes the <math|\<bbb-H\><around*|(|q|)>> complicated, especially in the
+  optimization process.
+
+  <subsubsection|Entropy Lower Bound>
+
+  Consider any mixture distribution with p.d.f.
+  <math|<big|sum><rsub|i><rsup|N<rsub|c>>c<rsub|i> q<rsub|i>> where <math|c>s
+  are the categorical probabilities and <math|q<rsub|i>> the p.d.f. of the
+  component distributions of the mixture.
+
+  <\equation*>
+    \<bbb-H\><around*|[|<big|sum><rsub|i><rsup|N<rsub|c>>c<rsub|i>
+    q<rsub|i>|]>\<geqslant\><big|sum><rsub|i><rsup|N<rsub|c>>c<rsub|i>
+    \<bbb-H\><around*|[|q<rsub|i>|]>.
+  </equation*>
+
+  So, if define
+
+  <\equation>
+    <with|math-font|cal|<with|math-font|cal|L><rprime|'>><around*|(|a,\<mu\>,\<zeta\>|)>\<assign\>-<big|sum><rsub|i><rsup|N<rsub|c>>
+    c<rsub|i><around*|(|a|)> <around*|{|\<bbb-E\><rsub|\<Phi\><around*|(|\<eta\>;0,1|)>><around*|[|ln
+    p<around*|(|\<sigma\><around*|(|\<zeta\><rsub|i>|)>
+    \<eta\>+\<mu\><rsub|i>;D|)>|]>+\<bbb-H\><around*|[|\<Phi\><around*|(|\<theta\>,\<mu\><rsub|i>,\<sigma\><around*|(|\<zeta\><rsub|i>|)>|)>|]>|}>,
+  </equation>
+
+  then we have
+
+  <\equation*>
+    <with|math-font|cal|L><rprime|'>\<geqslant\><with|math-font|cal|L\<geqslant\>min<around*|(|<with|math-font|cal|L>|)>\<gtr\>-\<infty\>>,
+  </equation*>
+
+  thus <math|<with|math-font|cal|L><rprime|'>> has an global minimum. In this
+  way, the entropy part becomes completely analytic (and simple).
+
+  <subsubsection|Application>
+
+  <\eqnarray*>
+    <tformat|<table|<row|<cell|<frac|\<partial\><with|math-font|cal|<with|math-font|cal|L><rprime|'>>|\<partial\>a<rsub|i>><around*|(|a,\<mu\>,\<zeta\>|)>>|<cell|=>|<cell|-c<rsub|i><around*|(|a|)>
+    <around*|{|\<bbb-E\><rsub|\<Phi\><around*|(|\<theta\>;\<mu\><rsub|i>,\<sigma\><around*|(|\<zeta\><rsub|i>|)>|)>><around*|[|ln
+    p<around*|(|\<theta\>;D|)>|]>+\<bbb-H\><around*|[|\<Phi\><around*|(|\<theta\>,\<mu\><rsub|i>,\<sigma\><around*|(|\<zeta\><rsub|i>|)>|)>|]>+<with|math-font|cal|L><rprime|'><around*|(|a,\<mu\>,\<zeta\>|)>|}>;<eq-number>>>|<row|<cell|<frac|\<partial\><with|math-font|cal|L><rprime|'>|\<partial\>\<mu\><rsub|i\<alpha\>>><around*|(|a,\<mu\>,\<zeta\>|)>>|<cell|=>|<cell|<frac|\<partial\><with|math-font|cal|L><rsub|p>|\<partial\>\<mu\><rsub|i
+    \<alpha\>>><around*|(|a,\<mu\>,\<zeta\>|)>+0;<eq-number>>>|<row|<cell|<frac|\<partial\><with|math-font|cal|L><rprime|'>|\<partial\>\<zeta\><rsub|i\<alpha\>>><around*|(|a,\<mu\>,\<zeta\>|)>>|<cell|=>|<cell|\<ldots\><eq-number>>>>>
+  </eqnarray*>
+
+  <subsection|Stochastic Optimization>
+
+  <subsubsection|Difference between Bayesian and Traditional Methods>
 
   Suppose, instead of use the whole dataset, we employ mini-batch technique.
   Since all data are independent, if suppose that <math|D<rsub|m>> is
   unbiased in <math|D>, then we have,
 
-  <\equation*>
+  <\equation>
     ln p<around*|(|D\|\<theta\>|)>=<big|sum><rsub|D>p<around*|(|<around*|(|x<rsub|i>,y<rsub|i>,\<sigma\><rsub|i>|)>\|\<theta\>|)>\<approx\><frac|N<rsub|D>|N<rsub|m>><big|sum><rsub|D<rsub|m>>p<around*|(|<around*|(|x<rsub|i>,y<rsub|i>,\<sigma\><rsub|i>|)>\|\<theta\>|)>=<frac|N<rsub|D>|N<rsub|m>>
     ln p<around*|(|D<rsub|m>\|\<theta\>|)>.
-  </equation*>
+  </equation>
 
   Then,
 
-  <\equation*>
+  <\equation>
     ln p<around*|(|\<theta\>;D|)>=ln p<around*|(|D\|\<theta\>|)>+ln
     p<around*|(|\<theta\>|)>=<frac|N<rsub|D>|N<rsub|m>> ln
     p<around*|(|D<rsub|m>\|\<theta\>|)>+ln p<around*|(|\<theta\>|)>,
-  </equation*>
+  </equation>
 
   thus as previous
 
-  <\equation*>
+  <\equation>
     ln p<around*|(|\<theta\>;D|)>=<frac|N<rsub|D>|N<rsub|m>><big|sum><rsub|<around*|(|x<rsub|i>,y<rsub|i>,\<sigma\><rsub|i>|)>\<in\>D<rsub|m>><around*|{|-<frac|1|2>ln
     <around*|(|2 \<pi\> \<sigma\><rsub|i><rsup|2>|)>-<frac|1|2>
     <around*|(|<frac|y<rsub|i>-f<around*|(|x<rsub|i>;\<theta\>|)>|\<sigma\><rsub|i>>|)><rsup|2>|}>+ln
     p<around*|(|\<theta\>|)>.
-  </equation*>
+  </equation>
 
   In this we meet one of the main differences between the Bayesian and the
   traditional. In the traditional method, <math|N<rsub|D>> does not matters
@@ -203,71 +388,6 @@
   stochastic optimization in Bayesian mode, the factor
   <math|N<rsub|D>/N<rsub|m>> of likelihood has to be taken into account. We
   have to know how many data we actrually have, thus how confident we are.
-
-  <section|ADVI>
-
-  Automatic differentation variational inference (ADVI)<\footnote>
-    See, <hlink|Kucukelbir, et al, 2016|https://arxiv.org/abs/1603.00788>.
-  </footnote> has the advantage that the variance of its Monte Carlo integral
-  is orderly smaller than that of black box variational inference (i.e.
-  optimization directly using ELBO without further reparameterization).
-
-  Precisely, let <math|\<bbb-E\>> for mean value, <math|\<bbb-H\>> for
-  shannon entropy, <math|\<Phi\>> for Gaussian, and
-  <math|\<sigma\><around*|(|.|)>> for softplus function. By
-
-  <\equation*>
-    q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>=<big|sum><rsub|i=1><rsup|N<rsub|c>>w<rsub|i><around*|(|a|)>
-    \<Phi\><around*|(|\<theta\>;\<mu\><rsub|i>,\<sigma\><around*|(|\<zeta\><rsub|i>|)>|)>,
-  </equation*>
-
-  we have
-
-  <\eqnarray*>
-    <tformat|<table|<row|<cell|ELBO>|<cell|=>|<cell|\<bbb-E\><rsub|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>><around*|[|ln
-    p<around*|(|\<theta\>;D|)>|]>+\<bbb-H\><around*|[|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>|]>>>|<row|<cell|>|<cell|=>|<cell|<big|sum><rsub|i><rsup|N<rsub|c>>w<rsub|i><around*|(|a|)>
-    \<bbb-E\><rsub|\<Phi\><rsub|i><around*|(|\<theta\>;\<mu\><rsub|i>,\<sigma\><around*|(|\<zeta\><rsub|i>|)>|)>><around*|[|ln
-    p<around*|(|\<theta\>;D|)>|]>+\<bbb-H\><around*|[|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>|]>>>|<row|<cell|>|<cell|=:>|<cell|E<rsub|1>+E<rsub|2>.>>>>
-  </eqnarray*>
-
-  (<math|E<rsub|2>> is analytic and independent of
-  <math|p<around*|(|\<theta\>;D|)>>, so we leave it for later.) Then, for
-  <math|\<forall\>i=1,\<ldots\>,N<rsub|c>>,
-  <math|\<forall\>\<alpha\>=1,\<ldots\>,N<rsub|d>>, let
-
-  <\equation*>
-    \<eta\><rsub|\<alpha\>>\<assign\><frac|\<theta\><rsub|\<alpha\>>-\<mu\><rsub|i\<alpha\>>|\<sigma\><around*|(|\<zeta\><rsub|i\<alpha\>>|)>>,
-  </equation*>
-
-  we have <math|\<theta\><rsub|\<alpha\>>=\<sigma\><around*|(|\<zeta\><rsub|i\<alpha\>>|)>
-  \<eta\><rsub|\<alpha\>>+\<mu\><rsub|i\<alpha\>>>
-  (<math|\<theta\>=\<sigma\><around*|(|\<zeta\><rsub|i>|)>
-  \<eta\>+\<mu\><rsub|i>> if hides the <math|\<alpha\>> index). So, for any
-  <math|i>-components in the <math|E<rsub|1>> of <math|ELBO>, we transform
-
-  <\equation*>
-    \<bbb-E\><rsub|\<Phi\><around*|(|\<theta\>;\<mu\><rsub|i>,\<sigma\><around*|(|\<zeta\><rsub|i>|)>|)>><around*|[|ln
-    p<around*|(|\<theta\>;D|)>|]>=\<bbb-E\><rsub|\<Phi\><around*|(|\<eta\>;0,1|)>><around*|[|ln
-    p<around*|(|\<sigma\><around*|(|\<zeta\><rsub|i>|)>
-    \<eta\>+\<mu\><rsub|i>;D|)>|]>.
-  </equation*>
-
-  Thus, we have derivatives
-
-  <\eqnarray*>
-    <tformat|<table|<row|<cell|<frac|\<partial\>E<rsub|1>|\<partial\>\<mu\><rsub|i\<alpha\>>>>|<cell|=>|<cell|w<rsub|i><around*|(|a|)>
-    \<bbb-E\><rsub|\<Phi\><around*|(|\<eta\>;0,1|)>><around*|[|\<nabla\><rsub|\<alpha\>>ln
-    p<around*|(|\<sigma\><around*|(|\<zeta\><rsub|i>|)>
-    \<eta\>+\<mu\><rsub|i>;D|)>|]>;>>|<row|<cell|<frac|\<partial\>E<rsub|1>|\<partial\>\<zeta\><rsub|i\<alpha\>>>>|<cell|=>|<cell|w<rsub|i><around*|(|a|)>
-    \<bbb-E\><rsub|\<Phi\><around*|(|\<eta\>;0,1|)>><around*|[|\<nabla\><rsub|\<alpha\>>ln
-    p<around*|(|\<sigma\><around*|(|\<zeta\><rsub|i>|)>
-    \<eta\>+\<mu\><rsub|i>;D|)> \<eta\><rsub|\<alpha\>>
-    <frac|\<partial\>\<sigma\>|\<partial\>\<zeta\><rsub|i\<alpha\>>><around*|(|\<zeta\><rsub|i>|)>|]>,>>>>
-  </eqnarray*>
-
-  where <math|\<nabla\><rsub|\<alpha\>>ln p\<assign\>\<partial\>ln
-  p/\<partial\>\<theta\><rsub|\<alpha\>>> as the formal derivative. So, for
-  these two, value of <math|ln p<around*|(|\<theta\>;D|)>> is regardless.
 
   <section|Deep Learning>
 
@@ -304,18 +424,18 @@
     <associate|auto-14|<tuple|3.4|2>>
     <associate|auto-15|<tuple|4|3>>
     <associate|auto-16|<tuple|4.1|3>>
-    <associate|auto-17|<tuple|5|3>>
-    <associate|auto-18|<tuple|6|3>>
-    <associate|auto-19|<tuple|7|3>>
+    <associate|auto-17|<tuple|4.1.1|3>>
+    <associate|auto-18|<tuple|4.2|3>>
+    <associate|auto-19|<tuple|4.2.1|3>>
     <associate|auto-2|<tuple|1.1|1>>
-    <associate|auto-20|<tuple|8|3>>
-    <associate|auto-21|<tuple|9|4>>
-    <associate|auto-22|<tuple|10|4>>
-    <associate|auto-23|<tuple|1|4>>
-    <associate|auto-24|<tuple|5.2|4>>
-    <associate|auto-25|<tuple|6|5>>
-    <associate|auto-26|<tuple|7|5>>
-    <associate|auto-27|<tuple|8|5>>
+    <associate|auto-20|<tuple|4.3|3>>
+    <associate|auto-21|<tuple|4.3.1|4>>
+    <associate|auto-22|<tuple|4.3.2|4>>
+    <associate|auto-23|<tuple|4.4|4>>
+    <associate|auto-24|<tuple|4.4.1|4>>
+    <associate|auto-25|<tuple|5|5>>
+    <associate|auto-26|<tuple|6|5>>
+    <associate|auto-27|<tuple|7|5>>
     <associate|auto-28|<tuple|9|?>>
     <associate|auto-29|<tuple|10|?>>
     <associate|auto-3|<tuple|2|1>>
@@ -347,20 +467,6 @@
 
 <\auxiliary>
   <\collection>
-    <\associate|figure>
-      <tuple|normal|The orange line represents
-      <with|mode|<quote|math>|N<rsub|c>=1> and the red
-      <with|mode|<quote|math>|N<rsub|c>=2>
-      (\P<with|mode|<quote|prog>|prog-language|<quote|cpp>|font-family|<quote|rm>|a_comp_i>\Q
-      represents <with|mode|<quote|math>|a<rsub|i>>). The first converges
-      faster than the later. And precisely as it shows, the case
-      <with|mode|<quote|math>|N<rsub|c>=2> needs <with|mode|<quote|math>|500>
-      steps of iterations to tune the <with|mode|<quote|math>|a<rsub|1>> and
-      <with|mode|<quote|math>|a<rsub|2>> so that only one peak is essentially
-      left, and it is just around <with|mode|<quote|math>|500> steps of
-      iterations that the two losses get together. (For the source code, see
-      <with|mode|<quote|prog>|prog-language|<quote|cpp>|font-family|<quote|rm>|'nn4post/tests/shallow_neural_network.py'>.)|<pageref|auto-25>>
-    </associate>
     <\associate|toc>
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|1<space|2spc>Notations>
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
@@ -430,57 +536,17 @@
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-17><vspace|0.5fn>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|6<space|2spc>Computational
-      Resource of Training> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|6<space|2spc>Deep
+      Learning> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-18><vspace|0.5fn>
 
-      <with|par-left|<quote|1tab>|6.1<space|2spc>At Each Iteration
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-19>>
-
-      <with|par-left|<quote|2tab>|6.1.1<space|2spc>Overview
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-20>>
-
-      <with|par-left|<quote|2tab>|6.1.2<space|2spc>Traditional MAP
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-21>>
-
-      <with|par-left|<quote|2tab>|6.1.3<space|2spc>Variational Inference with
-      Mean-Field Approximation <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-22>>
-
-      <with|par-left|<quote|2tab>|6.1.4<space|2spc>Neural Network for
-      Posterior <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-23>>
-
-      <with|par-left|<quote|1tab>|6.2<space|2spc>Essential Number of
-      Iterations <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-24>>
-
-      <with|par-left|<quote|1tab>|6.3<space|2spc>Batch-Size
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-26>>
-
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|7<space|2spc>When
-      & How to Use?> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-27><vspace|0.5fn>
-
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|8<space|2spc>Deep
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|7<space|2spc>Transfer
       Learning> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-28><vspace|0.5fn>
+      <no-break><pageref|auto-19><vspace|0.5fn>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|9<space|2spc>Transfer
-      Learning> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-29><vspace|0.5fn>
-
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|10<space|2spc>Why
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|8<space|2spc>Why
       not MCMC?> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-30><vspace|0.5fn>
-
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|11<space|2spc>Drafts>
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-31><vspace|0.5fn>
+      <no-break><pageref|auto-20><vspace|0.5fn>
     </associate>
   </collection>
 </auxiliary>
