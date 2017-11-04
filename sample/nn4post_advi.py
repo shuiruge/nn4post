@@ -12,7 +12,7 @@ from independent import Independent
 
 
 # For testing (and debugging)
-SEED = 123
+SEED = 12334023
 tf.set_random_seed(SEED)
 np.random.seed(SEED)
 
@@ -60,7 +60,7 @@ def build_inference(n_c, n_d, log_posterior,
           init_mu = np.array(
               [np.random.normal(size=[n_d]) * 5.0 for i in range(n_c)],
               dtype='float32')
-          init_zeta = np.array([np.ones([n_d]) * 5.0 for i in range(n_c)],
+          init_zeta = np.array([np.ones([n_d]) * 1.0 for i in range(n_c)],
                               dtype='float32')
         else:
           init_a = init_vars['a']
@@ -99,7 +99,9 @@ def build_inference(n_c, n_d, log_posterior,
 
       with tf.name_scope('loss'):
 
-        c = tf.nn.softmax(0.001 * tf.stack(a), name='c')  # `[n_c, n_d]`.  # test!
+        a_rescale_factor = tf.placeholder(shape=[], dtype=tf.float32,
+                                          name='a_rescale_factor')
+        c = tf.nn.softmax(a_rescale_factor * tf.stack(a), name='c')  # `[n_c]`.
 
 
         with tf.name_scope('log_p_part'):
@@ -146,9 +148,8 @@ def build_inference(n_c, n_d, log_posterior,
 
           with tf.name_scope('entropy_lower_bound'):
 
-            entropy_lower_bound = sum(
-                [ c[i] * gaussian_entropy[i] for i in range(n_c) ]
-            )
+            entropy_lower_bound = \
+                sum([ c[i] * gaussian_entropy[i] for i in range(n_c) ])
 
           q_entropy = entropy_lower_bound
 
@@ -177,8 +178,10 @@ def build_inference(n_c, n_d, log_posterior,
             'a': tf.stack(a, axis=0),
             'mu': tf.stack(mu, axis=0),
             'zeta': tf.stack(zeta, axis=0),
+            'c': c,
         },
         'feed': {
+            'a_rescale_factor': a_rescale_factor,
             'learning_rate': learning_rate,
             'n_samples': n_samples,
         },
@@ -192,8 +195,6 @@ def build_inference(n_c, n_d, log_posterior,
     for class_name, op_dict in ops.items():
       for op_name, op in op_dict.items():
         graph.add_to_collection(op_name, op)
-
-    print(ops['vars']['mu'].shape)
 
   return (graph, ops)
 
@@ -210,16 +211,17 @@ if __name__ == '__main__':
 
 
   # -- Parameters
-  N_C = 5  # shall be varied.
-  N_D = 2
-  N_SAMPLES = 100
+  N_C = 1  # shall be varied.
+  N_D = 10 ** 5
+  N_SAMPLES = 20
   TARGET_N_C = 3  # shall be fixed.
   LOG_ACCURATE_LOSS = True
   PROFILING = False
   DEBUG = False
-  LR = 0.03
-  N_ITERS = 10 ** 3
-  SKIP_STEP = 10
+  A_RESCALE_FACTOR = 0.01
+  LR = 0.05
+  N_ITERS = 10 ** 3 * 2
+  SKIP_STEP = 50
   #LOG_DIR = '../dat/logs/gaussian_mixture_model/{0}_{1}'\
   #          .format(TARGET_N_C, N_C)
   #DIR_TO_CKPT = '../dat/checkpoints/gaussian_mixture_model/{0}_{1}'\
@@ -236,14 +238,14 @@ if __name__ == '__main__':
   # -- Gaussian Mixture Distribution
   with tf.name_scope('posterior'):
 
-    target_a = tf.constant([-1., 0., 1.])
+    target_c = tf.constant([0.05, 0.25, 0.70])
     target_mu = tf.stack([
           tf.ones([N_D]) * (i - 1) * 3
           for i in range(TARGET_N_C)
         ], axis=0)
     target_zeta = tf.zeros([TARGET_N_C, N_D])
 
-    cat = Categorical(logits=target_a)
+    cat = Categorical(probs=target_c)
     components = [
         Independent(
             NormalWithSoftplusScale(target_mu[i], target_zeta[i])
@@ -254,8 +256,30 @@ if __name__ == '__main__':
     def log_posterior(theta):
         return p.log_prob(theta)
 
+  # test!
+  init_vars = {
+    'a':
+      np.zeros([N_C], dtype='float32'),
+    'mu':
+      np.array([np.ones([N_D]) * (i - 1) * 3 for i in range(TARGET_N_C)],
+               dtype='float32'),
+    'zeta':
+      np.zeros([TARGET_N_C, N_D], dtype='float32'),
+  }
+  init_vars = None
+  init_vars = {
+    'a':
+      np.zeros([N_C], dtype='float32'),
+    'mu':
+      np.array([np.ones([N_D]) * (i + 1) * 3 for i in range(N_C)],
+               dtype='float32'),
+    'zeta':
+      np.array(np.random.normal(size=[N_C, N_D]) * 5.0,
+               dtype='float32'),
+  }
+
   graph, ops = build_inference(N_C, N_D, log_posterior,
-                               optimizer=OPTIMIZER)
+                               optimizer=OPTIMIZER, init_vars=init_vars)
 
 
   # -- Training
@@ -264,14 +288,13 @@ if __name__ == '__main__':
     sess.run(tf.global_variables_initializer())
 
     # Display Targets
-    print(target_a.eval())
+    print(target_c.eval())
     print(target_mu.eval())
     print(target_zeta.eval())
     print()
 
     # Display Initialized Values
     var_ops = ops['vars']
-    print(var_ops['a'].eval())
     print(var_ops['mu'].eval())
     print(var_ops['zeta'].eval())
     print()
@@ -282,6 +305,7 @@ if __name__ == '__main__':
 
         feed_ops = ops['feed']
         feed_dict = {
+            feed_ops['a_rescale_factor']: A_RESCALE_FACTOR,
             feed_ops['learning_rate']: LR,
             feed_ops['n_samples']: N_SAMPLES,
         }
@@ -294,7 +318,8 @@ if __name__ == '__main__':
         # Display Trained Values
         if i % SKIP_STEP == 0:
           print('--- {0:5}  | {1}'.format(i, loss_val))
-          print(var_ops['a'].eval())
+          print(var_ops['c'].eval(
+            {feed_ops['a_rescale_factor']: A_RESCALE_FACTOR}))
           print(var_ops['mu'].eval())
           print(var_ops['zeta'].eval())
           print()
@@ -302,13 +327,24 @@ if __name__ == '__main__':
 
 '''Trial
 
-With `N_C = 5`, we find that `N_ITERS = 10**3` with `LR = 0.03` (`SEED = 123`)
-is enough for finding out all three peaks of the target Gaussian mixture
-distribution, as well as their variance, with high accuracy.
+### Trail 1
+With `N_C = 5` and `N_D = 2`, we find that `N_ITERS = 10**3` with `LR = 0.03`
+(`SEED = 123`) is enough for finding out all three peaks of the target
+Gaussian mixture distribution, as well as their variance, with high accuracy.
 
 The only trouble is the value of `a`. It has correct order relation between the
 values of its components. But the values are not correct. I GUESS that this is
 caused by the numerical instability of softmax.
 
 The RAM cost is quite small (~100 M).
+
+
+### Trail 2
+With `N_C = 1` and `N_D = 10**5`, we find that `N_ITERS = 10**3` with `LR = 0.03`
+(`SEED = 123`) it is hard to find the greatest peak of the Gaussian mixture
+distribution. However, once the center of the peak is given, the variance can be
+found soon, while the center is kept invariant, even when the initial variance
+is great enough so that other peaks can be percived in the training.
+
+The RAM cost is quite small (~200 M).
 '''

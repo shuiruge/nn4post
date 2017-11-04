@@ -66,14 +66,14 @@ if DIR_TO_CKPT is not None:
 
 with tf.name_scope('posterior'):
 
-    target_cat_logits = tf.constant([-1., 0., 1.])  # shall be equally weighted.
+    target_cat_probs = tf.constant([0.05, 0.25, 0.70])
     target_loc = tf.stack(
         [ tf.ones([PARAM_SPACE_DIM]) * (i - 1) * 3 for i in range(TARGET_N_CATS) ],
         axis=1)
     target_softplus_scale = tf.zeros([PARAM_SPACE_DIM, TARGET_N_CATS])
 
     p = Mixture(
-        Categorical(logits=target_cat_logits),
+        Categorical(logits=target_cat_probs),
         [ Independent(
              NormalWithSoftplusScale(target_loc[:,i], target_softplus_scale[:,i])
           ) for i in range(TARGET_N_CATS) ]
@@ -92,21 +92,28 @@ with tf.name_scope('inference'):
 
             init_cat_logits = tf.zeros([N_CATS])
             init_locs = [tf.random_normal([PARAM_SPACE_DIM]) * 5.0
-                        for i in range(N_CATS) ]
+                         for i in range(N_CATS)]
             init_softplus_scales = [tf.ones([PARAM_SPACE_DIM]) * (1.0)
-                                   for i in range(N_CATS)]
+                                    for i in range(N_CATS)]
             # Or using the values in the previous calling of this script.
 
             cat_logits = tf.Variable(
                 init_cat_logits,
                 name='cat_logits')
-            locs = [tf.ones([PARAM_SPACE_DIM]) * 3.] \
-                 + [ tf.Variable(init_locs[i], name='loc_{}'.format(i))
-                     for i in range(1, N_CATS) ]
-            softplus_scales = [tf.zeros([PARAM_SPACE_DIM])] \
-                            + [ tf.Variable(init_softplus_scales[i],
-                                            name='softplus_scale_{}'.format(i))
-                                for i in range(1, N_CATS) ]
+            cat_probs = tf.nn.softmax(cat_logits)
+            #locs = [tf.ones([PARAM_SPACE_DIM]) * 3.] \
+            #     + [ tf.Variable(init_locs[i], name='loc_{}'.format(i))
+            #         for i in range(1, N_CATS) ]
+            #softplus_scales = [tf.zeros([PARAM_SPACE_DIM])] \
+            #                + [ tf.Variable(init_softplus_scales[i],
+            #                                name='softplus_scale_{}'.format(i))
+            #                    for i in range(1, N_CATS) ]
+            locs = [tf.Variable(init_locs[i], name='loc_{}'.format(i))
+                    for i in range(N_CATS)]
+            softplus_scales = [tf.Variable(init_softplus_scales[i],
+                                           name='softplus_scale_{}'.format(i))
+                               for i in range(N_CATS)]
+
 
     with tf.name_scope('q_distribution'):
 
@@ -117,7 +124,7 @@ with tf.name_scope('inference'):
         #   performs to 1) using `MixtureSameFamily` and 2) `Mixture` +
         #   `MultivariateNormalDiagWithSoftplusScale` on both timming and
         #   memory profiling. The (1) is very memory costy.
-        cat = Categorical(logits=cat_logits)
+        cat = Categorical(probs=cat_probs)
         components = [
             Independent(
                 NormalWithSoftplusScale(locs[i], softplus_scales[i])
@@ -244,11 +251,11 @@ with sess:
                 print('WARNING - Continue without restore.')
     step = initial_step
 
-    print(target_cat_logits.eval())
+    print(target_cat_probs.eval())
     print(target_loc.eval())
     print(target_softplus_scale.eval())
 
-    print(cat_logits.eval())
+    print(cat_probs.eval())
     print(np.array([_.eval() for _ in locs]))
     print(np.array([_.eval() for _ in softplus_scales]))
 
@@ -260,7 +267,7 @@ with sess:
         step = initial_step + (i + 1)
 
         feed_dict = {
-            learning_rate: 0.03,
+            learning_rate: 0.01,
             n_samples: N_SAMPLES,
         }
 
@@ -299,7 +306,7 @@ with sess:
 
         if step % 100 == 0:
             print(step, approximate_loss_val)
-            print(cat_logits.eval())
+            print(cat_probs.eval())
             print(np.array([_.eval() for _ in locs]))
             print(np.array([_.eval() for _ in softplus_scales]))
 
