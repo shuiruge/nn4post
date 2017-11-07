@@ -18,7 +18,7 @@ from independent import Independent
 
 
 # For testing (and debugging)
-SEED = 12334023
+SEED = 123
 tf.set_random_seed(SEED)
 np.random.seed(SEED)
 
@@ -78,7 +78,7 @@ def build_inference(n_c, n_d, log_posterior,
           init_mu = np.array(
               [np.random.normal(size=[n_d]) * 5.0 for i in range(n_c)],
               dtype='float32')
-          init_zeta = np.array([np.ones([n_d]) * 1.0 for i in range(n_c)],
+          init_zeta = np.array([np.ones([n_d]) * 5.0 for i in range(n_c)],
                               dtype='float32')
         else:
           init_a = init_vars['a']
@@ -288,12 +288,12 @@ if __name__ == '__main__':
 
 
   # -- Parameters
-  N_C = 1  # shall be varied.
-  N_D = 10**5
-  N_SAMPLES = 20
+  N_C = 10  # shall be varied.
+  N_D = 10**4
+  N_SAMPLES = 10
   TARGET_N_C = 3  # shall be fixed.
   A_RESCALE_FACTOR = 1.0
-  LR = 0.05
+  LR = 0.03
   N_ITERS = 10**3
   SKIP_STEP = 50
   #OPTIMIZER = tf.contrib.opt.NadamOptimizer
@@ -419,5 +419,13 @@ the initial variance is great enough so that other peaks can be percived in the
 training.
 
 The RAM cost is quite small (~200 M).
+
+
+### Trail 3
+With `N_C = 5` and `N_D = 2`, we find that `N_ITERS = 10**3` with `LR = 0.03`
+and `N_SAMPLES = 10` (`SEED = 123`) makes perfect. It finds out all peaks
+with accurate categorical probabilities, centers, and variances.
+
+The RAM cost is quite small (~250 M)
 
 '''

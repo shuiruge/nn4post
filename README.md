@@ -19,7 +19,7 @@ TODO
 [X] - Try to visuralize the weights, gradients, etc, to see why it get stuck,
       even though being more representable (with more peaks).
 
-#[ ] - Write a parser that transforms the flatten model parameters back to the un-flatten.
+[X] - Write a parser that transforms the flatten model parameters back to the un-flatten.
 
 [X] - Edward: write a template of variational inference with rich docstrings.
         
@@ -39,4 +39,10 @@ TODO
 
         * Failed in constructing the likelihood.
 
-[ ] - Consider using `q.entropy` for `E_q [ log q(z) ]`.
+[X] - Consider using `q.entropy` for `E_q [ log q(z) ]`.
+
+[X] - Experiments on Gaussian mixture model.
+
+[X] - Try ADVI implementation on Gaussian mixture model.
+
+[X] - Try ADVI implementation on MNIST dataset.
