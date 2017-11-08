@@ -58,11 +58,23 @@ def get_gaussian_mixture_log_prob(cat_probs, gauss_mu, gauss_sigma):
 
 
 
-def build_inference(n_c, n_d, log_posterior,
-    init_vars=None, optimizer=None, base_graph=None):
-  """XXX"""
+def build_inference(n_c, n_d, log_posterior, init_vars=None, optimizer=None,
+                    base_graph=None, verbose=True):
+  """XXX
+
+  CAUTION:
+    This function will MODIFY the `base_graph`, or the graph returned from
+    `tf.get_default_graph()` if the `base_graph` is `None`. (Pure functional
+    approach is suppressed, since it's memory costy.)
+  """
 
   graph = tf.get_default_graph() if base_graph is None else base_graph
+
+
+  if verbose:
+    msg = ( 'INFO - Function `building_inference()` will MODIFY the graph {0}.'
+          + ' (Pure functional approach is suppressed, being memory costy.)' )
+    print(msg.format(graph))
 
 
   with graph.as_default():
@@ -258,7 +270,7 @@ def build_inference(n_c, n_d, log_posterior,
       for op_name, op in op_dict.items():
         graph.add_to_collection(op_name, op)
 
-  return (graph, ops)
+  return ops
 
 
 
@@ -331,12 +343,12 @@ if __name__ == '__main__':
   }
   init_vars = None
 
-  graph, ops = build_inference(N_C, N_D, log_posterior,
-                               optimizer=OPTIMIZER, init_vars=init_vars)
+  ops = build_inference(N_C, N_D, log_posterior,
+                        optimizer=OPTIMIZER, init_vars=init_vars)
 
 
   # -- Training
-  with tf.Session(graph=graph) as sess:
+  with tf.Session() as sess:
 
     sess.run(tf.global_variables_initializer())
 
