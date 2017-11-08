@@ -5,20 +5,21 @@ Description
 -----------
 ADVI implementation of "nerual network for posterior" with accurate entropy of
 q-distribution.
+
+TF version
+----------
+Tested on TF 1.4.0
 """
 
 
-import tensorflow as tf
 import numpy as np
-# -- `contrib` module in TF 1.3
-from tensorflow.contrib.distributions import Normal, Mixture
-from tools import Timer
-from independent import Independent
+import tensorflow as tf
+from tensorflow.contrib.distributions import Normal, Mixture, Independent
 
 
 
 # For testing (and debugging)
-SEED = 123
+SEED = 123456
 tf.set_random_seed(SEED)
 np.random.seed(SEED)
 
@@ -206,44 +207,28 @@ def build_inference(n_c, n_d, log_posterior,
         else:
           _optimizer = optimizer(learning_rate)
 
-        # If not redefine the gradients of `a`
-        #train_op = _optimizer.minimize(loss)
-
-
-        # If redefine the gradients of `a`
+        # Redefine the gradients of `a`
         with tf.name_scope('redefine_grad_a'):
 
-          grad_and_vars = _optimizer.compute_gradients(loss)
-          grad_a = {v: g for g, v in grad_and_vars if v in a}
-          #new_grad_a_0 = {
-          #    v:
-          #      g + c[a.index(v)] * loss
-          #    for v, g in grad_a.items()
-          #}
-          #average_new_grad_a_0 = tf.reduce_mean(
-          #    [g for g in new_grad_a_0.values()]
-          #)
-          #new_grad_a = {
-          #    v:
-          #      g - average_new_grad_a_0
-          #    for v, g in new_grad_a_0.items()
-          #}
+          grad_and_var_list = _optimizer.compute_gradients(loss)
+          grad_a = {v: g for g, v in grad_and_var_list if v in a}
           average_grad_a = tf.reduce_mean(
-              [g for g in grad_a.values()]
+              [ g for g in grad_a.values() ]
           )
           new_grad_a = {
               v:
                 g - average_grad_a
               for v, g in grad_a.items()
           }
+
+          # test!
           grad_a_op = tf.stack([ new_grad_a[a[i]] for i in range(n_c) ])
 
-
-        new_grad_and_vars = [
+        new_grad_and_var_list = [
             (new_grad_a[v], v) if v in a else (g, v)
-            for g, v in grad_and_vars
+            for g, v in grad_and_var_list
         ]
-        train_op = _optimizer.apply_gradients(new_grad_and_vars)
+        train_op = _optimizer.apply_gradients(new_grad_and_var_list)
 
 
     # -- Collections
@@ -285,11 +270,12 @@ if __name__ == '__main__':
   from tensorflow.contrib.distributions import (
       Categorical, NormalWithSoftplusScale, Mixture
   )
+  from tools import Timer
 
 
   # -- Parameters
-  N_C = 10  # shall be varied.
-  N_D = 10**4
+  N_C = 5  # shall be varied.
+  N_D = 2
   N_SAMPLES = 10
   TARGET_N_C = 3  # shall be fixed.
   A_RESCALE_FACTOR = 1.0
