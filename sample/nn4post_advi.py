@@ -14,8 +14,9 @@ Tested on TF 1.4.0
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.contrib.distributions import Normal, Mixture, Independent
-
+from tensorflow.contrib.distributions import (
+    Normal, Categorical, Mixture, Independent
+)
 
 
 # For testing (and debugging)
@@ -59,13 +60,47 @@ def get_gaussian_mixture_log_prob(cat_probs, gauss_mu, gauss_sigma):
 
 
 def build_inference(n_c, n_d, log_posterior, init_vars=None, optimizer=None,
-                    base_graph=None, verbose=True):
-  """XXX
+                    base_graph=None, dtype='float32', verbose=True):
+  r"""Add the blocks of inference to the graph `base_graph`.
 
   CAUTION:
     This function will MODIFY the `base_graph`, or the graph returned from
     `tf.get_default_graph()` if the `base_graph` is `None`. (Pure functional
     approach is suppressed, since it's memory costy.)
+
+  Args:
+    n_c:
+      `int`, as the number of categorical probabilities, i.e. the :math:`N_c`
+      in the documentation.
+
+    n_d:
+      `int`, as the number of dimension, i.e. the :math:`N_d` in the
+      documentation.
+
+    log_posterior:
+      Callable from tensor of the shape `[n_d]` to scalar, both with the same
+      dtype as the `dtype` argument.
+
+    init_vars:
+      `dict` for setting the initial values of variables. optional. It has
+      keys `'a'`, `'mu'`, and `'zeta'`, and values of numpy arraies or tensors
+      of the shapes `[n_c]`, `[n_c, n_d]`, and `[n_c, n_d]`, respectively. All
+      these values shall be the same dtype as the `dtype` argument.
+
+    optimizer:
+      A inherit class of `tf.train.Optimizer`, optional. If `None`, use
+      `tf.train.AdamOptimizer`.
+
+    base_graph:
+      An instance of `tf.Graph`, optional, as the graph that the blocks for
+      inference are added to. If `None`, use the graph returned from
+      `tf.get_default_graph()`.
+
+    dtype:
+      `str`, like `float32`, `float64`, etc., optional.
+
+    verbose:
+      `bool`.
   """
 
   graph = tf.get_default_graph() if base_graph is None else base_graph
@@ -87,12 +122,12 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None, optimizer=None,
 
         if init_vars is None:
           init_a = np.array([0.0 for i in range(n_c)],
-                            dtype='float32')
+                            dtype=dtype)
           init_mu = np.array(
               [np.random.normal(size=[n_d]) * 5.0 for i in range(n_c)],
-              dtype='float32')
+              dtype=dtype)
           init_zeta = np.array([np.ones([n_d]) * 5.0 for i in range(n_c)],
-                              dtype='float32')
+                               dtype=dtype)
         else:
           init_a = init_vars['a']
           init_mu = init_vars['mu']
@@ -117,7 +152,7 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None, optimizer=None,
 
         with tf.name_scope('categorical'):
 
-          a_rescale_factor = tf.placeholder(shape=[], dtype=tf.float32,
+          a_rescale_factor = tf.placeholder(shape=[], dtype=dtype,
                                             name='a_rescale_factor')
           c = tf.nn.softmax(a_rescale_factor * tf.stack(a), name='c')  # `[n_c]`.
           #c = tf.nn.softmax(tf.stack(a), name='c')  # `[n_c]`.  # test!
@@ -212,7 +247,7 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None, optimizer=None,
       with tf.name_scope('optimization'):
 
         learning_rate = tf.placeholder(
-            shape=[], dtype=tf.float32, name='learning_rate')
+            shape=[], dtype=dtype, name='learning_rate')
 
         if optimizer is None:
           _optimizer = tf.train.AdamOptimizer(learning_rate)
@@ -279,9 +314,7 @@ if __name__ == '__main__':
 
   """Test and Trail on Gaussian Mixture Distribution."""
 
-  from tensorflow.contrib.distributions import (
-      Categorical, NormalWithSoftplusScale, Mixture
-  )
+  from tensorflow.contrib.distributions import NormalWithSoftplusScale
   from tools import Timer
 
 
@@ -297,6 +330,7 @@ if __name__ == '__main__':
   #OPTIMIZER = tf.contrib.opt.NadamOptimizer
   OPTIMIZER = tf.train.RMSPropOptimizer
   #OPTIMIZER = tf.train.GradientDescentOptimizer  # test!
+  DTYPE = 'float64'
 
 
 
@@ -324,22 +358,22 @@ if __name__ == '__main__':
   # test!
   init_vars = {
     'a':
-      np.zeros([N_C], dtype='float32'),
+      np.zeros([N_C], dtype=DTYPE),
     'mu':
       np.array([np.ones([N_D]) * (i - 1) * 3 for i in range(TARGET_N_C)],
-               dtype='float32'),
+               dtype=DTYPE),
     'zeta':
-      np.zeros([TARGET_N_C, N_D], dtype='float32'),
+      np.zeros([TARGET_N_C, N_D], dtype=DTYPE),
   }
   init_vars = {
     'a':
-      np.zeros([N_C], dtype='float32'),
+      np.zeros([N_C], dtype=DTYPE),
     'mu':
       np.array([np.ones([N_D]) * (i + 1) * 3 for i in range(N_C)],
-               dtype='float32'),
+               dtype=DTYPE),
     'zeta':
       np.array(np.random.normal(size=[N_C, N_D]) * 5.0,
-               dtype='float32'),
+               dtype=DTYPE),
   }
   init_vars = None
 
