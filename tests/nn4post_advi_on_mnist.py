@@ -19,7 +19,8 @@ import sys
 sys.path.append('../sample/')
 from tools import Timer
 import mnist
-from nn4post_advi import build_inference
+from nn4post_advi_new import build_inference
+from tflearn.helpers.trainer import TrainOp, Trainer
 
 
 
@@ -27,14 +28,18 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # turn off the TF noise.
 
 
 # PARAMETERS
-N_C = 1
+N_C = 3
 NOISE_STD = 0.1
-BATCH_SIZE = 16
+BATCH_SIZE = 64
 
 
 # DATA
 mnist_ = mnist.MNIST(NOISE_STD, BATCH_SIZE)
-batch_generator = mnist_.batch_generator()
+data_x, data_y, data_y_err = mnist_.training_data
+
+print(data_x.shape)
+print(data_y.shape)
+print(data_y_err.shape)
 
 
 # MODEL
@@ -99,16 +104,17 @@ latent_vars = {
 
 # POSTERIOR
 
-scale = tf.placeholder(shape=[], dtype=tf.float32, name='scale')
+#scale = tf.placeholder(shape=[], dtype=tf.float32, name='scale')
+scale = mnist_.n_data / mnist_.batch_size
 
 def chi_square(model_outputs):
     """ (Temporally) assume that the data obeys a normal distribution,
     realized by Gauss's limit-theorem.
 
     Args:
-    model_outputs: `dict`.
+        model_outputs: `dict`.
     Returns:
-    Scalar.
+        Scalar.
     """
     un_scaled_val = 0.0
     for y in output_data.keys():
@@ -121,9 +127,9 @@ def chi_square(model_outputs):
 def log_likelihood(params):
     """
     Args:
-    params: The same argument in the `model`.
+        params: The same argument in the `model`.
     Returns:
-    Scalar.
+        Scalar.
     """
     return chi_square(model(inputs=input_data, params=params))
 
@@ -182,5 +188,30 @@ def log_posterior(theta):
 
 ops = build_inference(N_C, param_space_dim, log_posterior)
 
+#train_op = TrainOp(ops['loss'], tf.train.AdamOptimizer(0.01))
+#trainer = Trainer([train_op], tensorboard_dir='../dat/logs')
+#
+#trainer.fit(
+#    {x: data_x, y: data_y, y_err: data_y_err}
+#)
 
-trainer = Trainer(trainops=ops[???], tensorboard_dir='../dat/logs')  # XXX
+
+train_op = tf.train.RMSPropOptimizer(0.03).minimize(ops['loss'])
+batch_generator = mnist_.batch_generator()
+
+with tf.Session() as sess:
+
+    sess.run(tf.global_variables_initializer())
+
+    n_iter = 5000
+    for i in range(n_iter):
+
+        data_x, data_y, data_y_err = next(batch_generator)
+        feed_dict = {x: data_x, y: data_y, y_err: data_y_err}
+        _, loss_val = sess.run([ train_op, ops['loss'] ],
+                               feed_dict=feed_dict)
+
+        if i % 100 == 0:
+            print(i, loss_val)
+
+    print(sess.run(ops['c']))

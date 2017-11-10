@@ -66,9 +66,10 @@ def get_gaussian_mixture_log_prob(cat_probs, gauss_mu, gauss_sigma):
 
 
 
-def build_inference(n_c, n_d, log_posterior, init_vars=None, optimizer=None,
-                    base_graph=None, dtype='float32', verbose=True):
-  r"""Add the blocks of inference to the graph `base_graph`.
+def build_inference(n_c, n_d, log_posterior, init_vars=None,
+                    base_graph=None, n_samples=10, a_rescale_factor=1.0,
+                    dtype='float32', verbose=True):
+  r"""Add the block of inference to the graph `base_graph`.
 
   CAUTION:
     This function will MODIFY the `base_graph`, or the graph returned from
@@ -94,17 +95,20 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None, optimizer=None,
       of the shapes `[n_c]`, `[n_c, n_d]`, and `[n_c, n_d]`, respectively. All
       these values shall be the same dtype as the `dtype` argument.
 
-    optimizer:
-      An instance of `tf.train.Optimizer`, optional. If `None`, use
-      `tf.train.AdamOptimizer(learning_rate=0.01)`.
-
     base_graph:
-      An instance of `tf.Graph`, optional, as the graph that the blocks for
+      An instance of `tf.Graph`, optional, as the graph that the block for
       inference are added to. If `None`, use the graph returned from
       `tf.get_default_graph()`.
+    
+    n_samples:
+      `int`, as the number of samples in the Monte Carlo integrals, optional.
+
+    a_rescale_factor:
+      `float`, as the rescaling factor of `a`, optional.
 
     dtype:
-      `str`, like `float32`, `float64`, etc., optional.
+      `str`, as the dtype of floats employed herein, like `float32`, `float64`,
+      etc., optional.
 
     verbose:
       `bool`.
@@ -159,13 +163,10 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None, optimizer=None,
 
         with tf.name_scope('categorical'):
 
-          a_rescale_factor = tf.placeholder(shape=[], dtype=dtype,
-                                            name='a_rescale_factor')
           c = tf.nn.softmax(
                 a_rescale_factor * (
                     tf.stack(a) - tf.reduce_mean(tf.stack(a))  # `[n_c]`.
                 ), name='c')
-          #c = tf.nn.softmax(tf.stack(a), name='c')  # `[n_c]`.  # test!
 
 
         with tf.name_scope('standard_normal'):
@@ -187,8 +188,6 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None, optimizer=None,
 
         with tf.name_scope('samples'):
 
-          n_samples = tf.placeholder(shape=[], dtype=tf.int32,
-                                      name='n_samples')
           eta_samples = [
               std_normal[i].sample(n_samples)  # `[n_samples, n_d]`
               for i in range(n_c)
@@ -254,44 +253,16 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None, optimizer=None,
           loss = loss_p_part + loss_q_part
 
 
-      with tf.name_scope('optimization'):
-
-        if optimizer is None:
-          optimizer = tf.train.AdamOptimizer(0.01)
-
-        # test!
-        grad_and_var_list = optimizer.compute_gradients(loss)
-        grad_a = {v: g for g, v in grad_and_var_list if v in a}
-        grad_a_op = tf.stack([ grad_a[a[i]] for i in range(n_c) ])
-
-        train_op = optimizer.minimize(loss)
-
-
     # -- Collections
     ops = {
-        'vars': {
-            'a': tf.stack(a, axis=0),
-            'mu': tf.stack(mu, axis=0),
-            'zeta': tf.stack(zeta, axis=0),
-            'c': c,
-        },
-        'feed': {
-            'a_rescale_factor': a_rescale_factor,
-            'n_samples': n_samples,
-        },
-        'loss': {
-            'loss': loss,
-        },
-        'train': {
-            'train_op': train_op,
-        },
-        'test': {
-            'grad_a': grad_a_op,
-        }
+        'a': tf.stack(a, axis=0),
+        'mu': tf.stack(mu, axis=0),
+        'zeta': tf.stack(zeta, axis=0),
+        'c': c,
+        'loss': loss,
     }
-    for class_name, op_dict in ops.items():
-      for op_name, op in op_dict.items():
-        graph.add_to_collection(op_name, op)
+    for op_name, op in ops.items():
+      graph.add_to_collection(op_name, op)
 
   return ops
 
@@ -365,8 +336,10 @@ if __name__ == '__main__':
   }
   init_vars = None
 
-  ops = build_inference(N_C, N_D, log_posterior,
-                        optimizer=OPTIMIZER, init_vars=init_vars)
+  ops = build_inference(N_C, N_D, log_posterior, init_vars=init_vars,
+                        n_samples=N_SAMPLES, a_rescale_factor=A_RESCALE_FACTOR)
+
+  train_op = OPTIMIZER.minimize(ops['loss'])
 
 
   # -- Training
@@ -381,35 +354,25 @@ if __name__ == '__main__':
     print()
 
     # Display Initialized Values
-    var_ops = ops['vars']
-    print(var_ops['mu'].eval())
-    print(var_ops['zeta'].eval())
+    print(ops['c'].eval())
+    print(ops['mu'].eval())
+    print(ops['zeta'].eval())
     print()
 
     # Optimizing
     with Timer():
       for i in range(N_ITERS):
 
-        feed_ops = ops['feed']
-        feed_dict = {
-            feed_ops['a_rescale_factor']: A_RESCALE_FACTOR,
-            feed_ops['n_samples']: N_SAMPLES,
-        }
-
-        train_op = ops['train']['train_op']
-        loss = ops['loss']['loss']
-
-        _, loss_val, a_val, c_val, mu_val, zeta_val, grad_a_val = \
-            sess.run([ train_op, loss, var_ops['a'],
-                       var_ops['c'], var_ops['mu'], var_ops['zeta'],
-                       ops['test']['grad_a'] ],
-                     feed_dict)
+        _, loss_val, a_val, c_val, mu_val, zeta_val = \
+            sess.run([
+                train_op, ops['loss'], ops['a'],
+                ops['c'], ops['mu'], ops['zeta']
+            ])
 
         # Display Trained Values
         if i % SKIP_STEP == 0:
           print('--- {0:5}  | {1}'.format(i, loss_val))
           print('c:\n', c_val)
-          print('grad_a:\n', grad_a_val)
           print('a:\n', a_val)
           print('mu:\n', mu_val)
           print('zeta:\n', zeta_val)

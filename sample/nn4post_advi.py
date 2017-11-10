@@ -155,7 +155,6 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None, optimizer=None,
           a_rescale_factor = tf.placeholder(shape=[], dtype=dtype,
                                             name='a_rescale_factor')
           c = tf.nn.softmax(a_rescale_factor * tf.stack(a), name='c')  # `[n_c]`.
-          #c = tf.nn.softmax(tf.stack(a), name='c')  # `[n_c]`.  # test!
 
 
         with tf.name_scope('standard_normal'):
@@ -268,9 +267,6 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None, optimizer=None,
               for v, g in grad_a.items()
           }
 
-          # test!
-          grad_a_op = tf.stack([ new_grad_a[a[i]] for i in range(n_c) ])
-
         new_grad_and_var_list = [
             (new_grad_a[v], v) if v in a else (g, v)
             for g, v in grad_and_var_list
@@ -297,9 +293,6 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None, optimizer=None,
         'train': {
             'train_op': train_op,
         },
-        'test': {
-            'grad_a': grad_a_op,
-        }
     }
     for class_name, op_dict in ops.items():
       for op_name, op in op_dict.items():
@@ -330,7 +323,7 @@ if __name__ == '__main__':
   #OPTIMIZER = tf.contrib.opt.NadamOptimizer
   OPTIMIZER = tf.train.RMSPropOptimizer
   #OPTIMIZER = tf.train.GradientDescentOptimizer  # test!
-  DTYPE = 'float64'
+  DTYPE = 'float32'
 
 
 
@@ -412,17 +405,15 @@ if __name__ == '__main__':
         train_op = ops['train']['train_op']
         loss = ops['loss']['loss']
 
-        _, loss_val, a_val, c_val, mu_val, zeta_val, grad_a_val = \
+        _, loss_val, a_val, c_val, mu_val, zeta_val = \
             sess.run([ train_op, loss, var_ops['a'],
-                       var_ops['c'], var_ops['mu'], var_ops['zeta'],
-                       ops['test']['grad_a'] ],
+                       var_ops['c'], var_ops['mu'], var_ops['zeta'] ],
                      feed_dict)
 
         # Display Trained Values
         if i % SKIP_STEP == 0:
           print('--- {0:5}  | {1}'.format(i, loss_val))
           print('c:\n', c_val)
-          print('grad_a:\n', grad_a_val)
           print('a:\n', a_val)
           print('mu:\n', mu_val)
           print('zeta:\n', zeta_val)
