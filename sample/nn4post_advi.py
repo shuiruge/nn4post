@@ -9,7 +9,7 @@ q-distribution.
 
 TF version
 ----------
-Tested on TF 1.4.0
+Tested on TF 1.4.0.
 """
 
 
@@ -24,11 +24,6 @@ except:
     # Your TF < 1.4.0
     from independent import Independent
 
-
-# For testing (and debugging)
-SEED = 123456
-tf.set_random_seed(SEED)
-np.random.seed(SEED)
 
 
 def get_gaussian_mixture_log_prob(cat_probs, gauss_mu, gauss_sigma):
@@ -282,6 +277,12 @@ if __name__ == '__main__':
 
   from tensorflow.contrib.distributions import NormalWithSoftplusScale
   from tools import Timer
+
+
+  # For testing (and debugging)
+  SEED = 123456
+  tf.set_random_seed(SEED)
+  np.random.seed(SEED)
 
 
   # -- Parameters
