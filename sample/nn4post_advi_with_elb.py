@@ -5,6 +5,8 @@ Description
 -----------
 ADVI implementation of "nerual network for posterior" with entropy lower bound
 employed.
+
+For comparison.
 """
 
 

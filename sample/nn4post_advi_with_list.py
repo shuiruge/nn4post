@@ -6,7 +6,9 @@ Description
 ADVI implementation of "nerual network for posterior" with accurate entropy of
 q-distribution.
 
-Updation of "nn4post_advi.py", renamed so as to comparing with the old.
+Employ list somewhere, instead of pure tensor. For comparison with
+"nn4post_advi.py".
+
 
 TF version
 ----------
@@ -76,6 +78,10 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
     `tf.get_default_graph()` if the `base_graph` is `None`. (Pure functional
     approach is suppressed, since it's memory costy.)
 
+  NOTE:
+    The variables are implemented as list of tensors, rather than as stacked
+    tensor. This is for iteratively adding new peaks, while setting XXX
+
   Args:
     n_c:
       `int`, as the number of categorical probabilities, i.e. the :math:`N_c`
@@ -99,7 +105,7 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
       An instance of `tf.Graph`, optional, as the graph that the block for
       inference are added to. If `None`, use the graph returned from
       `tf.get_default_graph()`.
-    
+
     n_samples:
       `int`, as the number of samples in the Monte Carlo integrals, optional.
 

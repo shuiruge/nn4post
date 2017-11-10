@@ -19,7 +19,7 @@ import sys
 sys.path.append('../sample/')
 from tools import Timer
 import mnist
-from nn4post_advi_new import build_inference
+from nn4post_advi import build_inference
 from tflearn.helpers.trainer import TrainOp, Trainer
 
 
