@@ -63,7 +63,7 @@ def get_gaussian_mixture_log_prob(cat_probs, gauss_mu, gauss_sigma):
 def build_inference(n_c, n_d, log_posterior, init_vars=None,
                     base_graph=None, n_samples=10, a_rescale_factor=1.0,
                     dtype='float32', verbose=True):
-  r"""Add the block of inference to the graph `base_graph`.
+  r"""Add the scope of inference to the graph `base_graph`.
 
   CAUTION:
     This function will MODIFY the `base_graph`, or the graph returned from
@@ -90,7 +90,7 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
       these values shall be the same dtype as the `dtype` argument.
 
     base_graph:
-      An instance of `tf.Graph`, optional, as the graph that the block for
+      An instance of `tf.Graph`, optional, as the graph that the scope for
       inference are added to. If `None`, use the graph returned from
       `tf.get_default_graph()`.
 
@@ -287,11 +287,11 @@ if __name__ == '__main__':
 
   # -- Parameters
   TARGET_N_C = 3  # shall be fixed.
-  N_D = 100
-  N_C = 10  # shall be varied.
+  N_D = 10000
+  N_C = 3  # shall be varied.
   N_SAMPLES = 10
   A_RESCALE_FACTOR = 0.1
-  N_ITERS = 2 * 10**3
+  N_ITERS = 4 * 10**3
   LR = 0.03
   OPTIMIZER = tf.train.RMSPropOptimizer(LR)
   DTYPE = 'float32'
@@ -307,7 +307,7 @@ if __name__ == '__main__':
           tf.ones([N_D]) * (i - 1) * 3
           for i in range(TARGET_N_C)
         ], axis=0)
-    target_zeta = tf.zeros([TARGET_N_C, N_D])
+    target_zeta = tf.ones([TARGET_N_C, N_D]) * 5.0
 
     cat = Categorical(probs=target_c)
     components = [
@@ -330,30 +330,34 @@ if __name__ == '__main__':
     'zeta':
       np.zeros([TARGET_N_C, N_D], dtype=DTYPE),
   }
-  init_vars = {
-    'a':
-      np.zeros([N_C], dtype=DTYPE),
-    'mu':
-      np.array([np.ones([N_D]) * (i + 1) * 3 for i in range(N_C)],
-               dtype=DTYPE),
-    'zeta':
-      np.array(np.random.normal(size=[N_C, N_D]) * 5.0,
-               dtype=DTYPE),
-  }
   init_vars = None
   init_vars = {
     'a':
       np.zeros([N_C], dtype=DTYPE),
     'mu':
-      np.array(np.random.normal(size=[N_C, N_D]) * 10.0,
+      np.array(np.random.uniform(low=-1, high=1, size=[N_C, N_D]) * 10.0 \
+               + np.ones([N_C, N_D]) * 3.0,
                dtype=DTYPE),
     'zeta':
       np.array(np.random.normal(size=[N_C, N_D]) * 5.0,
                dtype=DTYPE),
   }
+  init_vars = {
+    'a':
+      np.zeros([N_C], dtype=DTYPE),
+    'mu':
+      np.array([np.ones([N_D]) * (i - 1) * 3 for i in range(N_C)],
+               dtype=DTYPE) \
+      + np.array(np.random.normal(size=[N_C, N_D]) * 1.0,
+                 dtype=DTYPE),
+    'zeta':
+      np.array(np.random.normal(size=[N_C, N_D]) * 5.0,
+               dtype=DTYPE),
+  }
 
-  ops = build_inference(N_C, N_D, log_posterior, init_vars=init_vars,
-                        n_samples=N_SAMPLES, a_rescale_factor=A_RESCALE_FACTOR)
+  ops = build_inference(N_C, N_D, log_posterior,
+            init_vars=init_vars, n_samples=N_SAMPLES,
+            a_rescale_factor=A_RESCALE_FACTOR)
 
   train_op = OPTIMIZER.minimize(ops['loss'])
 
@@ -394,17 +398,31 @@ if __name__ == '__main__':
           print('zeta:\n', zeta_val)
           print()
 
+      print('--- SUMMARY ---')
+      print()
+      print('-- Parameters')
+      print('n_d: ', N_D)
+      print('n_c:', N_C)
+      print('n_samples: ', N_SAMPLES)
+      print('a_rescale_factor: ', A_RESCALE_FACTOR)
+      print('n_iters: ', N_ITERS)
+      print('learning-rate: ', LR)
+      print('dtype: ', DTYPE)
+      print()
+      print('-- Result')
       print('c:\n', c_val)
       print('a:\n', a_val)
-      print('mu:\n', np.mean(mu_val, axis=1), np.std(mu_val, axis=1))
-      print('zeta:\n', np.mean(zeta_val, axis=1), np.std(zeta_val, axis=1))
+      print('mu (mean):\n', np.mean(mu_val, axis=1))
+      print('mu (std):\n', np.std(mu_val, axis=1))
+      print('zeta (mean):\n', np.mean(zeta_val, axis=1))
+      print('zeta (std):\n', np.std(zeta_val, axis=1))
       print()
 
 
 
 '''Trial
 
-### Trail 1
+### Trial 1
 Given `TARGET_N_C = 3` and `N_D = 100`, we find that
 
   # -- Parameters
@@ -417,4 +435,22 @@ Given `TARGET_N_C = 3` and `N_D = 100`, we find that
   DTYPE = 'float32'
 
 is enough to reach the goal, with elapsed time 355 secs, and cost memory 160M.
+
+
+### Trial 2
+Given `TARGET_N_C = 3` and `N_D = 1000` with the `mu` initially locates on the
+peaks of the given Gaussian mixture model, but with equal `c` and random `zeta`,
+we find that
+
+  # -- Parameters
+  N_C = 3  # shall be varied.
+  N_SAMPLES = 10
+  A_RESCALE_FACTOR = 0.1
+  N_ITERS = 4 * 10**3
+  LR = 0.03
+  OPTIMIZER = tf.train.RMSPropOptimizer(LR)
+  DTYPE = 'float32'
+
+gives a perfect result. However, if set `A_RESCALE_FACTOR = 1.0` instead, we
+will get a terrible result of `c` with `c[1]` equals `1.0` almost.
 '''
