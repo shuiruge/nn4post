@@ -382,6 +382,12 @@
   <math|N<rsub|D>/N<rsub|m>> of likelihood has to be taken into account. We
   have to know how many data we actually have, thus how confident we are.
 
+  <section|Problems and Solutions>
+
+  <subsection|Non-Synchronous Problem>
+
+  (XXX see the e-mail.)
+
   <section|Deep Learning>
 
   It cannot solve the vanishing gradient problem of deep neural network,
@@ -436,10 +442,10 @@
     <associate|auto-19|<tuple|3.4.1|4>>
     <associate|auto-2|<tuple|2|1>>
     <associate|auto-20|<tuple|4|4>>
-    <associate|auto-21|<tuple|5|5>>
-    <associate|auto-22|<tuple|6|5>>
-    <associate|auto-23|<tuple|4.4.1|5>>
-    <associate|auto-24|<tuple|5|5>>
+    <associate|auto-21|<tuple|4.1|5>>
+    <associate|auto-22|<tuple|5|5>>
+    <associate|auto-23|<tuple|6|5>>
+    <associate|auto-24|<tuple|7|5>>
     <associate|auto-25|<tuple|6|6>>
     <associate|auto-26|<tuple|7|6>>
     <associate|auto-27|<tuple|7|6>>
@@ -479,102 +485,90 @@
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-1><vspace|0.5fn>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|2<space|2spc>Bayesian>
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|2<space|2spc>Neural
+      Network for Posterior (nn4post)> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-2><vspace|0.5fn>
 
-      <with|par-left|<quote|1tab>|2.1<space|2spc>Prior-Posterior Iteration
+      <with|par-left|<quote|1tab>|2.1<space|2spc>The Model
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-3>>
 
-      <with|par-left|<quote|1tab>|2.2<space|2spc>Bayesian as Information
-      Encoder <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <with|par-left|<quote|2tab>|2.1.1<space|2spc>Numerical Consideration
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-4>>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|3<space|2spc>Neural
-      Network for Posterior (nn4post)> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-5><vspace|0.5fn>
+      <with|par-left|<quote|1tab>|2.2<space|2spc>Interpretation
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-5>>
 
-      <with|par-left|<quote|1tab>|3.1<space|2spc>The Model
+      <with|par-left|<quote|2tab>|2.2.1<space|2spc>As a Mixture Distribution
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-6>>
 
-      <with|par-left|<quote|2tab>|3.1.1<space|2spc>Numerical Consideration
+      <with|par-left|<quote|2tab>|2.2.2<space|2spc>As a Generalization
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-7>>
 
-      <with|par-left|<quote|1tab>|3.2<space|2spc>Interpretation
+      <with|par-left|<quote|2tab>|2.2.3<space|2spc>As a Neural Network
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-8>>
 
-      <with|par-left|<quote|2tab>|3.2.1<space|2spc>As a Mixture Distribution
+      <with|par-left|<quote|1tab>|2.3<space|2spc>Marginalization
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-9>>
 
-      <with|par-left|<quote|2tab>|3.2.2<space|2spc>As a Generalization
+      <with|par-left|<quote|1tab>|2.4<space|2spc>Loss-Function
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-10>>
 
-      <with|par-left|<quote|2tab>|3.2.3<space|2spc>As a Neural Network
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|3<space|2spc>Optimization>
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-11>>
+      <no-break><pageref|auto-11><vspace|0.5fn>
 
-      <with|par-left|<quote|1tab>|3.3<space|2spc>Marginalization
+      <with|par-left|<quote|1tab>|3.1<space|2spc>ADVI
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-12>>
 
-      <with|par-left|<quote|1tab>|3.4<space|2spc>Loss-Function
+      <with|par-left|<quote|2tab>|3.1.1<space|2spc>Derivation
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-13>>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|4<space|2spc>Optimization>
+      <with|par-left|<quote|1tab>|3.2<space|2spc>Redefination of
+      <with|mode|<quote|math>|\<partial\><with|math-font|<quote|cal>|L>/\<partial\>a>
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-14><vspace|0.5fn>
+      <no-break><pageref|auto-14>>
 
-      <with|par-left|<quote|1tab>|4.1<space|2spc>ADVI
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <with|par-left|<quote|2tab>|3.2.1<space|2spc>Re-scaling of
+      <with|mode|<quote|math>|a> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-15>>
 
-      <with|par-left|<quote|2tab>|4.1.1<space|2spc>Derivation
+      <with|par-left|<quote|1tab>|3.3<space|2spc>Approximations
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-16>>
 
-      <with|par-left|<quote|1tab>|4.2<space|2spc>Redefination of
-      <with|mode|<quote|math>|\<partial\><with|math-font|<quote|cal>|L>/\<partial\>a>
+      <with|par-left|<quote|2tab>|3.3.1<space|2spc>Entropy Lower Bound
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-17>>
 
-      <with|par-left|<quote|2tab>|4.2.1<space|2spc>Re-scaling of
-      <with|mode|<quote|math>|a> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <with|par-left|<quote|1tab>|3.4<space|2spc>Stochastic Optimization
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-18>>
 
-      <with|par-left|<quote|1tab>|4.3<space|2spc>Approximations
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <with|par-left|<quote|2tab>|3.4.1<space|2spc>Difference between
+      Bayesian and Traditional Methods <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-19>>
 
-      <with|par-left|<quote|2tab>|4.3.1<space|2spc>Entropy Lower Bound
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-20>>
-
-      <with|par-left|<quote|1tab>|4.4<space|2spc>Stochastic Optimization
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-21>>
-
-      <with|par-left|<quote|2tab>|4.4.1<space|2spc>Difference between
-      Bayesian and Traditional Methods <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-22>>
-
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|5<space|2spc>Deep
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|4<space|2spc>Deep
       Learning> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-23><vspace|0.5fn>
+      <no-break><pageref|auto-20><vspace|0.5fn>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|6<space|2spc>Transfer
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|5<space|2spc>Transfer
       Learning> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-24><vspace|0.5fn>
+      <no-break><pageref|auto-21><vspace|0.5fn>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|7<space|2spc>Why
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|6<space|2spc>Why
       not MCMC?> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-25><vspace|0.5fn>
+      <no-break><pageref|auto-22><vspace|0.5fn>
     </associate>
   </collection>
 </auxiliary>

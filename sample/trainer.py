@@ -24,10 +24,11 @@ I try to use the `Trainer` provided by tflearn. But it is hard to use.
 import abc
 import numpy as np
 import tensorflow as tf
+from edward.util import Progbar
 
 
 
-def iterate(sess, train_op, feed_dict_generator,
+def iterate(sess, train_ops, feed_dict_generator,
             summarizer=None, writer=None, global_step=None,
             options=None, run_metadata=None):
   """Iterates one step for optimizing the `train_op`.
@@ -44,8 +45,9 @@ def iterate(sess, train_op, feed_dict_generator,
     sess:
       An instance of `tf.Session()`, as the session this iteration works on.
 
-    train_op:
-      `Op`, as the train-op to be iterated. Ensure that it has been initialized.
+    train_ops:
+      List of [`Op`], as the train-op to be iterated. Ensure that it has been
+      initialized.
 
     feed_dict_generator:
       Generator that emits a `feed_dict` associated to the `tf.placeholder`s
@@ -73,39 +75,47 @@ def iterate(sess, train_op, feed_dict_generator,
       `tf.Session.run()`, optional.
 
   Returns:
-    `True` if succeed in iterating, and `False` if failed by a `StopIteration`
-    exception in calling `next(feed_dict_generator)`.
+    List of the values of `train_ops`.
+
+  Raises:
+    `StopIteration` from `next(feed_dict_generator)`.
   """
 
-  fetches = [train_op]
+  # Get `fetches`
+  fetches = train_ops
   if summarizer is not None:
     fetches.append(summarizer)
 
-  try:
-    feed_dict = next(feed_dict_generator)
-  except StopIteration:
-    return False
+  # Get `feed_dict`
+  feed_dict = next(feed_dict_generator)
 
+  # Iterate in one step and get values
   fetch_vals = sess.run(fetches
                         feed_dict=feed_dict,
                         options=options,
                         run_metadata=run_metadata)
 
+  # Update `global_step` value
+  if global_step is not None:
+    sess.run(global_step.assign_add(1))
+
+  # Write to TensorBoard
   if summarizer is not None:
     _, summary = fetch_vals
-
-    if global_step is not None:
-      sess.run(global_step.assign_add(1))
-
     writer.add_summary(summary, global_step=global_step)
 
-  return True
+  # Return the values of `train_ops`
+  if summarizer is not None:
+    # The last element of `fetch_vals` will be the `summary`
+    train_ops_vals = fetch_vals[:-1]
+  else:
+    train_ops_vals = fetch_vals
+  return train_ops_vals
 
 
 
 class BaseTrainer(object):
-  """Abstract base class of trainer that implememts the material in chapter 11
-  of the book _Hands-On Machine Learning with Scikit-Learn and TensorFlow_.
+  """Abstract base class of trainer that supplements the `iterate`.
 
   Args:
     log_vars:
@@ -114,7 +124,7 @@ class BaseTrainer(object):
   """
 
   def __init__(self, loss, logdir=None, dir_to_save=None,
-               graph=None, sess=None):
+               graph=None, sess=None, sess_config=None, sess_target=''):
 
     self.loss = loss
     self.logdir = logdir
@@ -123,8 +133,23 @@ class BaseTrainer(object):
     self.optimizer = self.get_optimizer()
     self.train_op = self.build_optimization()
     self.summarizer = self.build_summarization()
-    self.graph = graph if graph is not None else tf.get_default_graph()
-    self.sess = sess if sess is not None else tf.Session()
+
+    if graph is not None:
+      self.graph = graph
+    else:
+      self.graph = tf.get_default_graph()
+
+    if self.logdir is not None:
+      self.writer = self.get_writer()
+
+    if self.dir_to_save is not None:
+      self.saver = self.get_saver()
+
+    if sess is not None:
+      self.sess = sess
+    else:
+      self.sess = tf.Session(graph=self.graph,
+          config=sess_config, target=sess_target)
 
 
   @abc.abstractmethod
@@ -155,20 +180,23 @@ class BaseTrainer(object):
 
 
   @abc.abstractmethod
-  def build_summarization(self, *args, **kwargs):
+  def build_summarization(self):
     """Implements the scope `summarization`.
 
     Returns:
       Op for summarization (to `tensorboard`) in one iteration.
     """
+    pass
 
-    with self.graph.as_default():
 
-      with tf.name_scope('summarization'):
+  @abc.abstractmethod
+  def get_writer(self):
+    pass
 
-        summarizer = None
 
-    return summarizer
+  @abc.abstractmethod
+  def get_saver(self):
+    pass
 
 
   @abc.abstractmethod
@@ -181,18 +209,39 @@ class BaseTrainer(object):
     pass
 
 
-  def fit(self, n_iters, feed_dict_generator, skip_step=100):
+  def fit(self, n_iters, feed_dict_generator,
+          saver_skip_step=100, writer_skip_step=10):
 
     self.sess.run(self.initializer)
 
-    self.restore()
+    # Restore
+    if self.dir_to_save is not None:
+      self.restore()
 
-    for i in range(n_iters):
+    # Iterations
+    for i in tqdm(range(n_iters)):  # XXX
+
+      if i % writer_skip_step == 0:
+        # Shall summarize and write summary
+        summarizer = self.summarizer
+        wirter = self.writer
+      else:
+        # Not summarize and write summary
+        summarizer = None
+        writer = None
 
       iterate(self.sess, self.train_op, feed_dict_generator,
-              summarizer=self.summarizer, writer=self.writer,
+              summarizer, writer=writer,
               global_step=self.global_step)
 
-      if (i+1) % skip_step:
+      # Save at `skip_step`
+      if (i+1) % skip_step == 0:
+        if self.dir_to_save is not None:
+          self.save()
 
-        self.save()
+
+def SimpleTrainer(BalseTrainer):
+
+  def __init__(loss, *args, **kwargs):
+
+    super(SimpleTrainer, self).__init__(loss, *args, **kwargs)

@@ -95,7 +95,8 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
       `tf.get_default_graph()`.
 
     n_samples:
-      `int`, as the number of samples in the Monte Carlo integrals, optional.
+      `int`, or `tf.placeholder` with scalar shape and `int` dtype, as the
+      number of samples in the Monte Carlo integrals, optional.
 
     a_rescale_factor:
       `float`, as the rescaling factor of `a`, optional.
@@ -287,8 +288,8 @@ if __name__ == '__main__':
 
   # -- Parameters
   TARGET_N_C = 3  # shall be fixed.
-  N_D = 10000
-  N_C = 3  # shall be varied.
+  N_D = 2
+  N_C = 1  # shall be varied.
   N_SAMPLES = 10
   A_RESCALE_FACTOR = 0.1
   N_ITERS = 4 * 10**3
@@ -307,7 +308,13 @@ if __name__ == '__main__':
           tf.ones([N_D]) * (i - 1) * 3
           for i in range(TARGET_N_C)
         ], axis=0)
-    target_zeta = tf.ones([TARGET_N_C, N_D]) * 5.0
+    target_zeta = tf.stack([
+          tf.ones([N_D]) * (i - 1) * 3
+          for i in range(TARGET_N_C)
+        ], axis=0)
+    target_zeta_val = np.zeros([TARGET_N_C, N_D])
+    target_zeta_val[1] = np.ones([N_D]) * 5.0
+    target_zeta = tf.constant(target_zeta_val, dtype='float32')
 
     cat = Categorical(probs=target_c)
     components = [
@@ -335,9 +342,10 @@ if __name__ == '__main__':
     'a':
       np.zeros([N_C], dtype=DTYPE),
     'mu':
-      np.array(np.random.uniform(low=-1, high=1, size=[N_C, N_D]) * 10.0 \
-               + np.ones([N_C, N_D]) * 3.0,
-               dtype=DTYPE),
+      np.array([np.ones([N_D]) * (i - 1) * 3 for i in range(N_C)],
+               dtype=DTYPE) \
+      + np.array(np.random.normal(size=[N_C, N_D]) * 1.0,
+                 dtype=DTYPE),
     'zeta':
       np.array(np.random.normal(size=[N_C, N_D]) * 5.0,
                dtype=DTYPE),
@@ -346,10 +354,9 @@ if __name__ == '__main__':
     'a':
       np.zeros([N_C], dtype=DTYPE),
     'mu':
-      np.array([np.ones([N_D]) * (i - 1) * 3 for i in range(N_C)],
-               dtype=DTYPE) \
-      + np.array(np.random.normal(size=[N_C, N_D]) * 1.0,
-                 dtype=DTYPE),
+      np.array(np.random.uniform(low=-1, high=1, size=[N_C, N_D]) * 10.0 \
+               + np.ones([N_C, N_D]) * 3.0,
+               dtype=DTYPE),
     'zeta':
       np.array(np.random.normal(size=[N_C, N_D]) * 5.0,
                dtype=DTYPE),
