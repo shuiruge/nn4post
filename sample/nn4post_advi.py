@@ -95,11 +95,12 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
       `tf.get_default_graph()`.
 
     n_samples:
-      `int`, or `tf.placeholder` with scalar shape and `int` dtype, as the
+      `int` or `tf.placeholder` with scalar shape and `int` dtype, as the
       number of samples in the Monte Carlo integrals, optional.
 
     a_rescale_factor:
-      `float`, as the rescaling factor of `a`, optional.
+      `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
+      rescaling factor of `a`, optional.
 
     dtype:
       `str`, as the dtype of floats employed herein, like `float32`, `float64`,
@@ -264,6 +265,12 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
         'c': c,
         'loss': loss,
     }
+
+    if isinstance(a_rescale_factor, tf.Tensor):
+      ops['a_rescale_factor'] = a_rescale_factor
+    if isinstance(n_samples, tf.Tensor):
+      ops['n_samples'] = n_samples
+
     for op_name, op in ops.items():
       graph.add_to_collection(op_name, op)
 
@@ -281,19 +288,20 @@ if __name__ == '__main__':
 
 
   # For testing (and debugging)
-  SEED = 123456
+  SEED = 123
   tf.set_random_seed(SEED)
   np.random.seed(SEED)
 
 
   # -- Parameters
   TARGET_N_C = 3  # shall be fixed.
-  N_D = 2
-  N_C = 1  # shall be varied.
+  N_D = 10**5
+  N_C = 3  # shall be varied.
   N_SAMPLES = 10
-  A_RESCALE_FACTOR = 0.1
-  N_ITERS = 4 * 10**3
-  LR = 0.03
+  A_RESCALE_FACTOR = 1.0
+  N_ITERS = 1 * 10**4
+  LR = 0.05
+  #OPTIMIZER = tf.train.AdamOptimizer(LR)
   OPTIMIZER = tf.train.RMSPropOptimizer(LR)
   DTYPE = 'float32'
   SKIP_STEP = 50
@@ -308,12 +316,8 @@ if __name__ == '__main__':
           tf.ones([N_D]) * (i - 1) * 3
           for i in range(TARGET_N_C)
         ], axis=0)
-    target_zeta = tf.stack([
-          tf.ones([N_D]) * (i - 1) * 3
-          for i in range(TARGET_N_C)
-        ], axis=0)
     target_zeta_val = np.zeros([TARGET_N_C, N_D])
-    target_zeta_val[1] = np.ones([N_D]) * 5.0
+    #target_zeta_val[1] = np.ones([N_D]) * 5.0
     target_zeta = tf.constant(target_zeta_val, dtype='float32')
 
     cat = Categorical(probs=target_c)
@@ -328,43 +332,36 @@ if __name__ == '__main__':
         return p.log_prob(theta)
 
   # test!
+  init_vars = None
+  mu_val = np.array(np.random.uniform(low=-1, high=1, size=[N_C, N_D]) * 10.0,
+                     dtype=DTYPE)
+  mu_val[0] = np.ones([N_D]) * 1.5
   init_vars = {
     'a':
       np.zeros([N_C], dtype=DTYPE),
     'mu':
-      np.array([np.ones([N_D]) * (i - 1) * 3 for i in range(TARGET_N_C)],
-               dtype=DTYPE),
+      mu_val,
     'zeta':
-      np.zeros([TARGET_N_C, N_D], dtype=DTYPE),
+      np.ones([N_C, N_D], dtype=DTYPE) * (-5.0),
   }
-  init_vars = None
   init_vars = {
     'a':
       np.zeros([N_C], dtype=DTYPE),
     'mu':
       np.array([np.ones([N_D]) * (i - 1) * 3 for i in range(N_C)],
                dtype=DTYPE) \
-      + np.array(np.random.normal(size=[N_C, N_D]) * 1.0,
+      + np.array(np.random.normal(size=[N_C, N_D]) * 0.5,
                  dtype=DTYPE),
     'zeta':
       np.array(np.random.normal(size=[N_C, N_D]) * 5.0,
                dtype=DTYPE),
   }
-  init_vars = {
-    'a':
-      np.zeros([N_C], dtype=DTYPE),
-    'mu':
-      np.array(np.random.uniform(low=-1, high=1, size=[N_C, N_D]) * 10.0 \
-               + np.ones([N_C, N_D]) * 3.0,
-               dtype=DTYPE),
-    'zeta':
-      np.array(np.random.normal(size=[N_C, N_D]) * 5.0,
-               dtype=DTYPE),
-  }
+
+  a_rescale_factor = tf.placeholder(shape=[], dtype=DTYPE)
 
   ops = build_inference(N_C, N_D, log_posterior,
             init_vars=init_vars, n_samples=N_SAMPLES,
-            a_rescale_factor=A_RESCALE_FACTOR)
+            a_rescale_factor=a_rescale_factor)
 
   train_op = OPTIMIZER.minimize(ops['loss'])
 
@@ -381,7 +378,6 @@ if __name__ == '__main__':
     print()
 
     # Display Initialized Values
-    print(ops['c'].eval())
     print(ops['mu'].eval())
     print(ops['zeta'].eval())
     print()
@@ -390,19 +386,23 @@ if __name__ == '__main__':
     with Timer():
       for i in range(N_ITERS):
 
+        a_rescale_factor_val = A_RESCALE_FACTOR if i > 500 else 0.0
+
         _, loss_val, a_val, c_val, mu_val, zeta_val = \
             sess.run([
                 train_op, ops['loss'], ops['a'],
                 ops['c'], ops['mu'], ops['zeta']
-            ])
+            ], feed_dict={ops['a_rescale_factor']: a_rescale_factor_val})
 
         # Display Trained Values
         if i % SKIP_STEP == 0:
           print('--- {0:5}  | {1}'.format(i, loss_val))
           print('c:\n', c_val)
           print('a:\n', a_val)
-          print('mu:\n', mu_val)
-          print('zeta:\n', zeta_val)
+          print('mu (mean):\n', np.mean(mu_val, axis=1))
+          print('mu (std):\n', np.std(mu_val, axis=1))
+          print('zeta (mean):\n', np.mean(zeta_val, axis=1))
+          print('zeta (std):\n', np.std(zeta_val, axis=1))
           print()
 
       print('--- SUMMARY ---')
