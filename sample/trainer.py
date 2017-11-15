@@ -154,11 +154,14 @@ class BaseTrainer(object):
 
   @abc.abstractmethod
   def get_optimizer(self):
+    """Returns an instance of `tf.train.Optimizer`."""
     pass
 
 
   @abc.abstractmethod
   def get_grad_and_var_list(self):
+    """Retruns list of tuples of gradients and variables, that will be argument
+    of `self.optimizer.apply_gradients()`."""
     pass
 
 
@@ -240,8 +243,18 @@ class BaseTrainer(object):
           self.save()
 
 
-def SimpleTrainer(BalseTrainer):
+def VerySimpleTrainer(BalseTrainer):
 
-  def __init__(loss, *args, **kwargs):
+  def __init__(loss, optimizer=tf.train.AdamOptimizer, learning_rate=0.01,
+               *args, **kwargs):
 
+    self.optimizer = optimizer(learning_rate)
     super(SimpleTrainer, self).__init__(loss, *args, **kwargs)
+
+
+  def get_optimizer(self):
+    return self.optimizer
+
+
+  def get_grad_and_var_list(self):
+    return self.optimizer.compute_gradients(self.loss)

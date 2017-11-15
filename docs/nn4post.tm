@@ -250,6 +250,8 @@
 
   <subsection|Redefination of <math|\<partial\><with|math-font|cal|L>/\<partial\>a>>
 
+  <subsubsection|Gauge Fixing>
+
   Let <math|\<Delta\>t> the learning-rate. Then the updation of
   <math|a<rsub|i>> at one iteration by gradient decent method is
 
@@ -302,6 +304,22 @@
   </equation*>
 
   Tuning this additional hyper-parameter may improve the optimization.
+
+  <subsection|Training Strategy>
+
+  Generally we hope that the gradient diminishes when and only when the
+  optimization converges. However, even far from convergence, a tiny
+  <math|c<rsub|i>> will diminish all the derivatives in the
+  <math|i>-component, e.g. derivatives of <math|a<rsub|i>>,
+  <math|\<mu\><rsub|i\<alpha\>>>, <math|\<zeta\><rsub|i\<alpha\>>>, since all
+  these derivatives are proportional to <math|c<rsub|i>>.
+
+  A proper strategy is setting the re-scaling factor of <math|a>, the
+  <math|r>, small enough (e.g. vanishing) until other variables vary little,
+  and then reset the <math|r> to any value eagered. This can avoid the
+  problem that a pre-mature state of training may give a tiny
+  <math|c<rsub|i>>, which then slows down the training of all variables in
+  the <math|i>-component.
 
   <subsection|Approximations>
 
@@ -436,16 +454,16 @@
     <associate|auto-13|<tuple|3.1.1|2>>
     <associate|auto-14|<tuple|3.2|2>>
     <associate|auto-15|<tuple|3.2.1|3>>
-    <associate|auto-16|<tuple|3.3|3>>
-    <associate|auto-17|<tuple|3.3.1|3>>
+    <associate|auto-16|<tuple|3.2.2|3>>
+    <associate|auto-17|<tuple|3.3|3>>
     <associate|auto-18|<tuple|3.4|4>>
     <associate|auto-19|<tuple|3.4.1|4>>
     <associate|auto-2|<tuple|2|1>>
-    <associate|auto-20|<tuple|4|4>>
-    <associate|auto-21|<tuple|4.1|5>>
-    <associate|auto-22|<tuple|5|5>>
-    <associate|auto-23|<tuple|6|5>>
-    <associate|auto-24|<tuple|7|5>>
+    <associate|auto-20|<tuple|3.5|4>>
+    <associate|auto-21|<tuple|3.5.1|5>>
+    <associate|auto-22|<tuple|4|5>>
+    <associate|auto-23|<tuple|4.1|5>>
+    <associate|auto-24|<tuple|5|5>>
     <associate|auto-25|<tuple|6|6>>
     <associate|auto-26|<tuple|7|6>>
     <associate|auto-27|<tuple|7|6>>
@@ -558,17 +576,25 @@
       Bayesian and Traditional Methods <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-19>>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|4<space|2spc>Deep
-      Learning> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|4<space|2spc>Problems
+      and Solutions> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-20><vspace|0.5fn>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|5<space|2spc>Transfer
-      Learning> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-21><vspace|0.5fn>
+      <with|par-left|<quote|1tab>|4.1<space|2spc>Non-Synchronous Problem
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-21>>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|6<space|2spc>Why
-      not MCMC?> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|5<space|2spc>Deep
+      Learning> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-22><vspace|0.5fn>
+
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|6<space|2spc>Transfer
+      Learning> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-23><vspace|0.5fn>
+
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|7<space|2spc>Why
+      not MCMC?> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-24><vspace|0.5fn>
     </associate>
   </collection>
 </auxiliary>

@@ -28,17 +28,6 @@ with batch-size $N_{m} \leqslant N_{D}$. We use $\mathbbm{E}_{f ( \theta )} [
 g ( \theta ) ]$ represent the expectation of function $g$ of a random variable
 obeys the p.d.f. $f$. $\Phi$ is for Gaussian p.d.f..
 
-\section{Bayesian}
-
-\subsection{Prior-Posterior Iteration}
-
-\subsection{Bayesian as Information Encoder}
-
-Comparing with the traditional method, what is the advantage of Bayesian way?
-The answer is, it encodes more information of data into model. Indeed, it does
-not encodes the value of peak of the posterior only, as traditional method
-does, but also much more information on the posterior. XXX
-
 \section{Neural Network for Posterior (nn4post)}
 
 \subsection{The Model}
@@ -228,6 +217,8 @@ independent of $\mathbbm{E} [ . ]$. And now, the loss function becomes
 
 \subsection{Redefination of $\partial \mathcal{L} / \partial a$}
 
+\subsubsection{Gauge Fixing}
+
 Let $\Delta t$ the learning-rate. Then the updation of $a_{i}$ at one
 iteration by gradient decent method is
 \[ \Delta a_{i} =- \frac{\partial \mathcal{L}}{\partial a_{i}} ( a, \mu ,
@@ -259,6 +250,20 @@ There shall be an additional hyper-parameter for the re-scaling of $a$. The
 re-scaling factor, constant $r$, redefines
 \[ c_{i} ( a ) \assign \tmop{softmax} ( i,r a ) . \]
 Tuning this additional hyper-parameter may improve the optimization.
+
+\subsection{Training Strategy}
+
+Generally we hope that the gradient diminishes when and only when the
+optimization converges. However, even far from convergence, a tiny $c_{i}$
+will diminish all the derivatives in the $i$-component, e.g. derivatives of
+$a_{i}$, $\mu_{i \alpha}$, $\zeta_{i \alpha}$, since all these derivatives are
+proportional to $c_{i}$.
+
+A proper strategy is setting the re-scaling factor of $a$, the $r$, small
+enough (e.g. vanishing) until other variables vary little, and then reset the
+$r$ to any value eagered. This can avoid the problem that a pre-mature state
+of training may give a tiny $c_{i}$, which then slows down the training of all
+variables in the $i$-component.
 
 \subsection{Approximations}
 
@@ -321,6 +326,12 @@ number of data gives more confidence. So, while using stochastic optimization
 in Bayesian mode, the factor $N_{D} /N_{m}$ of likelihood has to be taken into
 account. We have to know how many data we actually have, thus how confident we
 are.
+
+\section{Problems and Solutions}
+
+\subsection{Non-Synchronous Problem}
+
+(XXX see the e-mail.)
 
 \section{Deep Learning}
 

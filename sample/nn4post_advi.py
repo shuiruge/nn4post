@@ -386,7 +386,7 @@ if __name__ == '__main__':
     with Timer():
       for i in range(N_ITERS):
 
-        a_rescale_factor_val = A_RESCALE_FACTOR if i > 500 else 0.0
+        a_rescale_factor_val = A_RESCALE_FACTOR if i > 1000 else 0.0
 
         _, loss_val, a_val, c_val, mu_val, zeta_val = \
             sess.run([
