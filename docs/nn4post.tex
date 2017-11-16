@@ -17,16 +17,24 @@
 
 \section{Notations}
 
-Let $f ( x; \theta )$ a function of $x$ with parameter $\theta$. Let $y=f ( x;
-\theta )$ an observable, thus the observed value obeys a Gaussian
-distribution. Let $D$ denotes a set of observations, $D \assign \{ ( x_{i}
-,y_{i} , \sigma_{i} ) :i=1, \ldots ,N_{D} \}$, wherein $x_{i}$ is the $i$th
-input, $y_{i}$ its observed value, and $\sigma_{i}$ the observational error of
-$y_{i}$. We may employ mini-batch technique, thus denote $D_{m} \assign \{ (
-x_{i} ,y_{i} , \sigma_{i} ) :i=1, \ldots ,N_{m} \} \subset D$ as a mini-batch,
-with batch-size $N_{m} \leqslant N_{D}$. We use $\mathbbm{E}_{f ( \theta )} [
-g ( \theta ) ]$ represent the expectation of function $g$ of a random variable
-obeys the p.d.f. $f$. $\Phi$ is for Gaussian p.d.f..
+Let $f ( x; \theta )$ a function of $x \in X$ with parameter $\theta \in
+\Theta$. The dimension of $\Theta$ is $N_{d}$. Let $y=f ( x; \theta )$ an
+observable, thus the observed value obeys a Gaussian distribution. Let $D$
+denotes a set of observations, $D \assign \{ ( x_{i} ,y_{i} , \sigma_{i} )
+:i=1, \ldots ,N_{D} \}$, wherein $x_{i}$ is the $i$th input, $y_{i}$ its
+observed value, and $\sigma_{i}$ the observational error of $y_{i}$. We may
+employ mini-batch technique, thus denote $D_{m} \assign \{ ( x_{i} ,y_{i} ,
+\sigma_{i} ) :i=1, \ldots ,N_{m} \} \subset D$ as a mini-batch, with
+batch-size $N_{m} \leqslant N_{D}$. We use $\mathbbm{E}_{f ( \theta )} [ g (
+\theta ) ]$ represent the expectation of function $g$ of a random variable
+obeys the p.d.f. $f$. $\Phi$ is for Gaussian p.d.f.
+
+Later we will introduce variables $a_{i}$, $\mu_{i  \alpha}$, and $\zeta_{i 
+\alpha}$, where $i=1, \ldots ,N_{c}$ (defined later) and $\alpha =1, \ldots
+,N_{d}$. Let $z \assign ( a, \mu , \zeta )$; and for $\forall i$ given, $z_{i}
+\assign ( a_{i} , \mu_{i \alpha} , \zeta_{i \alpha} )$ for $\forall \alpha$.
+Define space $Z \assign \{ \forall z \}$; and for $\forall i$ given, define
+its subspace $Z_{i} \assign \{ \forall z_{i} \}$.
 
 \section{Neural Network for Posterior (nn4post)}
 
@@ -244,26 +252,50 @@ numerically stable. Indeed, let $C$ be the average of $\{ \partial \mathcal{L}
 well as a pretty accuracy of $c$ in the iteration process of optimization, as
 the experiment on Gaussian mixture model shows.
 
+This motives us to, instead of modifying gradients, re-write $\mathcal{L}$ by
+replacing the $c$ in it by
+\[ c_{i} ( a ) \rightarrow c_{i} \left( a- \frac{\sum_{j}^{N_{c}}
+   a_{j}}{N_{c}} \right) . \]
+Thus
+\[ \frac{\partial c_{i}}{\partial a_{k}} ( a ) \rightarrow \partial_{k} c_{i}
+   \left( a- \frac{\sum_{j}^{N_{c}} a_{j}}{N_{c}} \right)  - \frac{1}{N_{c}}
+   \sum_{k}^{N_{c}} \partial_{k} c_{i} \left( a- \frac{\sum_{j}^{N_{c}}
+   a_{j}}{N_{c}} \right) . \]
+These two approaches are almost the same. But when $N_{d}$ is great enough,
+the difference between them raises. Indeed, experiments on Gaussian mixture
+distribution (as target) shows that the later converges apperately faster than
+the first.\footnote{Why so?} So, we will use the later approach, i.e. modify
+the relation $c_{i} ( a )$ in loss directly.
+
 \subsubsection{Re-scaling of $a$}
 
-There shall be an additional hyper-parameter for the re-scaling of $a$. The
-re-scaling factor, constant $r$, redefines
+In the optimization process, the scales of searching region of $a$ and of
+$\mu$ and $\zeta$ may be different in order. So, there shall be an additional
+hyper-parameter for the re-scaling of $a$. The re-scaling factor, constant
+$r$, redefines
 \[ c_{i} ( a ) \assign \tmop{softmax} ( i,r a ) . \]
-Tuning this additional hyper-parameter may improve the optimization.
+Tuning this additional hyper-parameter can ``normalize'' $a$ to the same order
+of scale as $\mu$ and $\zeta$, thus may improve the optimization.
 
-\subsection{Training Strategy}
+\subsubsection{Frozen-out Problem}
 
-Generally we hope that the gradient diminishes when and only when the
+Generally we hope that the gradients diminish when and only when the
 optimization converges. However, even far from convergence, a tiny $c_{i}$
 will diminish all the derivatives in the $i$-component, e.g. derivatives of
 $a_{i}$, $\mu_{i \alpha}$, $\zeta_{i \alpha}$, since all these derivatives are
 proportional to $c_{i}$.
 
-A proper strategy is setting the re-scaling factor of $a$, the $r$, small
-enough (e.g. vanishing) until other variables vary little, and then reset the
-$r$ to any value eagered. This can avoid the problem that a pre-mature state
-of training may give a tiny $c_{i}$, which then slows down the training of all
-variables in the $i$-component.
+This problem can be solved by replacing, in the gradients, that
+\[ \frac{\partial \mathcal{L}}{\partial z_{i}} \rightarrow \frac{\partial
+   \mathcal{L}}{\partial z_{i}}   \frac{1}{c_{i} ( a ) + \epsilon} , \]
+where $\epsilon$ is a tiny number for numerial stability as usual. This is
+valid since $c_{i} ( a )$ are all positive. This modifies the direction of
+gradients in the space $Z$, but holds the same diection in each $i$-subspace
+$Z_{i}$ individually. And if $( \partial \mathcal{L} / \partial z_{i} ) / (
+c_{i} ( a ) + \epsilon ) =0$, we will have $\partial \mathcal{L} / \partial
+z_{i} =0$, meaning that both gradients leads to the same converge-point on the
+space $Z$. So, this modification speeds up the convergence without changing
+the converge-point.
 
 \subsection{Approximations}
 
@@ -292,7 +324,8 @@ thus $\mathcal{L}'$ has an global minimum. In this way, the entropy part
 becomes completely analytic (and simple).
 
 However, as experiment on Gaussian mixture model shows, using entropy lower
-bound cannot get the enough accuracy as using entropy does.
+bound cannot get the enough accuracy as using entropy does. We will not use
+this approximation.
 
 \subsection{Stochastic Optimization}
 
@@ -326,12 +359,6 @@ number of data gives more confidence. So, while using stochastic optimization
 in Bayesian mode, the factor $N_{D} /N_{m}$ of likelihood has to be taken into
 account. We have to know how many data we actually have, thus how confident we
 are.
-
-\section{Problems and Solutions}
-
-\subsection{Non-Synchronous Problem}
-
-(XXX see the e-mail.)
 
 \section{Deep Learning}
 

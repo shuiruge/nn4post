@@ -61,9 +61,10 @@ def get_gaussian_mixture_log_prob(cat_probs, gauss_mu, gauss_sigma):
 
 
 def build_inference(n_c, n_d, log_posterior, init_vars=None,
-                    base_graph=None, n_samples=10, a_rescale_factor=1.0,
+                    base_graph=None, n_samples=10, r=1.0,
                     dtype='float32', verbose=True):
-  r"""Add the scope of inference to the graph `base_graph`.
+  r"""Add the scope of inference to the graph `base_graph`. This is the
+  implementation of the documentation 'docs/nn4post.tm' (or '/docs/nn4post.pdf').
 
   CAUTION:
     This function will MODIFY the `base_graph`, or the graph returned from
@@ -98,7 +99,7 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
       `int` or `tf.placeholder` with scalar shape and `int` dtype, as the
       number of samples in the Monte Carlo integrals, optional.
 
-    a_rescale_factor:
+    r:
       `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
       rescaling factor of `a`, optional.
 
@@ -108,6 +109,12 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
 
     verbose:
       `bool`.
+
+  Returns:
+    A tuple of two elements. The first is a `dict` for useful `op`s (for
+    convinence), with keys `'a'`, `'mu'`, `'zeta'`, and `'loss'`, and with their
+    associated ops as values. The second is a list of tupes of gradient and its
+    associated variable, as argument of `tf.train.Optimizer.apply_gradients()`.
   """
 
   graph = tf.get_default_graph() if base_graph is None else base_graph
@@ -154,9 +161,7 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
         with tf.name_scope('categorical'):
 
           # shape: `[n_c]`
-          c = tf.nn.softmax( (a - tf.reduce_mean(a)) \
-                             * a_rescale_factor,
-                            name='c')
+          c = tf.nn.softmax((a-tf.reduce_mean(a)) * r, name='c')
 
 
         with tf.name_scope('standard_normal'):
@@ -257,6 +262,23 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
           loss = loss_p_part + loss_q_part
 
 
+    # -- Gradients
+    grads = {
+        variable:
+          tf.gradients(loss, variable)[0]
+        for variable in {a, mu, zeta}
+    }
+    # Notice `tf.truediv` is not broadcastable
+    grads = {
+        variable:
+          grad / (c+1e-8) if variable is a  # shape: [`n_c`].
+          else grad / tf.expand_dims(c+1e-8, axis=1)  # shape: `[n_c, n_d]`.
+        for variable, grad in grads.items()
+    }
+    # Re-arrange as a list of tuples
+    gvs = [(grad, variable) for variable, grad in grads.items()]
+
+
     # -- Collections
     ops = {
         'a': a,
@@ -266,15 +288,15 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
         'loss': loss,
     }
 
-    if isinstance(a_rescale_factor, tf.Tensor):
-      ops['a_rescale_factor'] = a_rescale_factor
+    if isinstance(r, tf.Tensor):
+      ops['r'] = r
     if isinstance(n_samples, tf.Tensor):
       ops['n_samples'] = n_samples
 
     for op_name, op in ops.items():
       graph.add_to_collection(op_name, op)
 
-  return ops
+  return (ops, gvs)
 
 
 
@@ -357,13 +379,10 @@ if __name__ == '__main__':
                dtype=DTYPE),
   }
 
-  a_rescale_factor = tf.placeholder(shape=[], dtype=DTYPE)
+  ops, gvs = build_inference(N_C, N_D, log_posterior, init_vars=init_vars,
+                             n_samples=N_SAMPLES, r=A_RESCALE_FACTOR)
 
-  ops = build_inference(N_C, N_D, log_posterior,
-            init_vars=init_vars, n_samples=N_SAMPLES,
-            a_rescale_factor=a_rescale_factor)
-
-  train_op = OPTIMIZER.minimize(ops['loss'])
+  train_op = OPTIMIZER.apply_gradients(gvs)
 
 
   # -- Training
@@ -386,13 +405,11 @@ if __name__ == '__main__':
     with Timer():
       for i in range(N_ITERS):
 
-        a_rescale_factor_val = A_RESCALE_FACTOR if i > 1000 else 0.0
-
         _, loss_val, a_val, c_val, mu_val, zeta_val = \
             sess.run([
                 train_op, ops['loss'], ops['a'],
-                ops['c'], ops['mu'], ops['zeta']
-            ], feed_dict={ops['a_rescale_factor']: a_rescale_factor_val})
+                ops['c'], ops['mu'], ops['zeta'],
+            ])
 
         # Display Trained Values
         if i % SKIP_STEP == 0:
@@ -411,7 +428,7 @@ if __name__ == '__main__':
       print('n_d: ', N_D)
       print('n_c:', N_C)
       print('n_samples: ', N_SAMPLES)
-      print('a_rescale_factor: ', A_RESCALE_FACTOR)
+      print('r: ', A_RESCALE_FACTOR)
       print('n_iters: ', N_ITERS)
       print('learning-rate: ', LR)
       print('dtype: ', DTYPE)

@@ -5,10 +5,12 @@
 <\body>
   <section|Notations>
 
-  Let <math|f<around*|(|x;\<theta\>|)>> a function of <math|x> with parameter
-  <math|\<theta\>>. Let <math|y=f<around*|(|x;\<theta\>|)>> an observable,
-  thus the observed value obeys a Gaussian distribution. Let <math|D> denotes
-  a set of observations, <math|D\<assign\><around*|{|<around*|(|x<rsub|i>,y<rsub|i>,\<sigma\><rsub|i>|)>:i=1,\<ldots\>,N<rsub|D>|}>>,
+  Let <math|f<around*|(|x;\<theta\>|)>> a function of <math|x\<in\>X> with
+  parameter <math|\<theta\>\<in\>\<Theta\>>. The dimension of
+  <math|\<Theta\>> is <math|N<rsub|d>>. Let
+  <math|y=f<around*|(|x;\<theta\>|)>> an observable, thus the observed value
+  obeys a Gaussian distribution. Let <math|D> denotes a set of observations,
+  <math|D\<assign\><around*|{|<around*|(|x<rsub|i>,y<rsub|i>,\<sigma\><rsub|i>|)>:i=1,\<ldots\>,N<rsub|D>|}>>,
   wherein <math|x<rsub|i>> is the <math|i>th input, <math|y<rsub|i>> its
   observed value, and <math|\<sigma\><rsub|i>> the observational error of
   <math|y<rsub|i>>. We may employ mini-batch technique, thus denote
@@ -16,7 +18,17 @@
   as a mini-batch, with batch-size <math|N<rsub|m>\<leqslant\>N<rsub|D>>. We
   use <math|\<bbb-E\><rsub|f<around*|(|\<theta\>|)>><around*|[|g<around*|(|\<theta\>|)>|]>>
   represent the expectation of function <math|g> of a random variable obeys
-  the p.d.f. <math|f>. <math|\<Phi\>> is for Gaussian p.d.f..
+  the p.d.f. <math|f>. <math|\<Phi\>> is for Gaussian p.d.f.
+
+  Later we will introduce variables <math|a<rsub|i>>, <math|\<mu\><rsub|i
+  \<alpha\>>>, and <math|\<zeta\><rsub|i \<alpha\>>>, where
+  <math|i=1,\<ldots\>,N<rsub|c>> (defined later) and
+  <math|\<alpha\>=1,\<ldots\>,N<rsub|d>>. Let
+  <math|z\<assign\><around*|(|a,\<mu\>,\<zeta\>|)>>; and for
+  <math|\<forall\>i> given, <math|z<rsub|i>\<assign\><around*|(|a<rsub|i>,\<mu\><rsub|i\<alpha\>>,\<zeta\><rsub|i\<alpha\>>|)>>
+  for <math|\<forall\>\<alpha\>>. Define space
+  <math|Z\<assign\><around*|{|\<forall\>z|}>>; and for <math|\<forall\>i>
+  given, define its subspace <math|Z<rsub|i>\<assign\><around*|{|\<forall\>z<rsub|i>|}>>.
 
   <section|Neural Network for Posterior (nn4post)>
 
@@ -294,32 +306,68 @@
   <math|c> in the iteration process of optimization, as the experiment on
   Gaussian mixture model shows.
 
+  This motives us to, instead of modifying gradients, re-write
+  <math|<with|math-font|cal|L>> by replacing the <math|c> in it by
+
+  <\equation*>
+    c<rsub|i><around*|(|a|)>\<rightarrow\>c<rsub|i><around*|(|a-<frac|<big|sum><rsub|j><rsup|N<rsub|c>>a<rsub|j>|N<rsub|c>>|)>.
+  </equation*>
+
+  Thus
+
+  <\equation*>
+    <frac|\<partial\>c<rsub|i>|\<partial\>a<rsub|k>><around*|(|a|)>\<rightarrow\>\<partial\><rsub|k>c<rsub|i><around*|(|a-<frac|<big|sum><rsub|j><rsup|N<rsub|c>>a<rsub|j>|N<rsub|c>>|)>
+    -<frac|1|N<rsub|c>><big|sum><rsub|k><rsup|N<rsub|c>>\<partial\><rsub|k>c<rsub|i><around*|(|a-<frac|<big|sum><rsub|j><rsup|N<rsub|c>>a<rsub|j>|N<rsub|c>>|)>.
+  </equation*>
+
+  These two approaches are almost the same. But when <math|N<rsub|d>> is
+  great enough, the difference between them raises. Indeed, experiments on
+  Gaussian mixture distribution (as target) shows that the later converges
+  apperately faster than the first.<\footnote>
+    Why so?
+  </footnote> So, we will use the later approach, i.e. modify the relation
+  <math|c<rsub|i><around*|(|a|)>> in loss directly.
+
   <subsubsection|Re-scaling of <math|a>>
 
-  There shall be an additional hyper-parameter for the re-scaling of
-  <math|a>. The re-scaling factor, constant <math|r>, redefines
+  In the optimization process, the scales of searching region of <math|a> and
+  of <math|\<mu\>> and <math|\<zeta\>> may be different in order. So, there
+  shall be an additional hyper-parameter for the re-scaling of <math|a>. The
+  re-scaling factor, constant <math|r>, redefines
 
   <\equation*>
     c<rsub|i><around*|(|a|)>\<assign\>softmax<around*|(|i,r a|)>.
   </equation*>
 
-  Tuning this additional hyper-parameter may improve the optimization.
+  Tuning this additional hyper-parameter can ``normalize'' <math|a> to the
+  same order of scale as <math|\<mu\>> and <math|\<zeta\>>, thus may improve
+  the optimization.
 
-  <subsection|Training Strategy>
+  <subsubsection|Frozen-out Problem>
 
-  Generally we hope that the gradient diminishes when and only when the
+  Generally we hope that the gradients diminish when and only when the
   optimization converges. However, even far from convergence, a tiny
   <math|c<rsub|i>> will diminish all the derivatives in the
   <math|i>-component, e.g. derivatives of <math|a<rsub|i>>,
   <math|\<mu\><rsub|i\<alpha\>>>, <math|\<zeta\><rsub|i\<alpha\>>>, since all
   these derivatives are proportional to <math|c<rsub|i>>.
 
-  A proper strategy is setting the re-scaling factor of <math|a>, the
-  <math|r>, small enough (e.g. vanishing) until other variables vary little,
-  and then reset the <math|r> to any value eagered. This can avoid the
-  problem that a pre-mature state of training may give a tiny
-  <math|c<rsub|i>>, which then slows down the training of all variables in
-  the <math|i>-component.
+  This problem can be solved by replacing, in the gradients, that
+
+  <\equation*>
+    <frac|\<partial\><with|math-font|cal|L>|\<partial\>z<rsub|i>>\<rightarrow\><frac|\<partial\><with|math-font|cal|L>|\<partial\>z<rsub|i>>
+    <frac|1|c<rsub|i><around*|(|a|)>+\<epsilon\>>,
+  </equation*>
+
+  where <math|\<epsilon\>> is a tiny number for numerial stability as usual.
+  This is valid since <math|c<rsub|i><around*|(|a|)>> are all positive. This
+  modifies the direction of gradients in the space <math|Z>, but holds the
+  same diection in each <math|i>-subspace <math|Z<rsub|i>> individually. And
+  if <math|<around*|(|\<partial\><with|math-font|cal|L>/\<partial\>z<rsub|i>|)>/<around*|(|c<rsub|i><around*|(|a|)>+\<epsilon\>|)>=0>,
+  we will have <math|\<partial\><with|math-font|cal|L>/\<partial\>z<rsub|i>=0>,
+  meaning that both gradients leads to the same converge-point on the space
+  <math|Z>. So, this modification speeds up the convergence without changing
+  the converge-point.
 
   <subsection|Approximations>
 
@@ -359,7 +407,8 @@
   way, the entropy part becomes completely analytic (and simple).
 
   However, as experiment on Gaussian mixture model shows, using entropy lower
-  bound cannot get the enough accuracy as using entropy does.
+  bound cannot get the enough accuracy as using entropy does. We will not use
+  this approximation.
 
   <subsection|Stochastic Optimization>
 
@@ -399,12 +448,6 @@
   stochastic optimization in Bayesian mode, the factor
   <math|N<rsub|D>/N<rsub|m>> of likelihood has to be taken into account. We
   have to know how many data we actually have, thus how confident we are.
-
-  <section|Problems and Solutions>
-
-  <subsection|Non-Synchronous Problem>
-
-  (XXX see the e-mail.)
 
   <section|Deep Learning>
 
@@ -449,21 +492,21 @@
   <\collection>
     <associate|auto-1|<tuple|1|1>>
     <associate|auto-10|<tuple|2.4|2>>
-    <associate|auto-11|<tuple|3|2>>
-    <associate|auto-12|<tuple|3.1|2>>
-    <associate|auto-13|<tuple|3.1.1|2>>
-    <associate|auto-14|<tuple|3.2|2>>
-    <associate|auto-15|<tuple|3.2.1|3>>
-    <associate|auto-16|<tuple|3.2.2|3>>
-    <associate|auto-17|<tuple|3.3|3>>
-    <associate|auto-18|<tuple|3.4|4>>
-    <associate|auto-19|<tuple|3.4.1|4>>
+    <associate|auto-11|<tuple|3|3>>
+    <associate|auto-12|<tuple|3.1|3>>
+    <associate|auto-13|<tuple|3.1.1|3>>
+    <associate|auto-14|<tuple|3.2|4>>
+    <associate|auto-15|<tuple|3.2.1|4>>
+    <associate|auto-16|<tuple|3.2.2|4>>
+    <associate|auto-17|<tuple|3.2.3|5>>
+    <associate|auto-18|<tuple|3.3|5>>
+    <associate|auto-19|<tuple|3.3.1|5>>
     <associate|auto-2|<tuple|2|1>>
-    <associate|auto-20|<tuple|3.5|4>>
-    <associate|auto-21|<tuple|3.5.1|5>>
-    <associate|auto-22|<tuple|4|5>>
-    <associate|auto-23|<tuple|4.1|5>>
-    <associate|auto-24|<tuple|5|5>>
+    <associate|auto-20|<tuple|3.4|5>>
+    <associate|auto-21|<tuple|3.4.1|5>>
+    <associate|auto-22|<tuple|4|6>>
+    <associate|auto-23|<tuple|5|6>>
+    <associate|auto-24|<tuple|6|6>>
     <associate|auto-25|<tuple|6|6>>
     <associate|auto-26|<tuple|7|6>>
     <associate|auto-27|<tuple|7|6>>
@@ -477,9 +520,9 @@
     <associate|auto-34|<tuple|8.1.2|?>>
     <associate|auto-35|<tuple|9|?>>
     <associate|auto-4|<tuple|2.1.1|1>>
-    <associate|auto-5|<tuple|2.2|1>>
-    <associate|auto-6|<tuple|2.2.1|1>>
-    <associate|auto-7|<tuple|2.2.2|1>>
+    <associate|auto-5|<tuple|2.2|2>>
+    <associate|auto-6|<tuple|2.2.1|2>>
+    <associate|auto-7|<tuple|2.2.2|2>>
     <associate|auto-8|<tuple|2.2.3|2>>
     <associate|auto-9|<tuple|2.3|2>>
     <associate|figure: 1|<tuple|1|4>>
@@ -488,11 +531,13 @@
     <associate|footnote-3|<tuple|3|2>>
     <associate|footnote-4|<tuple|4|3>>
     <associate|footnote-5|<tuple|5|4>>
+    <associate|footnote-6|<tuple|6|4>>
     <associate|footnr-1|<tuple|1|1>>
     <associate|footnr-2|<tuple|2|1>>
     <associate|footnr-3|<tuple|3|2>>
     <associate|footnr-4|<tuple|4|3>>
     <associate|footnr-5|<tuple|5|4>>
+    <associate|footnr-6|<tuple|6|4>>
   </collection>
 </references>
 
@@ -556,43 +601,43 @@
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-14>>
 
-      <with|par-left|<quote|2tab>|3.2.1<space|2spc>Re-scaling of
-      <with|mode|<quote|math>|a> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <with|par-left|<quote|2tab>|3.2.1<space|2spc>Gauge Fixing
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-15>>
 
-      <with|par-left|<quote|1tab>|3.3<space|2spc>Approximations
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <with|par-left|<quote|2tab>|3.2.2<space|2spc>Re-scaling of
+      <with|mode|<quote|math>|a> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-16>>
 
-      <with|par-left|<quote|2tab>|3.3.1<space|2spc>Entropy Lower Bound
+      <with|par-left|<quote|2tab>|3.2.3<space|2spc>Frozen-out Problem
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-17>>
 
-      <with|par-left|<quote|1tab>|3.4<space|2spc>Stochastic Optimization
+      <with|par-left|<quote|1tab>|3.3<space|2spc>Approximations
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-18>>
 
-      <with|par-left|<quote|2tab>|3.4.1<space|2spc>Difference between
-      Bayesian and Traditional Methods <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <with|par-left|<quote|2tab>|3.3.1<space|2spc>Entropy Lower Bound
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-19>>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|4<space|2spc>Problems
-      and Solutions> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-20><vspace|0.5fn>
-
-      <with|par-left|<quote|1tab>|4.1<space|2spc>Non-Synchronous Problem
+      <with|par-left|<quote|1tab>|3.4<space|2spc>Stochastic Optimization
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-20>>
+
+      <with|par-left|<quote|2tab>|3.4.1<space|2spc>Difference between
+      Bayesian and Traditional Methods <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-21>>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|5<space|2spc>Deep
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|4<space|2spc>Deep
       Learning> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-22><vspace|0.5fn>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|6<space|2spc>Transfer
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|5<space|2spc>Transfer
       Learning> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-23><vspace|0.5fn>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|7<space|2spc>Why
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|6<space|2spc>Why
       not MCMC?> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-24><vspace|0.5fn>
     </associate>
