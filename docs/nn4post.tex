@@ -1,16 +1,23 @@
 \documentclass{article}
 \usepackage[english]{babel}
-\usepackage{amsmath,amssymb,bbm,hyperref}
+\usepackage{amsmath,amssymb,bbm,hyperref,alltt,theorem}
 
 %%%%%%%%%% Start TeXmacs macros
+\catcode`\<=\active \def<{
+\fontencoding{T1}\selectfont\symbol{60}\fontencoding{\encodingdefault}}
 \catcode`\>=\active \def>{
 \fontencoding{T1}\selectfont\symbol{62}\fontencoding{\encodingdefault}}
 \catcode`\|=\active \def|{
 \fontencoding{T1}\selectfont\symbol{124}\fontencoding{\encodingdefault}}
 \newcommand{\assign}{:=}
 \newcommand{\mathd}{\mathrm{d}}
+\newcommand{\tmcodeinline}[2][]{{\ttfamily{#2}}}
 \newcommand{\tmem}[1]{{\em #1\/}}
 \newcommand{\tmop}[1]{\ensuremath{\operatorname{#1}}}
+\newcommand{\tmverbatim}[1]{{\ttfamily{#1}}}
+\newenvironment{tmcode}[1][]{\begin{alltt}}{\end{alltt}}
+{\theorembodyfont{\rmfamily}\newtheorem{example}{Example}}
+{\theorembodyfont{\rmfamily\small}\newtheorem{problem}{Problem}}
 %%%%%%%%%% End TeXmacs macros
 
 \begin{document}
@@ -223,7 +230,7 @@ independent of $\mathbbm{E} [ . ]$. And now, the loss function becomes
    \mu_{i} ;D ) - \ln  q ( \sigma ( \zeta_{i} )   \eta + \mu_{i} ;a, \mu ,
    \zeta ) ] . \]
 
-\subsection{Redefination of $\partial \mathcal{L} / \partial a$}
+\subsection{Redefination of Gradients}
 
 \subsubsection{Gauge Fixing}
 
@@ -264,7 +271,9 @@ Thus
 These two approaches are almost the same. But when $N_{d}$ is great enough,
 the difference between them raises. Indeed, experiments on Gaussian mixture
 distribution (as target) shows that the later converges apperately faster than
-the first.\footnote{Why so?} So, we will use the later approach, i.e. modify
+the first.\footnote{Why so?} Additionally, the second approach provides
+stability for softmax function, since the input of softmax is regular no
+matter how great the $a$ is. So, we will use the later approach, i.e. modify
 the relation $c_{i} ( a )$ in loss directly.
 
 \subsubsection{Re-scaling of $a$}
@@ -277,6 +286,19 @@ $r$, redefines
 Tuning this additional hyper-parameter can ``normalize'' $a$ to the same order
 of scale as $\mu$ and $\zeta$, thus may improve the optimization.
 
+This rescaling, if dynamically (e.g. set $r$ as
+\tmcodeinline[cpp]{tf.placeholder} in TensorFlow), also helps fasten the speed
+of convergence. Indeed, especially with a large $N_{d}$, the searching of
+targets $\mu$ and $\zeta$ lasts longer, so that $a$, as nearly random moving
+at this epoch, can be greatly dispersed, i.e. $\max ( a ) \gg \min ( a )$. As
+a result, when the targets $\mu$ and $\zeta$ have been reached, it needs
+extremely large number of iterations for $a$ so that the target value
+(generally not so dispersed) can be reached. However, if $r$ is inserted and
+tuned dynamically, setting $r \rightarrow 0$ at the early searching (of
+targets $\mu$ and $\zeta$) epoch, and then setting $r \rightarrow 1$ after
+variables $\mu$ and $\zeta$ becoming slowly varying, meaning that the their
+targets have been reached. This thus largely speed up the convergence.
+
 \subsubsection{Frozen-out Problem}
 
 Generally we hope that the gradients diminish when and only when the
@@ -288,14 +310,77 @@ proportional to $c_{i}$.
 This problem can be solved by replacing, in the gradients, that
 \[ \frac{\partial \mathcal{L}}{\partial z_{i}} \rightarrow \frac{\partial
    \mathcal{L}}{\partial z_{i}}   \frac{1}{c_{i} ( a ) + \epsilon} , \]
-where $\epsilon$ is a tiny number for numerial stability as usual. This is
-valid since $c_{i} ( a )$ are all positive. This modifies the direction of
-gradients in the space $Z$, but holds the same diection in each $i$-subspace
-$Z_{i}$ individually. And if $( \partial \mathcal{L} / \partial z_{i} ) / (
-c_{i} ( a ) + \epsilon ) =0$, we will have $\partial \mathcal{L} / \partial
-z_{i} =0$, meaning that both gradients leads to the same converge-point on the
-space $Z$. So, this modification speeds up the convergence without changing
-the converge-point.
+where $\epsilon$ is a tiny number for numerial stability as usual\footnote{You
+may wonder why not set $\epsilon =0$, since $c ( a )$ is always non-vanishing.
+This concerns with the numerical instability in practice. Indeed, in
+TensorFlow, letting $\epsilon =0$ causes \tmcodeinline[cpp]{NaN} after about
+$1000$ iterations.}. This is valid since $c_{i} ( a )$ are all positive. This
+modifies the direction of gradients in the space $Z$, but holds the same
+diection in each $i$-subspace $Z_{i}$ individually. And if $( \partial
+\mathcal{L} / \partial z_{i} ) / ( c_{i} ( a ) + \epsilon ) =0$, we will have
+$\partial \mathcal{L} / \partial z_{i} =0$, meaning that both gradients leads
+to the same converge-point on the space $Z$. So, this modification speeds up
+the convergence without changing the converge-point.
+
+In TensorFlow, $\epsilon$ is usually set as \tmverbatim{1e-08}\footnote{C.f.
+\href{https://www.tensorflow.org/api_docs/python/tf/keras/backend/epsilon}{https://www.tensorflow.org/api\_docs/python/tf/keras/backend/epsilon}.}.
+However, the $c ( a )$ can reach the order \tmverbatim{1e-24} in practice.
+(The reason why $\epsilon$ cannot be vanished is in footnote.) So the
+frozen-out problem can still remain, since even though transform as $\partial
+\mathcal{L} / \partial z \propto c ( a ) \sim 10^{-24} \rightarrow \partial
+\mathcal{L} / \partial z \propto c ( a ) / ( c ( a ) + \epsilon ) \approx c (
+a ) / \epsilon \sim 10^{-16}$, $\partial \mathcal{L} / \partial z$ is
+extremely tiny still. This can be solved by additionally clipping $c ( a )$ by
+$\epsilon$ as the minimal value. Explicitly, after
+
+\begin{tmcode}
+a_mean = tf.reduce_mean(a, name='a_mean')  # for gauge fixing.
+c = tf.softmax(r * (a - a_mean), name='c')  # rescaling of ‘a‘.
+\end{tmcode}
+
+additionally set (notice $c ( a ) <1$ always)
+
+\begin{tmcode}
+c = tf.clip_by_value(c, _EPSILON, 1, name='c_clipped')
+\end{tmcode}
+
+Or instead directly clipping on $a$? Indeed we can, but by clipping the
+gradient of $a$, instead of $a$ itself. What we hope is that
+\[ c_{i} ( a ) \equiv \frac{\exp \left( a_{i} - \sum_{k}^{N_{c}} a_{k} /N_{c}
+   \right)}{\sum_{j}^{N_{c}} \exp \left( a_{j} - \sum_{k}^{N_{c}} a_{k} /N_{c}
+   \right)} = \frac{\exp ( a_{i} )}{\sum_{j}^{N_{c}} \exp ( a_{j} )} \geqslant
+   \epsilon \]
+for some $\epsilon$ as the ``accuracy of $c$'' (thus named as
+\tmverbatim{\_C\_ACCURACY} in code), which may different from the previous
+$\epsilon$ (i.e. the \tmverbatim{\_EPSILON}) for numerical stability in
+dividing, but shall have \tmverbatim{\_C\_ACCURACY > \_EPSILON}.
+
+gives
+\[ a_{i} \geqslant \ln ( \epsilon ) + \ln \left( \sum_{j}^{N_{c}} \exp ( a_{j}
+   ) \right) . \]
+To ensure this, for some $\epsilon$ and some $a$ given, define
+\[ a_{\min} \assign \ln ( \epsilon ) + \ln \left( \sum_{j}^{N_{c}} \exp (
+   a_{j} ) \right) , \]
+if $a_{i} <a_{\min}$ and $\partial \mathcal{L} / \partial a_{i} >0$ (i.e.
+wants to decrease itself\footnote{Remind that generally a variable $z$
+decreases iff $\partial \mathcal{L} / \partial z>0$.}) at some iteration (with
+a small $| a_{i} -a_{\min} |$), then in the next iteration, clip $\partial
+\mathcal{L} / \partial a_{i} \rightarrow 0$. Then the $a_{i}$ will be
+``frozen'' in the next iteration, until it wants to increase itself (i.e. when
+$\partial \mathcal{L} / \partial a_{i} <0$).
+
+\begin{problem}
+  But the un-frozen $a_{j}$s can increase themselves, thus increases the
+  $a_{\min}$. So, if the frozen $a_{i}$ keeps $\partial \mathcal{L} / \partial
+  a_{i} >0$, then the minimal value of $c_{i} ( a )$ cannot be bounded
+  lowerly.
+\end{problem}
+
+Comparing with clipping of $c ( a )$, clipping of $a$ additionally benefits
+that it naturally avoids the problem mentioned in the section ``Re-scaling of
+$a$'': early random searching makes $a$ dispersed, thus enlarges the elapsed
+time of convergence after reached the targets $\mu$ and $\zeta$. Indeed, by
+clipping, $a$ becomes centered, even in the early random seaching epoch.
 
 \subsection{Approximations}
 
@@ -389,5 +474,32 @@ and even intractable. So, MCMC approximation cannot provide transfer learning
 as we eager. This is the most important reason that we do not prefer MCMC.
 Furthermore, MCMC is not greedy enough so that it converges quite slow,
 especially in high-dimensional parameter-space.
+
+\section{Problems}
+
+\subsection{The Curse of Dimensinality}
+
+Usually, the curse of dimensionality raises in the grid searching or numerial
+integral. And gradient based optimization and Monte Carlo integral deal the
+curse. However, the curse of dimensionality emerges from another aspect: the
+range of sampling of initial values of $z$ in the iteration process of
+optimization increases as $\sqrt{N_{d}}$.
+
+The large range of sampling then calls for more elapsed time of convergence.
+
+\begin{example}
+  Consider two vector $y_{1}$ and $y_{2}$ in $N_{d}$-dimension Euclidean space
+  $X ( N_{d} )$. Let $Y_{1} ( N_{d} ) \assign \{ x \in X ( N_{d} ) : \|
+  x-y_{1} \| < \| x-y_{2} \| \}$. Let $S ( N_{d} ) \subset X ( N_{d} )$ as the
+  range of sampling. Consider the ratio
+  \[ R_{1} ( N_{d} ) \assign \frac{\| S ( N_{d} ) \cap Y_{1} ( N_{d} ) \|}{\|
+     S ( N_{d} ) \|} . \]
+  We find that, e.g. let $y_{1} = ( -1,-1, \ldots ,-1 )$, $y_{2} = ( 3,3,
+  \ldots ,3 )$, and $S ( N_{d} ) = ( -r,r ) \times ( -r,r ) \times \cdots
+  \times ( -r,r )$ wherein $r=10$, $R_{1}$ becomes unit after $N_{d} \geqslant
+  ?$, and that $R_{1}$ will be around $0.5$ if let $r \sim
+  \sqrt{N_{d}}$.\footnote{C.f. the code
+  ``\tmcodeinline[shell]{/docs/curse\_of\_dimensionality.py}''.}
+\end{example}
 
 \end{document}

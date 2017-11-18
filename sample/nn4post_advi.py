@@ -25,6 +25,9 @@ except:
     from independent import Independent
 
 
+_EPSILON = 1e-08  # for numerical stability.
+_C_ACCURACY = 1e-04  # for clipping the gradient of `a`.
+
 
 def get_gaussian_mixture_log_prob(cat_probs, gauss_mu, gauss_sigma):
   """Get the logrithmic p.d.f. of a Gaussian mixture model.
@@ -64,7 +67,7 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
                     base_graph=None, n_samples=10, r=1.0,
                     dtype='float32', verbose=True):
   r"""Add the scope of inference to the graph `base_graph`. This is the
-  implementation of the documentation 'docs/nn4post.tm' (or '/docs/nn4post.pdf').
+  implementation of 'docs/nn4post.tm' (or '/docs/nn4post.pdf').
 
   CAUTION:
     This function will MODIFY the `base_graph`, or the graph returned from
@@ -160,8 +163,21 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
 
         with tf.name_scope('categorical'):
 
+          # For gauge fixing. C.f. "/docs/nn4post.tm", section "Gauge
+          # Fixing".
+          # shape: `[]`
+          a_mean = tf.reduce_mean(a, name='a_mean')
+
+          # Rescaling of `a`. C.f. "/docs/nn4post.tm", section "Re-
+          # scaling of a".
           # shape: `[n_c]`
-          c = tf.nn.softmax((a-tf.reduce_mean(a)) * r, name='c')
+          c = tf.nn.softmax(r * (a - a_mean), name='c')
+
+          # Replaced by clipping the gradient of `a`, c.f. `name_scope`
+          # `'gradients/clipping_grad_a'`.
+          ## Additionally clip `c` by a minimal value
+          ## shape: `[n_c]`
+          #c = tf.clip_by_value(c, _EPSILON, 1, name='c_clipped')
 
 
         with tf.name_scope('standard_normal'):
@@ -170,9 +186,9 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
           sigma = tf.nn.softplus(zeta)
 
           # shape: `[n_c, n_d]`
-          std_normal = \
-              Independent(
-                  Normal(tf.zeros(mu.shape), tf.ones(sigma.shape)))
+          std_normal = Independent(
+              Normal(tf.zeros(mu.shape), tf.ones(sigma.shape))
+          )
 
 
       with tf.name_scope('loss'):
@@ -262,21 +278,43 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
           loss = loss_p_part + loss_q_part
 
 
-    # -- Gradients
-    grads = {
-        variable:
-          tf.gradients(loss, variable)[0]
-        for variable in {a, mu, zeta}
-    }
-    # Notice `tf.truediv` is not broadcastable
-    grads = {
-        variable:
-          grad / (c+1e-8) if variable is a  # shape: [`n_c`].
-          else grad / tf.expand_dims(c+1e-8, axis=1)  # shape: `[n_c, n_d]`.
-        for variable, grad in grads.items()
-    }
-    # Re-arrange as a list of tuples
-    gvs = [(grad, variable) for variable, grad in grads.items()]
+      with tf.name_scope('gradients'):
+
+        # C.f. "/docs/nn4post.tm", section "Frozen-out Problem".
+
+        with tf.name_scope('bared_gradients'):
+
+          gradient = {
+              variable:
+                tf.gradients(loss, variable)[0]
+              for variable in {a, mu, zeta}
+          }
+
+
+        with tf.name_scope('keeping_non_frozen_out'):
+
+          # Notice `tf.truediv` is not broadcastable
+          gradient = {
+              variable:
+                grad / (c+_EPSILON) if variable is a  # [`n_c`]
+                else grad / tf.expand_dims(c+_EPSILON, axis=1)  # `[n_c, n_d]`
+              for variable, grad in gradient.items()
+          }
+
+
+        with tf.name_scope('clipping_grad_a'):
+        
+          a_min = tf.log(_C_ACCURACY) + tf.reduce_logsumexp(a)
+          # Notice `a` increases along the inverse direction of the gradient of `a`.
+          clip_cond = tf.logical_and(
+              tf.less(a, a_min),
+              tf.greater(gradient[a], 0.0)
+          )
+          gradient[a] = tf.where(clip_cond, tf.zeros(a.shape), gradient[a])
+
+
+        # Re-arrange as a list of tuples
+        gvs = [(grad, variable) for variable, grad in gradient.items()]
 
 
     # -- Collections
@@ -310,7 +348,7 @@ if __name__ == '__main__':
 
 
   # For testing (and debugging)
-  SEED = 123
+  SEED = 123456
   tf.set_random_seed(SEED)
   np.random.seed(SEED)
 
@@ -322,7 +360,7 @@ if __name__ == '__main__':
   N_SAMPLES = 10
   A_RESCALE_FACTOR = 1.0
   N_ITERS = 1 * 10**4
-  LR = 0.05
+  LR = tf.placeholder(shape=[], dtype='float32')
   #OPTIMIZER = tf.train.AdamOptimizer(LR)
   OPTIMIZER = tf.train.RMSPropOptimizer(LR)
   DTYPE = 'float32'
@@ -354,18 +392,18 @@ if __name__ == '__main__':
         return p.log_prob(theta)
 
   # test!
-  init_vars = None
-  mu_val = np.array(np.random.uniform(low=-1, high=1, size=[N_C, N_D]) * 10.0,
-                     dtype=DTYPE)
-  mu_val[0] = np.ones([N_D]) * 1.5
+  # test 2
   init_vars = {
     'a':
       np.zeros([N_C], dtype=DTYPE),
     'mu':
-      mu_val,
+      np.array( np.random.uniform(-1, 1, size=[N_C, N_D]) * 5.0 \
+                * np.sqrt(N_D),
+               dtype=DTYPE),
     'zeta':
-      np.ones([N_C, N_D], dtype=DTYPE) * (-5.0),
+      np.ones([N_C, N_D], dtype=DTYPE) * 5.0,
   }
+  # test 1
   init_vars = {
     'a':
       np.zeros([N_C], dtype=DTYPE),
@@ -379,8 +417,10 @@ if __name__ == '__main__':
                dtype=DTYPE),
   }
 
+  r = tf.placeholder(shape=[], dtype='float32', name='r')
+
   ops, gvs = build_inference(N_C, N_D, log_posterior, init_vars=init_vars,
-                             n_samples=N_SAMPLES, r=A_RESCALE_FACTOR)
+                             n_samples=N_SAMPLES, r=r)
 
   train_op = OPTIMIZER.apply_gradients(gvs)
 
@@ -405,11 +445,26 @@ if __name__ == '__main__':
     with Timer():
       for i in range(N_ITERS):
 
+        # C.f. the section "Re-scaling of a" of "/docs/nn4post.tm".
+        # Even though, herein, `r` is tuned manually, it can be tuned
+        # automatically (and smarter-ly), and should be so.
+        # And learning-rate `LR` decays as usual.
+        if i < 1000:
+            r_val = 1.0
+            lr_val = 0.05
+        elif i < 5000:
+            r_val = 1.0
+            lr_val = 0.01
+        else:
+            r_val = 1.0
+            lr_val = 0.005
+
         _, loss_val, a_val, c_val, mu_val, zeta_val = \
-            sess.run([
-                train_op, ops['loss'], ops['a'],
-                ops['c'], ops['mu'], ops['zeta'],
-            ])
+            sess.run(
+                [ train_op, ops['loss'], ops['a'],
+                  ops['c'], ops['mu'], ops['zeta'] ],
+                feed_dict={r: r_val, LR: lr_val}
+            )
 
         # Display Trained Values
         if i % SKIP_STEP == 0:

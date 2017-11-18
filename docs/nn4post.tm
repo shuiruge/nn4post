@@ -260,7 +260,7 @@
     \<eta\>+\<mu\><rsub|i>;a,\<mu\>,\<zeta\>|)>|]>.
   </equation*>
 
-  <subsection|Redefination of <math|\<partial\><with|math-font|cal|L>/\<partial\>a>>
+  <subsection|Redefination of Gradients>
 
   <subsubsection|Gauge Fixing>
 
@@ -325,8 +325,10 @@
   Gaussian mixture distribution (as target) shows that the later converges
   apperately faster than the first.<\footnote>
     Why so?
-  </footnote> So, we will use the later approach, i.e. modify the relation
-  <math|c<rsub|i><around*|(|a|)>> in loss directly.
+  </footnote> Additionally, the second approach provides stability for
+  softmax function, since the input of softmax is regular no matter how great
+  the <math|a> is. So, we will use the later approach, i.e. modify the
+  relation <math|c<rsub|i><around*|(|a|)>> in loss directly.
 
   <subsubsection|Re-scaling of <math|a>>
 
@@ -342,6 +344,21 @@
   Tuning this additional hyper-parameter can ``normalize'' <math|a> to the
   same order of scale as <math|\<mu\>> and <math|\<zeta\>>, thus may improve
   the optimization.
+
+  This rescaling, if dynamically (e.g. set <math|r> as <cpp|tf.placeholder>
+  in TensorFlow), also helps fasten the speed of convergence. Indeed,
+  especially with a large <math|N<rsub|d>>, the searching of targets
+  <math|\<mu\>> and <math|\<zeta\>> lasts longer, so that <math|a>, as nearly
+  random moving at this epoch, can be greatly dispersed, i.e.
+  <math|max<around*|(|a|)>\<gg\>min<around*|(|a|)>>. As a result, when the
+  targets <math|\<mu\>> and <math|\<zeta\>> have been reached, it needs
+  extremely large number of iterations for <math|a> so that the target value
+  (generally not so dispersed) can be reached. However, if <math|r> is
+  inserted and tuned dynamically, setting <math|r\<rightarrow\>0> at the
+  early searching (of targets <math|\<mu\>> and <math|\<zeta\>>) epoch, and
+  then setting <math|r\<rightarrow\>1> after variables <math|\<mu\>> and
+  <math|\<zeta\>> becoming slowly varying, meaning that the their targets
+  have been reached. This thus largely speed up the convergence.
 
   <subsubsection|Frozen-out Problem>
 
@@ -359,15 +376,93 @@
     <frac|1|c<rsub|i><around*|(|a|)>+\<epsilon\>>,
   </equation*>
 
-  where <math|\<epsilon\>> is a tiny number for numerial stability as usual.
-  This is valid since <math|c<rsub|i><around*|(|a|)>> are all positive. This
-  modifies the direction of gradients in the space <math|Z>, but holds the
-  same diection in each <math|i>-subspace <math|Z<rsub|i>> individually. And
-  if <math|<around*|(|\<partial\><with|math-font|cal|L>/\<partial\>z<rsub|i>|)>/<around*|(|c<rsub|i><around*|(|a|)>+\<epsilon\>|)>=0>,
+  where <math|\<epsilon\>> is a tiny number for numerial stability as
+  usual<\footnote>
+    You may wonder why not set <math|\<epsilon\>=0>, since
+    <math|c<around*|(|a|)>> is always non-vanishing. This concerns with the
+    numerical instability in practice. Indeed, in TensorFlow, letting
+    <math|\<epsilon\>=0> causes <cpp|NaN> after about <math|1000> iterations.
+  </footnote>. This is valid since <math|c<rsub|i><around*|(|a|)>> are all
+  positive. This modifies the direction of gradients in the space <math|Z>,
+  but holds the same diection in each <math|i>-subspace <math|Z<rsub|i>>
+  individually. And if <math|<around*|(|\<partial\><with|math-font|cal|L>/\<partial\>z<rsub|i>|)>/<around*|(|c<rsub|i><around*|(|a|)>+\<epsilon\>|)>=0>,
   we will have <math|\<partial\><with|math-font|cal|L>/\<partial\>z<rsub|i>=0>,
   meaning that both gradients leads to the same converge-point on the space
   <math|Z>. So, this modification speeds up the convergence without changing
   the converge-point.
+
+  In TensorFlow, <math|\<epsilon\>> is usually set as
+  <verbatim|1e-08><\footnote>
+    C.f. <hlink|https://www.tensorflow.org/api_docs/python/tf/keras/backend/epsilon|https://www.tensorflow.org/api_docs/python/tf/keras/backend/epsilon>.
+  </footnote>. However, the <math|c<around*|(|a|)>> can reach the order
+  <verbatim|1e-24> in practice. (The reason why <math|\<epsilon\>> cannot be
+  vanished is in footnote.) So the frozen-out problem can still remain, since
+  even though transform as <math|\<partial\><with|math-font|cal|L>/\<partial\>z\<propto\>c<around*|(|a|)>\<sim\>10<rsup|-24>\<rightarrow\>\<partial\><with|math-font|cal|L>/\<partial\>z\<propto\>c<around*|(|a|)>/<around*|(|c<around*|(|a|)>+\<epsilon\>|)>\<approx\>c<around*|(|a|)>/\<epsilon\>\<sim\>10<rsup|-16>>,
+  <math|\<partial\><with|math-font|cal|L>/\<partial\>z> is extremely tiny
+  still. This can be solved by additionally clipping <math|c<around*|(|a|)>>
+  by <math|\<epsilon\>> as the minimal value. Explicitly, after
+
+  <\verbatim-code>
+    a_mean = tf.reduce_mean(a, name='a_mean') \ # for gauge fixing.
+
+    c = tf.softmax(r * (a - a_mean), name='c') \ # rescaling of `a`.
+  </verbatim-code>
+
+  additionally set (notice <math|c<around*|(|a|)>\<less\>1> always)
+
+  <\verbatim-code>
+    c = tf.clip_by_value(c, _EPSILON, 1, name='c_clipped')
+  </verbatim-code>
+
+  Or instead directly clipping on <math|a>? Indeed we can, but by clipping
+  the gradient of <math|a>, instead of <math|a> itself. What we hope is that
+
+  <\equation*>
+    c<rsub|i><around*|(|a|)>\<equiv\><frac|exp<around*|(|a<rsub|i>-<big|sum><rsub|k><rsup|N<rsub|c>>a<rsub|k>/N<rsub|c>|)>|<big|sum><rsub|j><rsup|N<rsub|c>>exp<around*|(|a<rsub|j>-<big|sum><rsub|k><rsup|N<rsub|c>>a<rsub|k>/N<rsub|c>|)>>=<frac|exp<around*|(|a<rsub|i>|)>|<big|sum><rsub|j><rsup|N<rsub|c>>exp<around*|(|a<rsub|j>|)>>\<geqslant\>\<epsilon\>
+  </equation*>
+
+  for some <math|\<epsilon\>> as the ``accuracy of <math|c>'' (thus named as
+  <verbatim|_C_ACCURACY> in code), which may different from the previous
+  <math|\<epsilon\>> (i.e. the <verbatim|_EPSILON>) for numerical stability
+  in dividing, but shall have <verbatim|_C_ACCURACY \<gtr\> _EPSILON>.
+
+  gives
+
+  <\equation*>
+    a<rsub|i>\<geqslant\>ln<around*|(|\<epsilon\>|)>+ln<around*|(|<big|sum><rsub|j><rsup|N<rsub|c>>exp<around*|(|a<rsub|j>|)>|)>.
+  </equation*>
+
+  To ensure this, for some <math|\<epsilon\>> and some <math|a> given, define
+
+  <\equation*>
+    a<rsub|min>\<assign\>ln<around*|(|\<epsilon\>|)>+ln<around*|(|<big|sum><rsub|j><rsup|N<rsub|c>>exp<around*|(|a<rsub|j>|)>|)>,
+  </equation*>
+
+  if <math|a<rsub|i>\<less\>a<rsub|min>> and
+  <math|\<partial\><with|math-font|cal|L>/\<partial\>a<rsub|i>\<gtr\>0> (i.e.
+  wants to decrease itself<\footnote>
+    Remind that generally a variable <math|z> decreases iff
+    <math|\<partial\><with|math-font|cal|L>/\<partial\>z\<gtr\>0>.
+  </footnote>) at some iteration (with a small
+  <math|<around*|\||a<rsub|i>-a<rsub|min>|\|>>), then in the next iteration,
+  clip <math|\<partial\><with|math-font|cal|L>/\<partial\>a<rsub|i>\<rightarrow\>0>.
+  Then the <math|a<rsub|i>> will be ``frozen'' in the next iteration, until
+  it wants to increase itself (i.e. when <math|\<partial\><with|math-font|cal|L>/\<partial\>a<rsub|i>\<less\>0>).
+
+  <\problem>
+    But the un-frozen <math|a<rsub|j>>s can increase themselves, thus
+    increases the <math|a<rsub|min>>. So, if the frozen <math|a<rsub|i>>
+    keeps <math|\<partial\><with|math-font|cal|L>/\<partial\>a<rsub|i>\<gtr\>0>,
+    then the minimal value of <math|c<rsub|i><around*|(|a|)>> cannot be
+    bounded lowerly.
+  </problem>
+
+  Comparing with clipping of <math|c<around*|(|a|)>>, clipping of <math|a>
+  additionally benefits that it naturally avoids the problem mentioned in the
+  section ``Re-scaling of <math|a>'': early random searching makes <math|a>
+  dispersed, thus enlarges the elapsed time of convergence after reached the
+  targets <math|\<mu\>> and <math|\<zeta\>>. Indeed, by clipping, <math|a>
+  becomes centered, even in the early random seaching epoch.
 
   <subsection|Approximations>
 
@@ -480,6 +575,40 @@
   learning as we eager. This is the most important reason that we do not
   prefer MCMC. Furthermore, MCMC is not greedy enough so that it converges
   quite slow, especially in high-dimensional parameter-space.
+
+  <section|Problems>
+
+  <subsection|The Curse of Dimensinality>
+
+  Usually, the curse of dimensionality raises in the grid searching or
+  numerial integral. And gradient based optimization and Monte Carlo integral
+  deal the curse. However, the curse of dimensionality emerges from another
+  aspect: the range of sampling of initial values of <math|z> in the
+  iteration process of optimization increases as <math|<sqrt|N<rsub|d>>>.
+
+  The large range of sampling then calls for more elapsed time of
+  convergence.
+
+  <\example>
+    Consider two vector <math|y<rsub|1>> and <math|y<rsub|2>> in
+    <math|N<rsub|d>>-dimension Euclidean space
+    <math|X<around*|(|N<rsub|d>|)>>. Let <math|Y<rsub|1><around*|(|N<rsub|d>|)>\<assign\><around*|{|x\<in\>X<around*|(|N<rsub|d>|)>:<around*|\<\|\|\>|x-y<rsub|1>|\<\|\|\>>\<less\><around*|\<\|\|\>|x-y<rsub|2>|\<\|\|\>>|}>>.
+    Let <math|S<around*|(|N<rsub|d>|)>\<subset\>X<around*|(|N<rsub|d>|)>> as
+    the range of sampling. Consider the ratio
+
+    <\equation*>
+      R<rsub|1><around*|(|N<rsub|d>|)>\<assign\><frac|<around*|\<\|\|\>|S<around*|(|N<rsub|d>|)>\<cap\>Y<rsub|1><around*|(|N<rsub|d>|)>|\<\|\|\>>|<around*|\<\|\|\>|S<around*|(|N<rsub|d>|)>|\<\|\|\>>>.
+    </equation*>
+
+    We find that, e.g. let <math|y<rsub|1>=<around*|(|-1,-1,\<ldots\>,-1|)>>,
+    <math|y<rsub|2>=<around*|(|3,3,\<ldots\>,3|)>>, and
+    <math|S<around*|(|N<rsub|d>|)>=<around*|(|-r,r|)>\<times\><around*|(|-r,r|)>\<times\>\<cdots\>\<times\><around*|(|-r,r|)>>
+    wherein <math|r=10>, <math|R<rsub|1>> becomes unit after
+    <math|N<rsub|d>\<geqslant\>?>, and that <math|R<rsub|1>> will be around
+    <math|0.5> if let <math|r\<sim\><sqrt|N<rsub|d>>>.<\footnote>
+      C.f. the code ``<shell|/docs/curse_of_dimensionality.py>''.
+    </footnote>
+  </example>
 </body>
 
 <\initial>
@@ -507,9 +636,9 @@
     <associate|auto-22|<tuple|4|6>>
     <associate|auto-23|<tuple|5|6>>
     <associate|auto-24|<tuple|6|6>>
-    <associate|auto-25|<tuple|6|6>>
-    <associate|auto-26|<tuple|7|6>>
-    <associate|auto-27|<tuple|7|6>>
+    <associate|auto-25|<tuple|7|6>>
+    <associate|auto-26|<tuple|7.1|6>>
+    <associate|auto-27|<tuple|7.1|6>>
     <associate|auto-28|<tuple|9|?>>
     <associate|auto-29|<tuple|10|?>>
     <associate|auto-3|<tuple|2.1|1>>
@@ -527,17 +656,25 @@
     <associate|auto-9|<tuple|2.3|2>>
     <associate|figure: 1|<tuple|1|4>>
     <associate|footnote-1|<tuple|1|1>>
+    <associate|footnote-10|<tuple|10|?>>
     <associate|footnote-2|<tuple|2|1>>
     <associate|footnote-3|<tuple|3|2>>
     <associate|footnote-4|<tuple|4|3>>
     <associate|footnote-5|<tuple|5|4>>
     <associate|footnote-6|<tuple|6|4>>
+    <associate|footnote-7|<tuple|7|?>>
+    <associate|footnote-8|<tuple|8|?>>
+    <associate|footnote-9|<tuple|9|?>>
     <associate|footnr-1|<tuple|1|1>>
+    <associate|footnr-10|<tuple|10|?>>
     <associate|footnr-2|<tuple|2|1>>
     <associate|footnr-3|<tuple|3|2>>
     <associate|footnr-4|<tuple|4|3>>
     <associate|footnr-5|<tuple|5|4>>
     <associate|footnr-6|<tuple|6|4>>
+    <associate|footnr-7|<tuple|7|?>>
+    <associate|footnr-8|<tuple|8|?>>
+    <associate|footnr-9|<tuple|9|?>>
   </collection>
 </references>
 
