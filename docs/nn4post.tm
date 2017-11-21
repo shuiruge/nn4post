@@ -163,7 +163,8 @@
   Since there's no compact support for both <math|p<around*|(|\<theta\>;D|)>>
   and <math|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>>, <math|ELBO> is
   well-defined. The loss-function (or say loss-function, performance, etc) of
-  the fitting is then defined as <math|<with|math-font|cal|L>=-ELBO>, i.e.
+  the fitting is then defined as <math|<with|math-font|cal|L>\<assign\>-ELBO>,
+  i.e.
 
   <\equation*>
     <with|math-font|cal|<with|math-font|cal|L><around*|(|a,\<mu\>,\<zeta\>|)>>=-\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>><around*|[|ln
@@ -177,6 +178,63 @@
     <with|math-font|cal|<with|math-font|cal|L><around*|(|a,\<mu\>,\<zeta\>|)>>=-\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>><around*|[|ln
     p<around*|(|\<theta\>;D|)>|]>-\<bbb-H\><around*|[|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>|]>.
   </equation*>
+
+  <subsection|Relation between Relative Error of Inference and Loss>
+
+  For the arbitrary model <math|y=f<around*|(|x;\<theta\>|)>>, for
+  <math|\<forall\>x>, Bayesian inference gives prediction,
+  <math|<around*|\<langle\>|f|\<rangle\>><around*|(|x|)>>, as
+
+  <\equation*>
+    <around*|\<langle\>|f|\<rangle\>><around*|(|x|)>\<assign\>\<bbb-E\><rsub|\<theta\>\<sim\>p<around*|(|\<theta\>\|D|)>><around*|[|f<around*|(|x;\<theta\>|)>|]>.
+  </equation*>
+
+  Since <math|q<around*|(|.|)>> is an approximation to
+  <math|p<around*|(|.\|D|)>>, let <math|<around*|\<langle\>|f|\<rangle\>><rsub|q><around*|(|x|)>\<assign\>\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>|)>><around*|[|f<around*|(|x;\<theta\>|)>|]>>,
+  then the difference between them is <math|\<delta\><around*|\<langle\>|f|\<rangle\>><around*|(|x|)>\<assign\><around*|\<langle\>|f|\<rangle\>><around*|(|x|)>-<around*|\<langle\>|f|\<rangle\>><rsub|q><around*|(|x|)>>.
+
+  <\theorem>
+    <inactive|<label|theorem: Relation between Relative Error of Inference
+    and Loss>>We have the relation of order between the relative error of
+    inference and loss
+
+    <\equation*>
+      <frac|\<delta\><around*|\<langle\>|f|\<rangle\>>|<around*|\<langle\>|f|\<rangle\>>><around*|(|x|)>\<sim\><with|math-font|cal|L>.
+    </equation*>
+  </theorem>
+
+  <\proof>
+    By definition, <math|\<delta\><around*|\<langle\>|f|\<rangle\>><around*|(|x|)>=<big|int>\<mathd\>\<theta\>
+    f<around*|(|x;\<theta\>|)> <around*|[|p<around*|(|\<theta\>\|D|)>-q<around*|(|\<theta\>|)>|]>>.
+    Thus
+
+    <\eqnarray*>
+      <tformat|<table|<row|<cell|\<delta\><around*|\<langle\>|f|\<rangle\>><around*|(|x|)>>|<cell|=>|<cell|<big|int>\<mathd\>\<theta\>
+      q<around*|(|\<theta\>|)> f<around*|(|x;\<theta\>|)>
+      <frac|p<around*|(|\<theta\>\|D|)>-q<around*|(|\<theta\>|)>|q<around*|(|\<theta\>|)>>>>|<row|<cell|>|<cell|=>|<cell|<big|int>\<mathd\>\<theta\>
+      q<around*|(|\<theta\>|)> <around*|(|<frac|p<around*|(|\<theta\>\|D|)>|q<around*|(|\<theta\>|)>>-1|)>>>|<row|<cell|>|<cell|=>|<cell|\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>|)>><around*|[|f<around*|(|x;\<theta\>|)>
+      <around*|(|<frac|p<around*|(|\<theta\>\|D|)>|q<around*|(|\<theta\>|)>>-1|)>|]>.>>>>
+    </eqnarray*>
+
+    Then, we have the relation of order
+
+    <\equation*>
+      <frac|\<delta\><around*|\<langle\>|f|\<rangle\>>|<around*|\<langle\>|f|\<rangle\>>><around*|(|x|)>\<sim\>\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>|)>><around*|[|<frac|p<around*|(|\<theta\>\|D|)>|q<around*|(|\<theta\>|)>>-1|]>
+    </equation*>
+
+    On the other hand, if <math|p<around*|(|.\|D|)>\<approx\>q<around*|(|.|)>>
+    as we expect for <math|q<around*|(|.|)>>, then we have
+
+    <\equation*>
+      ln<around*|(|<frac|p<around*|(|\<theta\>\|D|)>|q<around*|(|\<theta\>|)>>|)>=ln<around*|(|<around*|[|<frac|p<around*|(|\<theta\>\|D|)>|q<around*|(|\<theta\>|)>>-1|]>+1|)>\<approx\><frac|p<around*|(|\<theta\>\|D|)>|q<around*|(|\<theta\>|)>>-1.
+    </equation*>
+
+    Thus,
+
+    <\equation*>
+      <frac|\<delta\><around*|\<langle\>|f|\<rangle\>>|<around*|\<langle\>|f|\<rangle\>>><around*|(|x|)>\<sim\>\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>|)>><around*|[|<frac|p<around*|(|\<theta\>\|D|)>|q<around*|(|\<theta\>|)>>-1|]>\<approx\>\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>|)>><around*|[|ln<around*|(|<frac|p<around*|(|\<theta\>\|D|)>|q<around*|(|\<theta\>|)>>|)>|]>=<with|math-font|cal|L>.
+    </equation*>
+  </proof>
 
   <section|Optimization>
 
@@ -580,6 +638,8 @@
 
   <subsection|The Curse of Dimensinality>
 
+  <subsubsection|Range of Sampling>
+
   Usually, the curse of dimensionality raises in the grid searching or
   numerial integral. And gradient based optimization and Monte Carlo integral
   deal the curse. However, the curse of dimensionality emerges from another
@@ -609,6 +669,12 @@
       C.f. the code ``<shell|/docs/curse_of_dimensionality.py>''.
     </footnote>
   </example>
+
+  <subsubsection|Relative Error of Inference>
+
+  Theorem <reference|theorem: Relation between Relative Error of Inference
+  and Loss> hints that the relative error of inference positively related
+  with dimension, as the loss does so.
 </body>
 
 <\initial>
@@ -621,26 +687,26 @@
   <\collection>
     <associate|auto-1|<tuple|1|1>>
     <associate|auto-10|<tuple|2.4|2>>
-    <associate|auto-11|<tuple|3|3>>
-    <associate|auto-12|<tuple|3.1|3>>
-    <associate|auto-13|<tuple|3.1.1|3>>
-    <associate|auto-14|<tuple|3.2|4>>
-    <associate|auto-15|<tuple|3.2.1|4>>
-    <associate|auto-16|<tuple|3.2.2|4>>
-    <associate|auto-17|<tuple|3.2.3|5>>
-    <associate|auto-18|<tuple|3.3|5>>
-    <associate|auto-19|<tuple|3.3.1|5>>
+    <associate|auto-11|<tuple|2.5|3>>
+    <associate|auto-12|<tuple|3|3>>
+    <associate|auto-13|<tuple|3.1|3>>
+    <associate|auto-14|<tuple|3.1.1|4>>
+    <associate|auto-15|<tuple|3.2|4>>
+    <associate|auto-16|<tuple|3.2.1|4>>
+    <associate|auto-17|<tuple|3.2.2|5>>
+    <associate|auto-18|<tuple|3.2.3|5>>
+    <associate|auto-19|<tuple|3.3|5>>
     <associate|auto-2|<tuple|2|1>>
-    <associate|auto-20|<tuple|3.4|5>>
-    <associate|auto-21|<tuple|3.4.1|5>>
-    <associate|auto-22|<tuple|4|6>>
-    <associate|auto-23|<tuple|5|6>>
-    <associate|auto-24|<tuple|6|6>>
-    <associate|auto-25|<tuple|7|6>>
-    <associate|auto-26|<tuple|7.1|6>>
+    <associate|auto-20|<tuple|3.3.1|5>>
+    <associate|auto-21|<tuple|3.4|5>>
+    <associate|auto-22|<tuple|3.4.1|6>>
+    <associate|auto-23|<tuple|4|6>>
+    <associate|auto-24|<tuple|5|6>>
+    <associate|auto-25|<tuple|6|6>>
+    <associate|auto-26|<tuple|7|6>>
     <associate|auto-27|<tuple|7.1|6>>
-    <associate|auto-28|<tuple|9|?>>
-    <associate|auto-29|<tuple|10|?>>
+    <associate|auto-28|<tuple|7.1.1|?>>
+    <associate|auto-29|<tuple|7.1.2|?>>
     <associate|auto-3|<tuple|2.1|1>>
     <associate|auto-30|<tuple|10|?>>
     <associate|auto-31|<tuple|11|?>>
@@ -675,6 +741,8 @@
     <associate|footnr-7|<tuple|7|?>>
     <associate|footnr-8|<tuple|8|?>>
     <associate|footnr-9|<tuple|9|?>>
+    <associate|theorem: Relation between Relative Error of Inference and
+    Loss|<tuple|1|?>>
   </collection>
 </references>
 
@@ -733,8 +801,7 @@
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-13>>
 
-      <with|par-left|<quote|1tab>|3.2<space|2spc>Redefination of
-      <with|mode|<quote|math>|\<partial\><with|math-font|<quote|cal>|L>/\<partial\>a>
+      <with|par-left|<quote|1tab>|3.2<space|2spc>Redefination of Gradients
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-14>>
 
@@ -777,6 +844,14 @@
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|6<space|2spc>Why
       not MCMC?> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-24><vspace|0.5fn>
+
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|7<space|2spc>Problems>
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-25><vspace|0.5fn>
+
+      <with|par-left|<quote|1tab>|7.1<space|2spc>The Curse of Dimensinality
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-26>>
     </associate>
   </collection>
 </auxiliary>

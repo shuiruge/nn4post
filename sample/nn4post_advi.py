@@ -291,7 +291,7 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
           }
 
 
-        with tf.name_scope('keeping_non_frozen_out'):
+        with tf.name_scope('keep_non_frozen_out'):
 
           # Notice `tf.truediv` is not broadcastable
           gradient = {
@@ -302,7 +302,7 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
           }
 
 
-        with tf.name_scope('clipping_grad_a'):
+        with tf.name_scope('clip_grad_a'):
         
           a_min = tf.log(_C_ACCURACY) + tf.reduce_logsumexp(a)
           # Notice `a` increases along the inverse direction of the gradient of `a`.
@@ -311,6 +311,14 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
               tf.greater(gradient[a], 0.0)
           )
           gradient[a] = tf.where(clip_cond, tf.zeros(a.shape), gradient[a])
+
+
+        with tf.name_scope('shift_grad_a'):
+        
+          # XXX
+
+          grad_a_mean = tf.reduce_mean(gradient[a], name='grad_a_mean')
+          gradient[a] = gradient[a] - grad_a_mean
 
 
         # Re-arrange as a list of tuples
@@ -355,8 +363,8 @@ if __name__ == '__main__':
 
   # -- Parameters
   TARGET_N_C = 3  # shall be fixed.
-  N_D = 10**5
-  N_C = 3  # shall be varied.
+  N_D = 10**4
+  N_C = 5  # shall be varied.
   N_SAMPLES = 10
   A_RESCALE_FACTOR = 1.0
   N_ITERS = 1 * 10**4
@@ -392,17 +400,6 @@ if __name__ == '__main__':
         return p.log_prob(theta)
 
   # test!
-  # test 2
-  init_vars = {
-    'a':
-      np.zeros([N_C], dtype=DTYPE),
-    'mu':
-      np.array( np.random.uniform(-1, 1, size=[N_C, N_D]) * 5.0 \
-                * np.sqrt(N_D),
-               dtype=DTYPE),
-    'zeta':
-      np.ones([N_C, N_D], dtype=DTYPE) * 5.0,
-  }
   # test 1
   init_vars = {
     'a':
@@ -415,6 +412,17 @@ if __name__ == '__main__':
     'zeta':
       np.array(np.random.normal(size=[N_C, N_D]) * 5.0,
                dtype=DTYPE),
+  }
+  # test 2
+  init_vars = {
+    'a':
+      np.zeros([N_C], dtype=DTYPE),
+    'mu':
+      np.array( np.random.uniform(-1, 1, size=[N_C, N_D]) * 5.0 \
+                * np.sqrt(N_D),
+               dtype=DTYPE),
+    'zeta':
+      np.ones([N_C, N_D], dtype=DTYPE) * 5.0,
   }
 
   r = tf.placeholder(shape=[], dtype='float32', name='r')
@@ -451,13 +459,16 @@ if __name__ == '__main__':
         # And learning-rate `LR` decays as usual.
         if i < 1000:
             r_val = 1.0
-            lr_val = 0.05
+            lr_val = 0.5
+        elif i < 3000:
+            r_val = 0.1
+            lr_val = 0.1
         elif i < 5000:
             r_val = 1.0
-            lr_val = 0.01
+            lr_val = 0.02
         else:
             r_val = 1.0
-            lr_val = 0.005
+            lr_val = 0.0005
 
         _, loss_val, a_val, c_val, mu_val, zeta_val = \
             sess.run(
@@ -532,4 +543,23 @@ we find that
 
 gives a perfect result. However, if set `A_RESCALE_FACTOR = 1.0` instead, we
 will get a terrible result of `c` with `c[1]` equals `1.0` almost.
+
+
+# Trial 3
+XXX
+
+  # -- Parameters
+  N_D = 10**3
+  N_C = 5  # shall be varied.
+  N_SAMPLES = 10
+  A_RESCALE_FACTOR = 1.0
+  N_ITERS = 1 * 10**4
+  LR = tf.placeholder(shape=[], dtype='float32')
+  OPTIMIZER = tf.train.RMSPropOptimizer(LR)
+  DTYPE = 'float32'
+
+can find all peaks with the proper modifications (up to 171120), with all the
+correct variable values, and loss about `0.2` in the end. But if instead set
+`N_D = 10**4`, loss becomes abount `2.0` in the end, and cannot fit the `c`
+(target `0.7`, but gained `0.6`).
 '''

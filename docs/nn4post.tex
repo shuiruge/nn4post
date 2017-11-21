@@ -18,6 +18,7 @@
 \newenvironment{tmcode}[1][]{\begin{alltt}}{\end{alltt}}
 {\theorembodyfont{\rmfamily}\newtheorem{example}{Example}}
 {\theorembodyfont{\rmfamily\small}\newtheorem{problem}{Problem}}
+\newtheorem{theorem}{Theorem}
 %%%%%%%%%% End TeXmacs macros
 
 \begin{document}
@@ -154,7 +155,7 @@ have a unique global maximum, at which $p ( \theta ;D ) =q ( \theta ;a, \mu ,
 Since there's no compact support for both $p ( \theta ;D )$ and $q ( \theta
 ;a, \mu , \zeta )$, $\tmop{ELBO}$ is well-defined. The loss-function (or say
 loss-function, performance, etc) of the fitting is then defined as
-$\mathcal{L} =- \tmop{ELBO}$, i.e.
+$\mathcal{L} \assign - \tmop{ELBO}$, i.e.
 \[ \mathcal{\mathcal{L} ( a, \mu , \zeta )} =-\mathbbm{E}_{\theta \sim q (
    \theta ;a, \mu , \zeta )} [ \ln  p ( \theta ;D ) - \ln  q ( \theta ;a, \mu
    , \zeta ) ] , \]
@@ -163,6 +164,52 @@ distribution $q$,
 \[ \mathcal{\mathcal{L} ( a, \mu , \zeta )} =-\mathbbm{E}_{\theta \sim q (
    \theta ;a, \mu , \zeta )} [ \ln  p ( \theta ;D ) ] -\mathbbm{H} [ q (
    \theta ;a, \mu , \zeta ) ] . \]
+
+\subsection{Relation between Relative Error of Inference and Loss}
+
+For the arbitrary model $y=f ( x; \theta )$, for $\forall x$, Bayesian
+inference gives prediction, $\langle f \rangle ( x )$, as
+\[ \langle f \rangle ( x ) \assign \mathbbm{E}_{\theta \sim p ( \theta |D )} [
+   f ( x; \theta ) ] . \]
+Since $q ( . )$ is an approximation to $p ( .|D )$, let $\langle f \rangle_{q}
+( x ) \assign \mathbbm{E}_{\theta \sim q ( \theta )} [ f ( x; \theta ) ]$,
+then the difference between them is $\delta \langle f \rangle ( x ) \assign
+\langle f \rangle ( x ) - \langle f \rangle_{q} ( x )$.
+
+\begin{theorem}
+  We have the relation of order between the relative error of inference and
+  loss
+  \[ \frac{\delta \langle f \rangle}{\langle f \rangle} ( x ) \sim \mathcal{L}
+     . \]
+\end{theorem}
+
+\begin{proof}
+  By definition, $\delta \langle f \rangle ( x ) = \int \mathd \theta  f ( x;
+  \theta )   [ p ( \theta |D ) -q ( \theta ) ]$. Thus
+  \begin{eqnarray*}
+    \delta \langle f \rangle ( x ) & = & \int \mathd \theta  q ( \theta )  f (
+    x; \theta )   \frac{p ( \theta |D ) -q ( \theta )}{q ( \theta )}\\
+    & = & \int \mathd \theta  q ( \theta )   \left( \frac{p ( \theta |D )}{q
+    ( \theta )} -1 \right)\\
+    & = & \mathbbm{E}_{\theta \sim q ( \theta )} \left[ f ( x; \theta )  
+    \left( \frac{p ( \theta |D )}{q ( \theta )} -1 \right) \right] .
+  \end{eqnarray*}
+  Then, we have the relation of order
+  \[ \frac{\delta \langle f \rangle}{\langle f \rangle} ( x ) \sim
+     \mathbbm{E}_{\theta \sim q ( \theta )} \left[ \frac{p ( \theta |D )}{q (
+     \theta )} -1 \right] \]
+  On the other hand, if $p ( .|D ) \approx q ( . )$ as we expect for $q ( .
+  )$, then we have
+  \[ \ln \left( \frac{p ( \theta |D )}{q ( \theta )} \right) = \ln \left(
+     \left[ \frac{p ( \theta |D )}{q ( \theta )} -1 \right] +1 \right) \approx
+     \frac{p ( \theta |D )}{q ( \theta )} -1. \]
+  Thus,
+  \[ \frac{\delta \langle f \rangle}{\langle f \rangle} ( x ) \sim
+     \mathbbm{E}_{\theta \sim q ( \theta )} \left[ \frac{p ( \theta |D )}{q (
+     \theta )} -1 \right] \approx \mathbbm{E}_{\theta \sim q ( \theta )}
+     \left[ \ln \left( \frac{p ( \theta |D )}{q ( \theta )} \right) \right] =
+     \mathcal{L} . \]
+\end{proof}
 
 \section{Optimization}
 
@@ -479,6 +526,8 @@ especially in high-dimensional parameter-space.
 
 \subsection{The Curse of Dimensinality}
 
+\subsubsection{Range of Sampling}
+
 Usually, the curse of dimensionality raises in the grid searching or numerial
 integral. And gradient based optimization and Monte Carlo integral deal the
 curse. However, the curse of dimensionality emerges from another aspect: the
@@ -501,5 +550,11 @@ The large range of sampling then calls for more elapsed time of convergence.
   \sqrt{N_{d}}$.\footnote{C.f. the code
   ``\tmcodeinline[shell]{/docs/curse\_of\_dimensionality.py}''.}
 \end{example}
+
+\subsubsection{Relative Error of Inference}
+
+Theorem \ref{theorem: Relation between Relative Error of Inference and Loss}
+hints that the relative error of inference positively related with dimension,
+as the loss does so.
 
 \end{document}
