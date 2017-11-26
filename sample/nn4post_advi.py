@@ -65,7 +65,8 @@ def get_gaussian_mixture_log_prob(cat_probs, gauss_mu, gauss_sigma):
 
 def build_inference(n_c, n_d, log_posterior, init_vars=None,
                     base_graph=None, n_samples=10, r=1.0,
-                    dtype='float32', verbose=True):
+                    dtype='float32', verbose=True,
+                    epsilon=_EPSILON, c_accuracy=_C_ACCURACY):
   r"""Add the scope of inference to the graph `base_graph`. This is the
   implementation of 'docs/nn4post.tm' (or '/docs/nn4post.pdf').
 
@@ -112,6 +113,14 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
 
     verbose:
       `bool`.
+
+    epsilon:
+      `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
+      :math:`epsilon` in the documentation, optional.
+
+    c_accuracy:
+      `float` or `tf.placeholder` with scalar shape and `dtype` dtype, for
+      clipping the gradient of `a`, optional.
 
   Returns:
     A tuple of two elements. The first is a `dict` for useful `op`s (for
@@ -179,7 +188,7 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
           # `'gradients/clipping_grad_a'`.
           ## Additionally clip `c` by a minimal value
           ## shape: `[n_c]`
-          #c = tf.clip_by_value(c, _EPSILON, 1, name='c_clipped')
+          #c = tf.clip_by_value(c, epsilon, 1, name='c_clipped')
 
 
         with tf.name_scope('standard_normal'):
@@ -298,15 +307,15 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
           # Notice `tf.truediv` is not broadcastable
           gradient = {
               variable:
-                grad / (c+_EPSILON) if variable is a  # [`n_c`]
-                else grad / tf.expand_dims(c+_EPSILON, axis=1)  # `[n_c, n_d]`
+                grad / (c+epsilon) if variable is a  # [`n_c`]
+                else grad / tf.expand_dims(c+epsilon, axis=1)  # `[n_c, n_d]`
               for variable, grad in gradient.items()
           }
 
 
         with tf.name_scope('clip_grad_a'):
         
-          a_min = tf.log(_C_ACCURACY) + tf.reduce_logsumexp(a)
+          a_min = tf.log(c_accuracy) + tf.reduce_logsumexp(a)
           # Notice `a` increases along the inverse direction of the gradient of `a`.
           clip_cond = tf.logical_and(
               tf.less(a, a_min),
