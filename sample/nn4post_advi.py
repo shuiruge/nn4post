@@ -124,9 +124,11 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
 
 
   if verbose:
-    msg = ( 'INFO - Function `building_inference()` will MODIFY the graph {0}.'
-          + ' (Pure functional approach is suppressed, being memory costy.)' )
-    print(msg.format(graph))
+    info_msg = (
+        'INFO - Function `building_inference()` will MODIFY the `graph`.'
+        + ' (Pure functional approach is suppressed, being memory costy.)'
+    )
+    print(info_msg)
 
 
   with graph.as_default():

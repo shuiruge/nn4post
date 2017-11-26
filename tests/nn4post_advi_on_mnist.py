@@ -17,10 +17,11 @@ import pickle
 import os
 import sys
 sys.path.append('../sample/')
+sys.path.append('../../')
 from tools import Timer
 import mnist
 from nn4post_advi import build_inference
-from tflearn.helpers.trainer import TrainOp, Trainer
+from tf_trainer import SimpleTrainer
 
 
 
@@ -47,16 +48,13 @@ n_inputs = 28 * 28  # number of input features.
 n_hiddens = 10  # number of perceptrons in the (single) hidden layer.
 n_outputs = 10  # number of perceptrons in the output layer.
 
-x = tf.placeholder(shape=[None, n_inputs], dtype=tf.float32, name='x')
-input_data = {
-    'x': x,
-}
+with tf.name_scope('data'):
+    x = tf.placeholder(shape=[None, n_inputs], dtype=tf.float32, name='x')
+    y = tf.placeholder(shape=[None, n_outputs], dtype=tf.float32, name='y')
+    y_err = tf.placeholder(shape=y.shape, dtype=tf.float32, name='y_err')
 
-y = tf.placeholder(shape=[None, n_outputs], dtype=tf.float32, name='y')
-y_err = tf.placeholder(shape=y.shape, dtype=tf.float32, name='y_err')
-output_data = {
-    'y': (y, y_err),
-}
+input_data = {'x': x}
+output_data = {'y': (y, y_err)}
 
 def model(inputs, params):
     """ Shall be implemented by TensorFlow. This is an example, as a shallow
@@ -79,22 +77,23 @@ def model(inputs, params):
         tf.matmul(hidden, params['w_a']) + params['b_a'])
     return {'y': activation}
 
-w_h = NormalWithSoftplusScale(
-    loc=tf.zeros([n_inputs, n_hiddens]),
-    scale=tf.ones([n_inputs, n_hiddens]),
-    name="w_h")
-w_a = NormalWithSoftplusScale(
-    loc=tf.zeros([n_hiddens, n_outputs]),
-    scale=tf.ones([n_hiddens, n_outputs]),
-    name="w_a")
-b_h = NormalWithSoftplusScale(
-    loc=tf.zeros([n_hiddens]),
-    scale=tf.ones([n_hiddens]) * 100,
-    name="b_h")
-b_a = NormalWithSoftplusScale(
-    loc=tf.zeros([n_outputs]),
-    scale=tf.ones([n_outputs]) * 100,
-    name="b_a")
+with tf.name_scope('prior'):
+    w_h = NormalWithSoftplusScale(
+        loc=tf.zeros([n_inputs, n_hiddens]),
+        scale=tf.ones([n_inputs, n_hiddens]),
+        name="w_h")
+    w_a = NormalWithSoftplusScale(
+        loc=tf.zeros([n_hiddens, n_outputs]),
+        scale=tf.ones([n_hiddens, n_outputs]),
+        name="w_a")
+    b_h = NormalWithSoftplusScale(
+        loc=tf.zeros([n_hiddens]),
+        scale=tf.ones([n_hiddens]) * 100,
+        name="b_h")
+    b_a = NormalWithSoftplusScale(
+        loc=tf.zeros([n_outputs]),
+        scale=tf.ones([n_outputs]) * 100,
+        name="b_a")
 
 latent_vars = {
     'w_h': w_h, 'w_a': w_a,
@@ -186,7 +185,7 @@ def log_posterior(theta):
     return log_likelihood(params) + log_prior(params)
 
 
-ops = build_inference(N_C, param_space_dim, log_posterior)
+ops, gvs = build_inference(N_C, param_space_dim, log_posterior)
 
 #train_op = TrainOp(ops['loss'], tf.train.AdamOptimizer(0.01))
 #trainer = Trainer([train_op], tensorboard_dir='../dat/logs')
@@ -196,22 +195,34 @@ ops = build_inference(N_C, param_space_dim, log_posterior)
 #)
 
 
-train_op = tf.train.RMSPropOptimizer(0.03).minimize(ops['loss'])
 batch_generator = mnist_.batch_generator()
-
-with tf.Session() as sess:
-
-    sess.run(tf.global_variables_initializer())
-
-    n_iter = 5000
-    for i in range(n_iter):
-
+def get_feed_dict_generator():
+    while True:
         data_x, data_y, data_y_err = next(batch_generator)
-        feed_dict = {x: data_x, y: data_y, y_err: data_y_err}
-        _, loss_val = sess.run([ train_op, ops['loss'] ],
-                               feed_dict=feed_dict)
+        yield {x: data_x, y: data_y, y_err: data_y_err}
+trainer = SimpleTrainer(
+    loss=ops['loss'],
+    gvs=gvs,
+    optimizer=tf.train.RMSPropOptimizer(0.03),
+    logdir='../dat/logs',
+    dir_to_ckpt='../dat/checkpoints/nn4post_advi_on_mnist/')
+n_iters = 1000
+feed_dict_generator = get_feed_dict_generator()
+trainer.train(n_iters, feed_dict_generator)
 
-        if i % 100 == 0:
-            print(i, loss_val)
-
-    print(sess.run(ops['c']))
+#with tf.Session() as sess:
+#
+#    sess.run(tf.global_variables_initializer())
+#
+#    n_iter = 5000
+#    for i in range(n_iter):
+#
+#        data_x, data_y, data_y_err = next(batch_generator)
+#        feed_dict = {x: data_x, y: data_y, y_err: data_y_err}
+#        _, loss_val = sess.run([ train_op, ops['loss'] ],
+#                               feed_dict=feed_dict)
+#
+#        if i % 100 == 0:
+#            print(i, loss_val)
+#
+#    print(sess.run(ops['c']))

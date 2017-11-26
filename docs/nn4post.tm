@@ -179,6 +179,26 @@
     p<around*|(|\<theta\>;D|)>|]>-\<bbb-H\><around*|[|q<around*|(|\<theta\>;a,\<mu\>,\<zeta\>|)>|]>.
   </equation*>
 
+  <subsection|Relation with the Traditional MAP Loss>
+
+  <math|\<theta\><rsub|\<ast\>>=argmin<rsub|\<theta\>> <around*|{|-ln
+  p<around*|(|\<theta\>;D|)>|}>>.
+
+  Set <math|N<rsub|c>=1> and for <math|\<forall\>\<alpha\>>
+  <math|\<zeta\><rsub|\<alpha\>>\<rightarrow\>-\<infty\>> so that
+  <math|\<sigma\><rsub|\<alpha\>><around*|(|\<zeta\>|)>\<rightarrow\>0>, we
+  get <math|q<around*|(|\<theta\>;z|)>\<rightarrow\>\<delta\><around*|(|\<theta\>-z|)>>.
+
+  <\eqnarray*>
+    <tformat|<table|<row|<cell|<with|math-font|cal|<with|math-font|cal|L><around*|(|z|)>>>|<cell|=>|<cell|-\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>;z|)>><around*|[|ln
+    p<around*|(|\<theta\>;D|)>-ln q<around*|(|\<theta\>;z|)>|]>>>|<row|<cell|>|<cell|=>|<cell|-<big|int>\<mathd\>\<theta\>
+    q<around*|(|\<theta\>;z|)> <around*|[|ln p<around*|(|\<theta\>;D|)>-ln
+    q<around*|(|\<theta\>;z|)>|]>>>|<row|<cell|>|<cell|=>|<cell|-<big|int>\<mathd\>\<theta\>
+    \<delta\><around*|(|\<theta\>-z|)> <around*|[|ln
+    p<around*|(|\<theta\>;D|)>-ln \<delta\><around*|(|\<theta\>-z|)>|]>>>|<row|<cell|>|<cell|=>|<cell|-ln
+    p<around*|(|z;D|)>+Const>>|<row|<cell|>|<cell|=>|<cell|<with|math-font|cal|L><rsub|MAP><around*|(|z|)>+Const>>>>
+  </eqnarray*>
+
   <subsection|Relation between Relative Error of Inference and Loss>
 
   For the arbitrary model <math|y=f<around*|(|x;\<theta\>|)>>, for
@@ -189,14 +209,15 @@
     <around*|\<langle\>|f|\<rangle\>><around*|(|x|)>\<assign\>\<bbb-E\><rsub|\<theta\>\<sim\>p<around*|(|\<theta\>\|D|)>><around*|[|f<around*|(|x;\<theta\>|)>|]>.
   </equation*>
 
-  Since <math|q<around*|(|.|)>> is an approximation to
-  <math|p<around*|(|.\|D|)>>, let <math|<around*|\<langle\>|f|\<rangle\>><rsub|q><around*|(|x|)>\<assign\>\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>|)>><around*|[|f<around*|(|x;\<theta\>|)>|]>>,
+  Since <math|q<around*|(|.;z|)>> (<math|z> as the parameter of <math|q>) is
+  an approximation to <math|p<around*|(|.\|D|)>>, let
+  <math|<around*|\<langle\>|f|\<rangle\>><rsub|q><around*|(|x|)>\<assign\>\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>;z|)>><around*|[|f<around*|(|x;\<theta\>|)>|]>>,
   then the difference between them is <math|\<delta\><around*|\<langle\>|f|\<rangle\>><around*|(|x|)>\<assign\><around*|\<langle\>|f|\<rangle\>><around*|(|x|)>-<around*|\<langle\>|f|\<rangle\>><rsub|q><around*|(|x|)>>.
 
   <\theorem>
-    <inactive|<label|theorem: Relation between Relative Error of Inference
-    and Loss>>We have the relation of order between the relative error of
-    inference and loss
+    <label|theorem: Relation between Relative Error of Inference and Loss>We
+    have the relation of order between the relative error of inference and
+    loss
 
     <\equation*>
       <frac|\<delta\><around*|\<langle\>|f|\<rangle\>>|<around*|\<langle\>|f|\<rangle\>>><around*|(|x|)>\<sim\><with|math-font|cal|L>.
@@ -675,6 +696,28 @@
   Theorem <reference|theorem: Relation between Relative Error of Inference
   and Loss> hints that the relative error of inference positively related
   with dimension, as the loss does so.
+
+  <section|Drafts>
+
+  <math|f<around*|(|x;\<theta\>|)>>, <math|D=<around*|{|<around*|(|x<rsub|i>,y<rsub|i>,z<rsub|i>|)>:i=1,2,\<ldots\>,N<rsub|D>|}>>.
+  <math|y<rsub|i>=f<around*|(|x<rsub|i>;\<theta\>|)>+\<epsilon\>>,
+  <math|\<epsilon\>\<sim\>P<around*|(|0,z<rsub|i>|)>>.
+
+  For instance, suppose <math|P=<with|math-font|cal|N>>, then we have
+
+  <\equation*>
+    ln p<around*|(|y<rsub|1:N<rsub|D>>\|x<rsub|1:N<rsub|D>>;\<theta\>|)>=<big|sum><rsub|i><rsup|N<rsub|D>>ln
+    p<around*|(|y<rsub|i>\|x<rsub|i>;\<theta\>|)>.
+  </equation*>
+
+  From <math|y<rsub|i>=f<around*|(|x<rsub|i>;\<theta\>|)>+\<epsilon\>> gets
+  <math|y<rsub|i>-f<around*|(|x<rsub|i>;\<theta\>|)>\<sim\>P<around*|(|0,z<rsub|i>|)>=<with|math-font|cal|N<around*|(|0,z<rsub|i>|)>>>.
+
+  <\equation*>
+    <big|sum><rsup|N<rsub|D>><rsub|i>ln p<around*|(|y<rsub|i>\|x<rsub|i>;\<theta\>|)>=-<big|sum><rsub|i><rsup|N<rsub|D>><around*|{|ln<around*|(|2
+    <sqrt|z<rsub|i>>|)>+<frac|<around*|(|y<rsub|i>-f<around*|(|x<rsub|i>;\<theta\>|)>|)><rsup|2>|2
+    z<rsub|i><rsup|2>>|}>.
+  </equation*>
 </body>
 
 <\initial>
@@ -688,28 +731,28 @@
     <associate|auto-1|<tuple|1|1>>
     <associate|auto-10|<tuple|2.4|2>>
     <associate|auto-11|<tuple|2.5|3>>
-    <associate|auto-12|<tuple|3|3>>
-    <associate|auto-13|<tuple|3.1|3>>
-    <associate|auto-14|<tuple|3.1.1|4>>
-    <associate|auto-15|<tuple|3.2|4>>
-    <associate|auto-16|<tuple|3.2.1|4>>
-    <associate|auto-17|<tuple|3.2.2|5>>
-    <associate|auto-18|<tuple|3.2.3|5>>
-    <associate|auto-19|<tuple|3.3|5>>
+    <associate|auto-12|<tuple|2.6|3>>
+    <associate|auto-13|<tuple|3|3>>
+    <associate|auto-14|<tuple|3.1|4>>
+    <associate|auto-15|<tuple|3.1.1|4>>
+    <associate|auto-16|<tuple|3.2|4>>
+    <associate|auto-17|<tuple|3.2.1|5>>
+    <associate|auto-18|<tuple|3.2.2|5>>
+    <associate|auto-19|<tuple|3.2.3|5>>
     <associate|auto-2|<tuple|2|1>>
-    <associate|auto-20|<tuple|3.3.1|5>>
-    <associate|auto-21|<tuple|3.4|5>>
-    <associate|auto-22|<tuple|3.4.1|6>>
-    <associate|auto-23|<tuple|4|6>>
-    <associate|auto-24|<tuple|5|6>>
-    <associate|auto-25|<tuple|6|6>>
-    <associate|auto-26|<tuple|7|6>>
-    <associate|auto-27|<tuple|7.1|6>>
-    <associate|auto-28|<tuple|7.1.1|?>>
-    <associate|auto-29|<tuple|7.1.2|?>>
+    <associate|auto-20|<tuple|3.3|5>>
+    <associate|auto-21|<tuple|3.3.1|5>>
+    <associate|auto-22|<tuple|3.4|6>>
+    <associate|auto-23|<tuple|3.4.1|6>>
+    <associate|auto-24|<tuple|4|6>>
+    <associate|auto-25|<tuple|5|6>>
+    <associate|auto-26|<tuple|6|6>>
+    <associate|auto-27|<tuple|7|6>>
+    <associate|auto-28|<tuple|7.1|?>>
+    <associate|auto-29|<tuple|7.1.1|?>>
     <associate|auto-3|<tuple|2.1|1>>
-    <associate|auto-30|<tuple|10|?>>
-    <associate|auto-31|<tuple|11|?>>
+    <associate|auto-30|<tuple|7.1.2|?>>
+    <associate|auto-31|<tuple|8|?>>
     <associate|auto-32|<tuple|11|?>>
     <associate|auto-33|<tuple|9|?>>
     <associate|auto-34|<tuple|8.1.2|?>>
@@ -789,69 +832,81 @@
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-10>>
 
+      <with|par-left|<quote|1tab>|2.5<space|2spc>Relation between Relative
+      Error of Inference and Loss <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-11>>
+
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|3<space|2spc>Optimization>
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-11><vspace|0.5fn>
+      <no-break><pageref|auto-12><vspace|0.5fn>
 
       <with|par-left|<quote|1tab>|3.1<space|2spc>ADVI
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-12>>
+      <no-break><pageref|auto-13>>
 
       <with|par-left|<quote|2tab>|3.1.1<space|2spc>Derivation
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-13>>
+      <no-break><pageref|auto-14>>
 
       <with|par-left|<quote|1tab>|3.2<space|2spc>Redefination of Gradients
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-14>>
+      <no-break><pageref|auto-15>>
 
       <with|par-left|<quote|2tab>|3.2.1<space|2spc>Gauge Fixing
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-15>>
+      <no-break><pageref|auto-16>>
 
       <with|par-left|<quote|2tab>|3.2.2<space|2spc>Re-scaling of
       <with|mode|<quote|math>|a> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-16>>
+      <no-break><pageref|auto-17>>
 
       <with|par-left|<quote|2tab>|3.2.3<space|2spc>Frozen-out Problem
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-17>>
+      <no-break><pageref|auto-18>>
 
       <with|par-left|<quote|1tab>|3.3<space|2spc>Approximations
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-18>>
+      <no-break><pageref|auto-19>>
 
       <with|par-left|<quote|2tab>|3.3.1<space|2spc>Entropy Lower Bound
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-19>>
+      <no-break><pageref|auto-20>>
 
       <with|par-left|<quote|1tab>|3.4<space|2spc>Stochastic Optimization
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-20>>
+      <no-break><pageref|auto-21>>
 
       <with|par-left|<quote|2tab>|3.4.1<space|2spc>Difference between
       Bayesian and Traditional Methods <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-21>>
+      <no-break><pageref|auto-22>>
 
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|4<space|2spc>Deep
       Learning> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-22><vspace|0.5fn>
+      <no-break><pageref|auto-23><vspace|0.5fn>
 
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|5<space|2spc>Transfer
       Learning> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-23><vspace|0.5fn>
+      <no-break><pageref|auto-24><vspace|0.5fn>
 
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|6<space|2spc>Why
       not MCMC?> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-24><vspace|0.5fn>
+      <no-break><pageref|auto-25><vspace|0.5fn>
 
       <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|7<space|2spc>Problems>
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-25><vspace|0.5fn>
+      <no-break><pageref|auto-26><vspace|0.5fn>
 
       <with|par-left|<quote|1tab>|7.1<space|2spc>The Curse of Dimensinality
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-26>>
+      <no-break><pageref|auto-27>>
+
+      <with|par-left|<quote|2tab>|7.1.1<space|2spc>Range of Sampling
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-28>>
+
+      <with|par-left|<quote|2tab>|7.1.2<space|2spc>Relative Error of
+      Inference <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-29>>
     </associate>
   </collection>
 </auxiliary>
