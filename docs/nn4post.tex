@@ -165,20 +165,39 @@ distribution $q$,
    \theta ;a, \mu , \zeta )} [ \ln  p ( \theta ;D ) ] -\mathbbm{H} [ q (
    \theta ;a, \mu , \zeta ) ] . \]
 
+\subsection{Relation with the Traditional MAP Loss}
+
+$\theta_{\ast} = \tmop{argmin}_{\theta}   \{ - \ln  p ( \theta ;D ) \}$.
+
+Set $N_{c} =1$ and for $\forall \alpha$ $\zeta_{\alpha} \rightarrow - \infty$
+so that $\sigma_{\alpha} ( \zeta ) \rightarrow 0$, we get $q ( \theta ;z )
+\rightarrow \delta ( \theta -z )$.
+\begin{eqnarray*}
+  \mathcal{\mathcal{L} ( z )} & = & -\mathbbm{E}_{\theta \sim q ( \theta ;z )}
+  [ \ln  p ( \theta ;D ) - \ln  q ( \theta ;z ) ]\\
+  & = & - \int \mathd \theta  q ( \theta ;z )   [ \ln  p ( \theta ;D ) - \ln 
+  q ( \theta ;z ) ]\\
+  & = & - \int \mathd \theta   \delta ( \theta -z )   [ \ln  p ( \theta ;D )
+  - \ln   \delta ( \theta -z ) ]\\
+  & = & - \ln  p ( z;D ) + \tmop{Const}\\
+  & = & \mathcal{L}_{\tmop{MAP}} ( z ) + \tmop{Const}
+\end{eqnarray*}
+
 \subsection{Relation between Relative Error of Inference and Loss}
 
 For the arbitrary model $y=f ( x; \theta )$, for $\forall x$, Bayesian
 inference gives prediction, $\langle f \rangle ( x )$, as
 \[ \langle f \rangle ( x ) \assign \mathbbm{E}_{\theta \sim p ( \theta |D )} [
    f ( x; \theta ) ] . \]
-Since $q ( . )$ is an approximation to $p ( .|D )$, let $\langle f \rangle_{q}
-( x ) \assign \mathbbm{E}_{\theta \sim q ( \theta )} [ f ( x; \theta ) ]$,
-then the difference between them is $\delta \langle f \rangle ( x ) \assign
-\langle f \rangle ( x ) - \langle f \rangle_{q} ( x )$.
+Since $q ( .;z )$ ($z$ as the parameter of $q$) is an approximation to $p (
+.|D )$, let $\langle f \rangle_{q} ( x ) \assign \mathbbm{E}_{\theta \sim q (
+\theta ;z )} [ f ( x; \theta ) ]$, then the difference between them is $\delta
+\langle f \rangle ( x ) \assign \langle f \rangle ( x ) - \langle f
+\rangle_{q} ( x )$.
 
 \begin{theorem}
-  We have the relation of order between the relative error of inference and
-  loss
+  \label{theorem: Relation between Relative Error of Inference and Loss}We
+  have the relation of order between the relative error of inference and loss
   \[ \frac{\delta \langle f \rangle}{\langle f \rangle} ( x ) \sim \mathcal{L}
      . \]
 \end{theorem}
@@ -369,6 +388,15 @@ $\partial \mathcal{L} / \partial z_{i} =0$, meaning that both gradients leads
 to the same converge-point on the space $Z$. So, this modification speeds up
 the convergence without changing the converge-point.
 
+Generally, we can set
+\[ \frac{\partial \mathcal{L}}{\partial z_{i}} \rightarrow \frac{\partial
+   \mathcal{L}}{\partial z_{i}}   \left( \frac{1}{c_{i} ( a ) + \epsilon}
+   \right)^{\beta} , \]
+where $\beta \in [ 0,1 ]$. If $\beta =1$, then back to the previous case; and
+if $\beta =0$, then $\partial \mathcal{L} / \partial z_{i}$ transforms
+nothing. Running $\beta$ in range $[ 0,1 ]$ then smoothly waving the
+transformation of $\partial \mathcal{L} / \partial z_{i}$.
+
 In TensorFlow, $\epsilon$ is usually set as \tmverbatim{1e-08}\footnote{C.f.
 \href{https://www.tensorflow.org/api_docs/python/tf/keras/backend/epsilon}{https://www.tensorflow.org/api\_docs/python/tf/keras/backend/epsilon}.}.
 However, the $c ( a )$ can reach the order \tmverbatim{1e-24} in practice.
@@ -556,5 +584,19 @@ The large range of sampling then calls for more elapsed time of convergence.
 Theorem \ref{theorem: Relation between Relative Error of Inference and Loss}
 hints that the relative error of inference positively related with dimension,
 as the loss does so.
+
+\section{Drafts}
+
+$f ( x; \theta )$, $D= \{ ( x_{i} ,y_{i} ,z_{i} ) :i=1,2, \ldots ,N_{D} \}$.
+$y_{i} =f ( x_{i} ; \theta ) + \epsilon$, $\epsilon \sim P ( 0,z_{i} )$.
+
+For instance, suppose $P= \mathcal{N}$, then we have
+\[ \ln  p ( y_{1:N_{D}} |x_{1:N_{D}} ; \theta ) = \sum_{i}^{N_{D}} \ln  p (
+   y_{i} |x_{i} ; \theta ) . \]
+From $y_{i} =f ( x_{i} ; \theta ) + \epsilon$ gets $y_{i} -f ( x_{i} ; \theta
+) \sim P ( 0,z_{i} ) = \mathcal{N ( 0,z_{i} )}$.
+\[ \sum^{N_{D}}_{i} \ln  p ( y_{i} |x_{i} ; \theta ) =- \sum_{i}^{N_{D}}
+   \left\{ \ln \left( 2  \sqrt{z_{i}} \right) + \frac{( y_{i} -f ( x_{i} ;
+   \theta ) )^{2}}{2 z_{i}^{2}} \right\} . \]
 
 \end{document}

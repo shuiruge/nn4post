@@ -63,10 +63,9 @@ def get_gaussian_mixture_log_prob(cat_probs, gauss_mu, gauss_sigma):
 
 
 
-def build_inference(n_c, n_d, log_posterior, init_vars=None,
-                    base_graph=None, n_samples=10, r=1.0,
-                    dtype='float32', verbose=True,
-                    epsilon=_EPSILON, c_accuracy=_C_ACCURACY):
+def build_inference(n_c, n_d, log_posterior, init_vars=None, base_graph=None,
+                    n_samples=10, r=1.0, beta=1.0, dtype='float32',
+                    verbose=True, epsilon=_EPSILON, c_accuracy=_C_ACCURACY):
   r"""Add the scope of inference to the graph `base_graph`. This is the
   implementation of 'docs/nn4post.tm' (or '/docs/nn4post.pdf').
 
@@ -106,6 +105,11 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
     r:
       `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
       rescaling factor of `a`, optional.
+
+    beta:
+      `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
+      "smooth switcher" :math:`\partial \mathcal{L} / \partial z_i` in the
+      documentation, optional.
 
     dtype:
       `str`, as the dtype of floats employed herein, like `float32`, `float64`,
@@ -305,16 +309,17 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
         with tf.name_scope('keep_non_frozen_out'):
 
           # Notice `tf.truediv` is not broadcastable
+          denominator = tf.pow(c + epsilon, beta)  # `[]`
           gradient = {
               variable:
-                grad / (c+epsilon) if variable is a  # [`n_c`]
-                else grad / tf.expand_dims(c+epsilon, axis=1)  # `[n_c, n_d]`
+                grad / denominator if variable is a  # `[n_c]`
+                else grad / tf.expand_dims(denominator, axis=1)  # `[n_c, n_d]`
               for variable, grad in gradient.items()
           }
 
 
         with tf.name_scope('clip_grad_a'):
-        
+
           a_min = tf.log(c_accuracy) + tf.reduce_logsumexp(a)
           # Notice `a` increases along the inverse direction of the gradient of `a`.
           clip_cond = tf.logical_and(
@@ -325,7 +330,7 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
 
 
         with tf.name_scope('shift_grad_a'):
-        
+
           # XXX
 
           grad_a_mean = tf.reduce_mean(gradient[a], name='grad_a_mean')
@@ -347,6 +352,8 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None,
 
     if isinstance(r, tf.Tensor):
       ops['r'] = r
+    if isinstance(beta, tf.Tensor):
+      ops['beta'] = beta
     if isinstance(n_samples, tf.Tensor):
       ops['n_samples'] = n_samples
 
@@ -436,10 +443,11 @@ if __name__ == '__main__':
       np.ones([N_C, N_D], dtype=DTYPE) * 5.0,
   }
 
-  r = tf.placeholder(shape=[], dtype='float32', name='r')
+  n_samples = tf.placeholder(shape=[], dtype='float32', name='n_samples')
+  beta = tf.placeholder(shape=[], dtype='float32', name='beta')
 
   ops, gvs = build_inference(N_C, N_D, log_posterior, init_vars=init_vars,
-                             n_samples=N_SAMPLES, r=r)
+                             n_samples=N_SAMPLES, beta=beta)
 
   train_op = OPTIMIZER.apply_gradients(gvs)
 
@@ -469,23 +477,27 @@ if __name__ == '__main__':
         # automatically (and smarter-ly), and should be so.
         # And learning-rate `LR` decays as usual.
         if i < 1000:
-            r_val = 1.0
             lr_val = 0.5
+            n_samples_val = 5
+            beta_val = 1.0
         elif i < 3000:
-            r_val = 0.1
             lr_val = 0.1
+            n_samples_val = 5
+            beta_val = 1.0
         elif i < 5000:
-            r_val = 1.0
             lr_val = 0.02
+            n_samples_val = 10
+            beta_val = 1.0
         else:
-            r_val = 1.0
-            lr_val = 0.0005
+            lr_val = 0.001
+            n_samples_val = 100
+            beta_val = 0.0
 
         _, loss_val, a_val, c_val, mu_val, zeta_val = \
             sess.run(
                 [ train_op, ops['loss'], ops['a'],
                   ops['c'], ops['mu'], ops['zeta'] ],
-                feed_dict={r: r_val, LR: lr_val}
+                feed_dict={beta: beta_val, LR: lr_val}
             )
 
         # Display Trained Values
