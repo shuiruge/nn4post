@@ -585,4 +585,16 @@ can find all peaks with the proper modifications (up to 171120), with all the
 correct variable values, and loss about `0.2` in the end. But if instead set
 `N_D = 10**4`, loss becomes abount `2.0` in the end, and cannot fit the `c`
 (target `0.7`, but gained `0.6`).
+
+
+# Trial 4
+The same as "trial 3", but with `test_1` target settings and with `N_D = 10**4`
+(Notice that `N_C` is `5` instead of `3` as before.) It was found that using
+or without using the newly introduced tricks ("keep non-frozen", "clip_grad_a",
+and "shift_grad_a") leads to the same result: target `0.66` to `0.67` (thus 5%
+relative error) and loss around `2`. And this will not happen if `N_D = 10**2`.
+
+So, we conclude that, this problem is not caused by our newly introduced tricks,
+but being intrinsic in the underlying high-dimensional mathematics or in the
+training process (e.g. a non-proper setting of learning-rate).
 '''
