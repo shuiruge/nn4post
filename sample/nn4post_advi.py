@@ -63,10 +63,11 @@ def get_gaussian_mixture_log_prob(cat_probs, gauss_mu, gauss_sigma):
 
 
 
-def build_inference(n_c, n_d, log_posterior, init_vars=None, base_graph=None,
-                    n_samples=10, r=1.0, beta=1.0, dtype='float32',
-                    verbose=True, epsilon=_EPSILON, c_accuracy=_C_ACCURACY):
-  r"""Add the scope of inference to the graph `base_graph`. This is the
+def build_nn4post(
+        n_c, n_d, log_posterior, init_vars=None, base_graph=None,
+        n_samples=10, r=1.0, beta=1.0, dtype='float32', verbose=True,
+        epsilon=_EPSILON, c_accuracy=_C_ACCURACY):
+  r"""Add the scope of "nn4post" to the graph `base_graph`. This is the
   implementation of 'docs/nn4post.tm' (or '/docs/nn4post.pdf').
 
   CAUTION:
@@ -95,7 +96,7 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None, base_graph=None,
 
     base_graph:
       An instance of `tf.Graph`, optional, as the graph that the scope for
-      inference are added to. If `None`, use the graph returned from
+      "nn4post" are added to. If `None`, use the graph returned from
       `tf.get_default_graph()`.
 
     n_samples:
@@ -138,7 +139,7 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None, base_graph=None,
 
   if verbose:
     info_msg = (
-        'INFO - Function `building_inference()` will MODIFY the `graph`.'
+        'INFO - Function `build_nn4post()` will MODIFY the `graph`.'
         + ' (Pure functional approach is suppressed, being memory costy.)'
     )
     print(info_msg)
@@ -147,7 +148,7 @@ def build_inference(n_c, n_d, log_posterior, init_vars=None, base_graph=None,
   with graph.as_default():
 
 
-    with tf.name_scope('inference'):
+    with tf.name_scope('nn4post'):
 
 
       with tf.name_scope('variables'):
@@ -446,8 +447,8 @@ if __name__ == '__main__':
   n_samples = tf.placeholder(shape=[], dtype='float32', name='n_samples')
   beta = tf.placeholder(shape=[], dtype='float32', name='beta')
 
-  ops, gvs = build_inference(N_C, N_D, log_posterior, init_vars=init_vars,
-                             n_samples=N_SAMPLES, beta=beta)
+  ops, gvs = build_nn4post(N_C, N_D, log_posterior, init_vars=init_vars,
+                           n_samples=N_SAMPLES, beta=beta)
 
   train_op = OPTIMIZER.apply_gradients(gvs)
 
