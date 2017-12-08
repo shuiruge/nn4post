@@ -26,6 +26,11 @@ except:
 
 
 
+_EPSILON = 1e-08  # for numerical stability.
+_C_ACCURACY = 1e-04  # for clipping the gradient of `a`.
+
+
+
 def get_gaussian_mixture_log_prob(cat_probs, gauss_mu, gauss_sigma):
   """Get the logrithmic p.d.f. of a Gaussian mixture model.
 
@@ -60,44 +65,10 @@ def get_gaussian_mixture_log_prob(cat_probs, gauss_mu, gauss_sigma):
 
 
 
-def get_wall(wall_position, wall_slope):
-  """Get a "wall-function" in space of any dimensionality. Along any dimension,
-  for any position on the left of wall-position, the hight of the wall is zero,
-  otherwise being `wall_slope * (position - wall_position)`, as a wall shall
-  be in the world.
-
-  We use softplus to implement the wall.
-
-  Args:
-    wall_position:
-      Tensor, as the position of the wall. Type `float` is also valid for
-      representing scalar.
-
-    wall_slope:
-      Tensor of the same shape and dtype as `wall_position`, as the slope of the
-      wall. Type `float` is also valid for representing scalar.
-
-  Returns:
-    Callable, with
-    Args:
-      x:
-        `Tensor`.
-    Returns:
-      `Tensor` with the same shape and dtype as `x`, as the hight of the wall at
-      position `x`.
-  """
-
-  def wall(x):
-    return tf.nn.softplus( wall_slope * (x - wall_position) )
-
-  return wall
-
-
-
 def build_nn4post(
         n_c, n_d, log_posterior, init_vars=None, base_graph=None,
-        n_samples=10, r=1.0, beta=1.0,  max_a_range=1e+02, wall_slope=1e+04,
-        epsilon=1e-08, dtype='float32'):
+        n_samples=10, r=1.0, beta=1.0, dtype='float32',
+        epsilon=_EPSILON, c_accuracy=_C_ACCURACY):
   r"""Add the scope of "nn4post" to the graph `base_graph`. This is the
   implementation of 'docs/nn4post.tm' (or '/docs/nn4post.pdf').
 
@@ -143,21 +114,17 @@ def build_nn4post(
       "smooth switcher" :math:`\partial \mathcal{L} / \partial z_i` in the
       documentation, optional.
 
-    max_a_range:
-      `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
-      bound of `max(a) - min(a)`, optional.
-
-    wall_slope:
-      `float` or `tf.placeholder` with scalar shape and `dtype` dtype, XXX,
-      optional.
+    dtype:
+      `str`, as the dtype of floats employed herein, like `float32`, `float64`,
+      etc., optional.
 
     epsilon:
       `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
       :math:`epsilon` in the documentation, optional.
 
-    dtype:
-      `str`, as the dtype of floats employed herein, like `float32`, `float64`,
-      etc., optional.
+    c_accuracy:
+      `float` or `tf.placeholder` with scalar shape and `dtype` dtype, for
+      clipping the gradient of `a`, optional.
 
   Returns:
     A tuple of two elements. The first is a `dict` for useful `op`s (for
@@ -316,26 +283,7 @@ def build_nn4post(
 
         with tf.name_scope('loss'):
 
-          with tf.name_scope('elbo'):
-
-            elbo = loss_p_part + loss_q_part
-
-          with tf.name_scope('regularization'):
-
-            # NOTE:
-            #   Get punished if the range of `a` exceeds `max_a_range`.
-            #   Multiplied by `elbo` for automatically setting the order of
-            #   punishment.
-
-            # shape: `[]`, and non-negative.
-            a_range = tf.reduce_max(a) - tf.reduce_min(a)
-            # Use "wall_function" for regularization.
-            wall = get_wall(max_a_range, wall_slope)
-            # shape: `[]`
-            regularization = elbo * wall(a_range)
-
-          # shape: `[]`
-          loss = elbo + regularization
+          loss = loss_p_part + loss_q_part
 
 
       with tf.name_scope('gradients'):
@@ -361,6 +309,25 @@ def build_nn4post(
                 else grad / tf.expand_dims(denominator, axis=1)  # `[n_c, n_d]`
               for variable, grad in gradient.items()
           }
+
+
+        with tf.name_scope('clip_grad_a'):
+
+          a_min = tf.log(c_accuracy) + tf.reduce_logsumexp(a)
+          # Notice `a` increases along the inverse direction of the gradient of `a`.
+          clip_cond = tf.logical_and(
+              tf.less(a, a_min),
+              tf.greater(gradient[a], 0.0)
+          )
+          gradient[a] = tf.where(clip_cond, tf.zeros(a.shape), gradient[a])
+
+
+        with tf.name_scope('shift_grad_a'):
+
+          # XXX
+
+          grad_a_mean = tf.reduce_mean(gradient[a], name='grad_a_mean')
+          gradient[a] = gradient[a] - grad_a_mean
 
 
         # Re-arrange as a list of tuples

@@ -295,9 +295,9 @@ if __name__ == '__main__':
 
 
     # PARAMETERS
-    N_C = 1
-    NOISE_STD = 0.1
-    BATCH_SIZE = 128
+    N_C = 3
+    NOISE_STD = 0.03
+    BATCH_SIZE = 64
 
 
     # DATA
@@ -337,7 +337,7 @@ if __name__ == '__main__':
         # shape: `[None, n_outputs]`
         activation = tf.nn.softmax(
             tf.matmul(hidden, param['w_a']) + param['b_a'])
-        
+
         Y = Normal(activation, input['y_err'])
         return {'y': Y}
 
@@ -394,7 +394,7 @@ if __name__ == '__main__':
         logdir='../dat/logs/nn4post_advi_on_mnist',
         dir_to_ckpt='../dat/checkpoints/nn4post_advi_on_mnist/',
     )
-    n_iters = 30000
+    n_iters = 1000
     feed_dict_generator = get_feed_dict_generator()
     trainer.train(n_iters, feed_dict_generator)
 
@@ -424,8 +424,6 @@ if __name__ == '__main__':
     # Adjust to the eagered form
     y_test = y_test.astype('int32')
     y_err_test = np.repeat(np.expand_dims(y_err_test, axis=1), 10, axis=1)
-    print(y_test.shape)
-    print(y_err_test.shape)
 
 
     # Get the trained variables.
@@ -435,6 +433,7 @@ if __name__ == '__main__':
             trainer.sess.run(ops[name])
         for name in var_names
     }
+    print('a: ', trained_var['a'])
 
     predictions_dict = build_prediction(
         trained_var, model, param_shape, input, n_samples=100)
@@ -443,7 +442,6 @@ if __name__ == '__main__':
     with tf.Session() as sess:
         feed_dict = {x: x_test, y_err: y_err_test}
         predictions = sess.run(predictions, feed_dict=feed_dict)
-        print(predictions.shape)
 
     # Voted predictions
     # shape: `[n_samples, n_data]`
@@ -456,8 +454,7 @@ if __name__ == '__main__':
         get_most_freq(categorized_predictions[:,i])
         for i in range(categorized_predictions.shape[1])
     ])
-    print(voted_predictions.shape)
-    print(voted_predictions[0])
+
 
 
     def get_accuracy(xs, ys):

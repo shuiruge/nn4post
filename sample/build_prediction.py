@@ -3,7 +3,7 @@
 """
 Description
 -----------
-Main function `get_log_posterior` and its helper `get_param_space_dim`.
+Main function `build_prediction`.
 """
 
 
@@ -18,7 +18,7 @@ except:
     # Your TF < 1.4.0
     from independent import Independent
 
-from get_post import get_param_shape, get_parse_param
+from posterior import get_param_shape, get_parse_param
 
 
 def get_trained_q(trained_var):
