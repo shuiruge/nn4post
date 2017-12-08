@@ -25,8 +25,10 @@ except:
     from independent import Independent
 
 
+
 _EPSILON = 1e-08  # for numerical stability.
 _C_ACCURACY = 1e-04  # for clipping the gradient of `a`.
+
 
 
 def get_gaussian_mixture_log_prob(cat_probs, gauss_mu, gauss_sigma):
@@ -65,7 +67,7 @@ def get_gaussian_mixture_log_prob(cat_probs, gauss_mu, gauss_sigma):
 
 def build_nn4post(
         n_c, n_d, log_posterior, init_vars=None, base_graph=None,
-        n_samples=10, r=1.0, beta=1.0, dtype='float32', verbose=True,
+        n_samples=10, r=1.0, beta=1.0, dtype='float32',
         epsilon=_EPSILON, c_accuracy=_C_ACCURACY):
   r"""Add the scope of "nn4post" to the graph `base_graph`. This is the
   implementation of 'docs/nn4post.tm' (or '/docs/nn4post.pdf').
@@ -116,9 +118,6 @@ def build_nn4post(
       `str`, as the dtype of floats employed herein, like `float32`, `float64`,
       etc., optional.
 
-    verbose:
-      `bool`.
-
     epsilon:
       `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
       :math:`epsilon` in the documentation, optional.
@@ -137,14 +136,6 @@ def build_nn4post(
   graph = tf.get_default_graph() if base_graph is None else base_graph
 
 
-  if verbose:
-    info_msg = (
-        'INFO - Function `build_nn4post()` will MODIFY the `graph`.'
-        + ' (Pure functional approach is suppressed, being memory costy.)'
-    )
-    print(info_msg)
-
-
   with graph.as_default():
 
 
@@ -154,13 +145,14 @@ def build_nn4post(
       with tf.name_scope('variables'):
 
         if init_vars is None:
-          init_a = np.array([0.0 for i in range(n_c)],
-                            dtype=dtype)
-          init_mu = np.array(
-              [np.random.normal(size=[n_d]) * 5.0 for i in range(n_c)],
-              dtype=dtype)
-          init_zeta = np.array([np.ones([n_d]) * 5.0 for i in range(n_c)],
-                               dtype=dtype)
+          init_a = np.zeros([n_c], dtype=dtype)
+
+          # Because of the curse of dimensionality
+          init_mu = np.random.normal(size=[n_c, n_d]) * np.sqrt(n_d)
+          init_mu = init_mu.astype(dtype)
+
+          init_zeta = np.ones([n_c, n_d], dtype=dtype)
+
         else:
           init_a = init_vars['a']
           init_mu = init_vars['mu']
