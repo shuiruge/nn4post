@@ -96,7 +96,7 @@ def get_wall(wall_position, wall_slope):
 
 def build_nn4post(
         n_c, n_d, log_posterior, init_vars=None, base_graph=None,
-        n_samples=10, r=1.0, beta=1.0,  max_a_range=1e+02, wall_slope=1e+04,
+        n_samples=10, r=1.0, beta=1.0,  max_a_range=20, wall_slope=1e+04,
         epsilon=1e-08, dtype='float32'):
   r"""Add the scope of "nn4post" to the graph `base_graph`. This is the
   implementation of 'docs/nn4post.tm' (or '/docs/nn4post.pdf').
@@ -148,8 +148,9 @@ def build_nn4post(
       bound of `max(a) - min(a)`, optional.
 
     wall_slope:
-      `float` or `tf.placeholder` with scalar shape and `dtype` dtype, XXX,
-      optional.
+      `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
+      slope-parameter in the wall-function in the regularization of loss,
+      which bounds the maximum value of the range of `a`, optional.
 
     epsilon:
       `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
