@@ -96,7 +96,7 @@ def get_wall(wall_position, wall_slope):
 
 def build_nn4post(
         n_c, n_d, log_posterior, init_vars=None, base_graph=None,
-        n_samples=10, r=1.0, beta=1.0,  max_a_range=20, wall_slope=1e+04,
+        n_samples=10, r=1.0, beta=1.0,  max_a_range=20, wall_slope=10,
         epsilon=1e-08, dtype='float32'):
   r"""Add the scope of "nn4post" to the graph `base_graph`. This is the
   implementation of 'docs/nn4post.tm' (or '/docs/nn4post.pdf').
@@ -152,6 +152,12 @@ def build_nn4post(
       slope-parameter in the wall-function in the regularization of loss,
       which bounds the maximum value of the range of `a`, optional.
 
+      NOTE:
+        The only restirction to this parameter is that `wall_slope` shall be
+        much greater than unit. But when learning-rate of optimizer is not small
+        enough (as generally demanded in the early stage of training), extremely
+        great value of `wall_slope` will triger `NaN`.
+
     epsilon:
       `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
       :math:`epsilon` in the documentation, optional.
@@ -181,8 +187,11 @@ def build_nn4post(
         if init_vars is None:
           init_a = np.zeros([n_c], dtype=dtype)
 
-          # Because of the curse of dimensionality
-          init_mu = np.random.normal(size=[n_c, n_d]) * np.sqrt(n_d)
+          if n_c == 1:
+            init_mu = np.random.normal(size=[n_c, n_d])
+          else:
+            # Because of the curse of dimensionality
+            init_mu = np.random.normal(size=[n_c, n_d]) * np.sqrt(n_d)
           init_mu = init_mu.astype(dtype)
 
           init_zeta = np.ones([n_c, n_d], dtype=dtype)
