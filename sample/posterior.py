@@ -302,7 +302,9 @@ if __name__ == '__main__':
 
     import os
     # -- `contrib` module in TF 1.3
-    from tensorflow.contrib.distributions import Normal, NormalWithSoftplusScale
+    from tensorflow.contrib.distributions import (
+        Normal, NormalWithSoftplusScale, Categorical,
+    )
     from sklearn.utils import shuffle
 
     import sys
@@ -318,8 +320,8 @@ if __name__ == '__main__':
 
 
     # PARAMETERS
-    N_C = 3
-    NOISE_STD = 0.03
+    N_C = 1
+    NOISE_STD = 0.0
     BATCH_SIZE = 64
 
 
@@ -329,15 +331,14 @@ if __name__ == '__main__':
 
     # MODEL
     n_inputs = 28 * 28  # number of input features.
-    n_hiddens = 100  # number of perceptrons in the (single) hidden layer.
+    n_hiddens = 200  # number of perceptrons in the (single) hidden layer.
     n_outputs = 10  # number of perceptrons in the output layer.
 
     with tf.name_scope('data'):
         x = tf.placeholder(shape=[None, n_inputs], dtype=tf.float32, name='x')
-        y = tf.placeholder(shape=[None, n_outputs], dtype=tf.float32, name='y')
-        y_err = tf.placeholder(shape=y.shape, dtype=tf.float32, name='y_err')
+        y = tf.placeholder(shape=[None], dtype=tf.int32, name='y')
 
-    input_ = {'x': x, 'y_err': y_err}
+    input_ = {'x': x}
     observed = {'y': y}
 
     def model(input_, param):
@@ -358,10 +359,9 @@ if __name__ == '__main__':
         hidden = tf.sigmoid(
             tf.matmul(input_['x'], param['w_h']) + param['b_h'])
         # shape: `[None, n_outputs]`
-        activation = tf.nn.softmax(
-            tf.matmul(hidden, param['w_a']) + param['b_a'])
+        logits = tf.matmul(hidden, param['w_a']) + param['b_a']
 
-        Y = Normal(activation, input_['y_err'])
+        Y = Categorical(logits=logits)
         return {'y': Y}
 
 
@@ -369,11 +369,11 @@ if __name__ == '__main__':
     with tf.name_scope('prior'):
         w_h = NormalWithSoftplusScale(
             loc=tf.zeros([n_inputs, n_hiddens]),
-            scale=tf.ones([n_inputs, n_hiddens]),
+            scale=tf.ones([n_inputs, n_hiddens]) * 10,
             name="w_h")
         w_a = NormalWithSoftplusScale(
             loc=tf.zeros([n_hiddens, n_outputs]),
-            scale=tf.ones([n_hiddens, n_outputs]),
+            scale=tf.ones([n_hiddens, n_outputs]) * 10,
             name="w_a")
         b_h = NormalWithSoftplusScale(
             loc=tf.zeros([n_hiddens]),
@@ -409,35 +409,18 @@ if __name__ == '__main__':
     def get_feed_dict_generator():
         while True:
             x_train, y_train, y_err_train = next(batch_generator)
-            yield {x: x_train, y: y_train, y_err: y_err_train}
+            y_train = np.argmax(y_train, axis=1)
+            yield {x: x_train, y: y_train}
     trainer = SimpleTrainer(
         loss=ops['loss'],
         gvs=gvs,
-        optimizer=tf.train.RMSPropOptimizer(0.1),
+        optimizer=tf.train.AdamOptimizer(0.005),
         logdir='../dat/logs/nn4post_advi_on_mnist',
         dir_to_ckpt='../dat/checkpoints/nn4post_advi_on_mnist/',
     )
-    n_iters = 1000
+    n_iters = 30000
     feed_dict_generator = get_feed_dict_generator()
     trainer.train(n_iters, feed_dict_generator)
-
-    #with tf.Session() as sess:
-    #
-    #    sess.run(tf.global_variables_initializer())
-    #
-    #    n_iter = 5000
-    #    for i in range(n_iter):
-    #
-    #        x_train, y_train, y_err_train = next(batch_generator)
-    #        feed_dict = {x: x_train, y: y_train, y_err: y_err_train}
-    #        _, loss_val = sess.run([ train_op, ops['loss'] ],
-    #                               feed_dict=feed_dict)
-    #
-    #        if i % 100 == 0:
-    #            print(i, loss_val)
-    #
-    #    print(sess.run(ops['c']))
-
 
 
     # PREDICTION
@@ -446,7 +429,6 @@ if __name__ == '__main__':
     x_test, y_test, y_err_test = mnist_.test_data
     # Adjust to the eagered form
     y_test = y_test.astype('int32')
-    y_err_test = np.repeat(np.expand_dims(y_err_test, axis=1), 10, axis=1)
 
 
     # Get the trained variables.
@@ -457,26 +439,27 @@ if __name__ == '__main__':
         for name in var_names
     }
     print('a: ', trained_var['a'])
+    print('zeta mean: ', np.mean(trained_var['zeta']))
+    print('zeta std: ', np.std(trained_var['zeta']))
 
     predictions_dict = build_prediction(
         trained_var, model, param_shape, input_, n_samples=100)
     predictions = tf.stack(predictions_dict['y'], axis=0)
 
     with tf.Session() as sess:
-        feed_dict = {x: x_test, y_err: y_err_test}
+        feed_dict = {x: x_test}
+        # shape: `[n_samples, n_data]`
         predictions = sess.run(predictions, feed_dict=feed_dict)
 
-    # Voted predictions
-    # shape: `[n_samples, n_data]`
-    categorized_predictions = np.argmax(predictions, axis=2)
     def get_most_freq(array):
         index = np.argmax(np.bincount(array))
         return index
     # shape `[n_data]`
     voted_predictions = np.array([
-        get_most_freq(categorized_predictions[:,i])
-        for i in range(categorized_predictions.shape[1])
+        get_most_freq(predictions[:,i])
+        for i in range(predictions.shape[1])
     ])
+    print(voted_predictions.shape)
 
     def get_accuracy(xs, ys):
         """
