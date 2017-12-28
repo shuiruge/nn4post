@@ -130,7 +130,7 @@ def get_size(shape):
   Returns:
     `int` as the size of the tensor.
   """
-  return np.prod(shape)
+  return int(np.prod(shape))
 
 
 def get_param_shape(param_dict):
