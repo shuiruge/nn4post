@@ -10,12 +10,14 @@ AUTHOR = 'shuiruge'
 AUTHOR_EMAIL = 'shuiruge@hotmail.com'
 URL = 'https://github.com/shuiruge/nn4post/'
 VERSION = '0.9.0'
+with open('README.md') as f:
+    LONG_DESCRIPTION = f.read()
  
 setup(
     name=NAME,
     version=VERSION,
     description=DESCRIPTION,
-    long_description=read('README.md'),
+    long_description=LONG_DESCRIPTION,
     author=AUTHOR,
     author_email=AUTHOR_EMAIL,
     license='GPL',
@@ -25,13 +27,9 @@ setup(
         'examples.*', 'examples',
         'dat.*', 'dat',
     ]),
-    package_data=find_package_data(
-        PACKAGE,
-        only_in_packages=False
-    ),
     classifiers=[
         'Development Status :: 3 - Alpha',
-        'Environment :: Bayeisan method',
+        'Topic :: Scientific/Engineering :: Variational Inference'
         'Intended Audience :: Developers',
         'License :: OSI Approved :: GPL License',
         'Operating System :: OS Independent',
