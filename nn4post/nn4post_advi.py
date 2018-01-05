@@ -94,7 +94,7 @@ def get_wall(wall_position, wall_slope):
 
 def build_nn4post(
         n_c, n_d, log_posterior, init_vars=None, base_graph=None,
-        n_samples=10, r=1.0, beta=1.0,  max_a_range=20, wall_slope=10,
+        n_samples=10, r=1.0, beta=1.0,  max_a_range=10, wall_slope=10,
         epsilon=1e-08, dtype='float32'):
   r"""Add the scope of "nn4post" to the graph `base_graph`. This is the
   implementation of 'docs/nn4post.tm' (or '/docs/nn4post.pdf').
