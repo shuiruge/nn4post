@@ -1,349 +1,177 @@
-#!/usr/bin/env python3
+
 # -*- coding: utf-8 -*-
-"""
-Description
------------
-
-Test nn4post, comparing with standard single-peak variational inference,
-directly on Gaussian mixture model.
-"""
+"""Test and Trail on Gaussian Mixture Distribution."""
 
 
-import tensorflow as tf
-import numpy as np
-# -- `contrib` module in TF 1.3
-from tensorflow.contrib.distributions import (
-    Categorical, NormalWithSoftplusScale,
-    MultivariateNormalDiagWithSoftplusScale, Mixture
-)
-from tensorflow.contrib.bayesflow import entropy
-# -- To be changed in TF 1.4
-import os
 import sys
-sys.path.append('../sample/')
-from tools import ensure_directory, Timer, TimeLiner
-import mnist
-import pickle
-import time
-from tensorflow.python.client import timeline
-from independent import Independent
-from tensorflow.python import debug as tf_debug
+import numpy as np
+import tensorflow as tf
+from tensorflow.contrib.distributions import (
+    Categorical, NormalWithSoftplusScale, Mixture)
 
+sys.path.append('../')
+from nn4post import build_nn4post
+try:
+    from tensorflow.contrib.distribution import Independent
+except:
+    print('WARNING - Your TF < 1.4.0.')
+    from nn4post.utils.independent import Independent
 
 
 
 # For testing (and debugging)
-seed = 123456
-tf.set_random_seed(seed)
-np.random.seed(seed)
+SEED = 123456
+tf.set_random_seed(SEED)
+np.random.seed(SEED)
+
+
+# -- Parameters
+TARGET_N_C = 3  # shall be fixed.
+N_D = 10**4
+N_C = 5  # shall be varied.
+N_SAMPLES = 10
+A_RESCALE_FACTOR = 1.0
+N_ITERS = 1 * 10**4
+LR = tf.placeholder(shape=[], dtype='float32')
+#OPTIMIZER = tf.train.AdamOptimizer(LR)
+OPTIMIZER = tf.train.RMSPropOptimizer(LR)
+DTYPE = 'float32'
+SKIP_STEP = 50
 
 
 
-# --- Parameters ---
-
-N_CATS = 2  # shall be varied.
-N_SAMPLES = 100
-PARAM_SPACE_DIM = 2
-TARGET_N_CATS = 3  # shall be fixed.
-LOG_ACCURATE_LOSS = True
-PROFILING = False
-DEBUG = False
-SKIP_STEP = 20
-#LOG_DIR = '../dat/logs/gaussian_mixture_model/{0}_{1}'\
-#          .format(TARGET_N_CATS, N_CATS)
-#DIR_TO_CKPT = '../dat/checkpoints/gaussian_mixture_model/{0}_{1}'\
-#              .format(TARGET_N_CATS, N_CATS)
-LOG_DIR = None
-DIR_TO_CKPT = None
-if DIR_TO_CKPT is not None:
-    ensure_directory(DIR_TO_CKPT)
-
-
-
-# --- Setup Computational Graph ---
-
-
-
+# -- Gaussian Mixture Distribution
 with tf.name_scope('posterior'):
 
-    target_cat_probs = tf.constant([0.05, 0.25, 0.70])
-    target_loc = tf.stack(
-        [ tf.ones([PARAM_SPACE_DIM]) * (i - 1) * 3 for i in range(TARGET_N_CATS) ],
-        axis=1)
-    target_softplus_scale = tf.zeros([PARAM_SPACE_DIM, TARGET_N_CATS])
+  target_c = tf.constant([0.05, 0.25, 0.70])
+  target_mu = tf.stack([
+        tf.ones([N_D]) * (i - 1) * 3
+        for i in range(TARGET_N_C)
+      ], axis=0)
+  target_zeta_val = np.zeros([TARGET_N_C, N_D])
+  #target_zeta_val[1] = np.ones([N_D]) * 5.0
+  target_zeta = tf.constant(target_zeta_val, dtype='float32')
 
-    p = Mixture(
-        Categorical(logits=target_cat_probs),
-        [ Independent(
-             NormalWithSoftplusScale(target_loc[:,i], target_softplus_scale[:,i])
-          ) for i in range(TARGET_N_CATS) ]
-    )
+  cat = Categorical(probs=target_c)
+  components = [
+      Independent(
+          NormalWithSoftplusScale(target_mu[i], target_zeta[i])
+      ) for i in range(TARGET_N_C)
+    ]
+  p = Mixture(cat, components)
 
-    def log_posterior(theta):
-        return p.log_prob(theta)
+  def log_posterior(theta):
+    return p.log_prob(theta)
 
+# test!
+# test 1
+init_vars = {
+    'a':
+        np.zeros([N_C], dtype=DTYPE),
+    'mu':
+        np.array([np.ones([N_D]) * (i - 1) * 3 for i in range(N_C)],
+                 dtype=DTYPE) \
+        + np.array(np.random.normal(size=[N_C, N_D]) * 0.5,
+                   dtype=DTYPE),
+    'zeta':
+        np.array(np.random.normal(size=[N_C, N_D]) * 5.0,
+                 dtype=DTYPE),
+}
+# test 2
+init_vars = {
+    'a':
+        np.zeros([N_C], dtype=DTYPE),
+    'mu':
+        np.array( np.random.uniform(-1, 1, size=[N_C, N_D]) * 5.0 \
+                  * np.sqrt(N_D),
+                dtype=DTYPE),
+    'zeta':
+        np.ones([N_C, N_D], dtype=DTYPE) * 5.0,
+}
 
+n_samples = tf.placeholder(shape=[], dtype='float32', name='n_samples')
+beta = tf.placeholder(shape=[], dtype='float32', name='beta')
 
-with tf.name_scope('inference'):
+ops, gvs = build_nn4post(N_C, N_D, log_posterior, init_vars=init_vars,
+                         n_samples=N_SAMPLES, beta=beta)
 
-    with tf.name_scope('variables'):
-
-        with tf.name_scope('initial_values'):
-
-            init_cat_logits = tf.zeros([N_CATS])
-            init_locs = [tf.random_normal([PARAM_SPACE_DIM]) * 5.0
-                         for i in range(N_CATS)]
-            init_softplus_scales = [tf.ones([PARAM_SPACE_DIM]) * (5.0)
-                                    for i in range(N_CATS)]
-            # Or using the values in the previous calling of this script.
-
-            cat_logits = tf.Variable(
-                init_cat_logits,
-                name='cat_logits')
-            cat_probs = tf.nn.softmax(cat_logits)
-            #locs = [tf.ones([PARAM_SPACE_DIM]) * 3.] \
-            #     + [ tf.Variable(init_locs[i], name='loc_{}'.format(i))
-            #         for i in range(1, N_CATS) ]
-            #softplus_scales = [tf.zeros([PARAM_SPACE_DIM])] \
-            #                + [ tf.Variable(init_softplus_scales[i],
-            #                                name='softplus_scale_{}'.format(i))
-            #                    for i in range(1, N_CATS) ]
-            locs = [tf.Variable(init_locs[i], name='loc_{}'.format(i))
-                    for i in range(N_CATS)]
-            softplus_scales = [tf.Variable(init_softplus_scales[i],
-                                           name='softplus_scale_{}'.format(i))
-                               for i in range(N_CATS)]
-
-
-    with tf.name_scope('q_distribution'):
-
-        n_samples = tf.placeholder(shape=[], dtype=tf.int32, name='n_samples')
-
-        # NOTE:
-        #   Using `Mixture` + `NormalWithSoftplusScale` + `Independent` out-
-        #   performs to 1) using `MixtureSameFamily` and 2) `Mixture` +
-        #   `MultivariateNormalDiagWithSoftplusScale` on both timming and
-        #   memory profiling. The (1) is very memory costy.
-        cat = Categorical(probs=cat_probs)
-        components = [
-            Independent(
-                NormalWithSoftplusScale(locs[i], softplus_scales[i])
-            ) for i in range(N_CATS)
-        ]
-        q = Mixture(cat, components)
-        something = q.sample(n_samples)
+train_op = OPTIMIZER.apply_gradients(gvs)
 
 
-
-with tf.name_scope('loss'):
-
-    with tf.name_scope('param_samples'):
-        # shape: `[n_samples, PARAM_SPACE_DIM]`
-        thetas = q.sample(n_samples)
-
-    # shape: `[n_samples]`
-    with tf.name_scope('log_p'):
-
-        def log_p(thetas):
-            """Vectorize `log_posterior`."""
-            return tf.map_fn(log_posterior, thetas)
-
-        log_p_mean = tf.reduce_mean(log_p(thetas), name='log_p_mean')
-
-    with tf.name_scope('q_entropy'):
-        q_entropy = q.entropy_lower_bound()
-
-    with tf.name_scope('approximate_loss'):
-        approximate_loss = - ( log_p_mean + q_entropy ) / PARAM_SPACE_DIM # test!
-
-    if LOG_ACCURATE_LOSS:
-        with tf.name_scope('accurate_loss'):
-            accurate_loss = - entropy.elbo_ratio(log_p, q, z=thetas) / PARAM_SPACE_DIM # test!
-
-
-    ''' Or use TF implementation
-    def log_p(thetas):
-        return tf.map_fn(log_posterior, thetas)
-
-    elbos = entropy.elbo_ratio(log_p, q, z=thetas)
-    loss = - tf.reduce_mean(elbos)
-    # NOTE:
-    #   TF uses direct Monte Carlo integral to compute the `q_entropy`,
-    #   thus is quite slow.
-    '''
-
-
-
-with tf.name_scope('optimization'):
-
-    optimizer = tf.train.RMSPropOptimizer
-    #optimizer = tf.contrib.opt.NadamOptimizer
-    #optimizer = tf.train.AdamOptimizer
-    learning_rate = tf.placeholder(shape=[], dtype=tf.float32,
-                                   name='learning_rate')
-
-    optimize_approximate_loss = \
-        optimizer(learning_rate).minimize(approximate_loss)
-    optimize_accurate_loss = \
-        optimizer(learning_rate).minimize(accurate_loss)
-    #optimize = optimize_approximate_loss
-    optimize = optimize_accurate_loss
-
-
-with tf.name_scope('auxiliary_ops'):
-
-    with tf.name_scope('summarizer'):
-
-        with tf.name_scope('approximate_loss'):
-            tf.summary.scalar('approximate_loss', approximate_loss)
-            tf.summary.histogram('approximate_loss', approximate_loss)
-
-        if LOG_ACCURATE_LOSS:
-            with tf.name_scope('accurate_loss'):
-                tf.summary.scalar('accurate_loss', accurate_loss)
-                tf.summary.histogram('accurate_loss', accurate_loss)
-
-        ## It seems that, up to TF version 1.3,
-        ## `tensor_summary` is still under building
-        #with tf.name_scope('variables'):
-        #    tf.summary.tensor_summary('cat_logits', cat_logits)
-        #    tf.summary.tensor_summary('loc', loc)
-        #    tf.summary.tensor_summary('softplus_scale', softplus_scale)
-
-        # -- And Merge them All
-        summary = tf.summary.merge_all()
-
-
-
-
-
-# --- Training ---
-
-time_start = time.time()
-if LOG_DIR:
-    writer = tf.summary.FileWriter(LOG_DIR, graph=tf.get_default_graph())
-if DIR_TO_CKPT:
-    saver = tf.train.Saver()
-
-sess = tf.Session()
-
-if DEBUG:
-    sess = tf_debug.LocalCLIDebugWrapperSession(sess)
-    sess.add_tensor_filter("has_inf_or_nan", tf_debug.has_inf_or_nan)
-
-with sess:
+# -- Training
+with tf.Session() as sess:
 
     sess.run(tf.global_variables_initializer())
 
-    # -- Resotre from checkpoint
-    initial_step = 1
-    if DIR_TO_CKPT is not None:
-        ckpt = tf.train.get_checkpoint_state(DIR_TO_CKPT)
-        if ckpt and ckpt.model_checkpoint_path:
-            try:  # test!
-                saver.restore(sess, ckpt.model_checkpoint_path)
-                initial_step = int(ckpt.model_checkpoint_path\
-                                .rsplit('-', 1)[1])
-                print('Restored from checkpoint at global step {0}'\
-                    .format(initial_step))
-            except Exception as e:
-                print('ERROR - {0}'.format(e))
-                print('WARNING - Continue without restore.')
-    step = initial_step
+    # Display Targets
+    print(target_c.eval())
+    print(target_mu.eval())
+    print(target_zeta.eval())
+    print()
 
-    print(target_cat_probs.eval())
-    print(target_loc.eval())
-    print(target_softplus_scale.eval())
+    # Display Initialized Values
+    print(ops['mu'].eval())
+    print(ops['zeta'].eval())
+    print()
 
-    print(cat_probs.eval())
-    print(np.array([_.eval() for _ in locs]))
-    print(np.array([_.eval() for _ in softplus_scales]))
+    # Optimizing
+    for i in range(N_ITERS):
 
-
-    n_iter = 2 * 10**3
-
-    for i in range(n_iter):
-
-        step = initial_step + (i + 1)
-
-        feed_dict = {
-            learning_rate: 0.03,
-            n_samples: N_SAMPLES,
-        }
-
-        if PROFILING:
-            run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-            run_metadata = tf.RunMetadata()
-            many_runs_timeline = TimeLiner()
-
-            _, approximate_loss_val, summary_val = sess.run(
-                [optimize, approximate_loss, summary],
-                feed_dict,
-                options=run_options,
-                run_metadata=run_metadata
-            )
-            fetched_timeline = timeline.Timeline(run_metadata.step_stats)
-            chrome_trace = fetched_timeline.generate_chrome_trace_format()
-            many_runs_timeline.update_timeline(chrome_trace)
-
-        if LOG_DIR:
-            writer.add_run_metadata(run_metadata, 'step%d' % step)
-
+        # C.f. the section "Re-scaling of a" of "/docs/nn4post.tm".
+        # Even though, herein, `r` is tuned manually, it can be tuned
+        # automatically (and smarter-ly), and should be so.
+        # And learning-rate `LR` decays as usual.
+        if i < 1000:
+            lr_val = 0.5
+            n_samples_val = 5
+            beta_val = 1.0
+        elif i < 3000:
+            lr_val = 0.1
+            n_samples_val = 5
+            beta_val = 1.0
+        elif i < 5000:
+            lr_val = 0.02
+            n_samples_val = 10
+            beta_val = 1.0
         else:
-            _, approximate_loss_val, summary_val = sess.run(
-                [optimize, approximate_loss, summary],
-                feed_dict
+            lr_val = 0.001
+            n_samples_val = 100
+            beta_val = 0.0
+
+        _, loss_val, a_val, c_val, mu_val, zeta_val = \
+            sess.run(
+                [ train_op, ops['loss'], ops['a'],
+                  ops['c'], ops['mu'], ops['zeta'] ],
+                feed_dict={beta: beta_val, LR: lr_val}
             )
 
-        if LOG_DIR:
-            writer.add_summary(summary_val, global_step=step)
+        # Display Trained Values
+        if i % SKIP_STEP == 0:
+            print('--- Step {0:5}  |  Loss {1}'.format(i, loss_val))
+            print('c:\n', c_val)
+            print('a:\n', a_val)
+            print('mu (mean):\n', np.mean(mu_val, axis=1))
+            print('mu (std):\n', np.std(mu_val, axis=1))
+            print('zeta (mean):\n', np.mean(zeta_val, axis=1))
+            print('zeta (std):\n', np.std(zeta_val, axis=1))
+            print()
 
-        # Save checkpoint
-        if DIR_TO_CKPT is not None:
-            path_to_ckpt = os.path.join(DIR_TO_CKPT, 'checkpoint')
-            if step % SKIP_STEP == 0:
-                saver.save(sess, path_to_ckpt, global_step=step)
-
-        if step % 100 == 0:
-            print(step, approximate_loss_val)
-            print(cat_probs.eval())
-            print(np.array([_.eval() for _ in locs]))
-            print(np.array([_.eval() for _ in softplus_scales]))
-
-
-    if PROFILING:
-        many_runs_timeline.save('../dat/timelines/timeline.json')
-
-    time_end = time.time()
-    print(' --- Elapsed {0} sec in training'.format(time_end-time_start))
-
-
-
-
-'''Log
-
-### TODO:
-
-* varying `init_softplus_scale`.
-
-* `NadamOptimizer`.
-
-* the difference between `approximate_loss` and `accurate_loss`.
-
-
-### Varying `init_softplus_scale`
-
-Both work well.
-
-
-### Varying cats
-
-With 1K iterations:
-
-- `TARGET_N_CATS = 1`, `N_CATS = 2`, minimal loss is abount `5.3`.
-
-- `TARGET_N_CATS = 2`, `N_CATS = 2`, minimal loss is abount `5.3`.
-
-- `TARGET_N_CATS = 2`, `N_CATS = 1`, minimal loss is abount XXX.
-
-'''
+    print('--- SUMMARY ---')
+    print()
+    print('-- Parameters')
+    print('n_d: ', N_D)
+    print('n_c:', N_C)
+    print('n_samples: ', N_SAMPLES)
+    print('r: ', A_RESCALE_FACTOR)
+    print('n_iters: ', N_ITERS)
+    print('learning-rate: ', LR)
+    print('dtype: ', DTYPE)
+    print()
+    print('-- Result')
+    print('c:\n', c_val)
+    print('a:\n', a_val)
+    print('mu (mean):\n', np.mean(mu_val, axis=1))
+    print('mu (std):\n', np.std(mu_val, axis=1))
+    print('zeta (mean):\n', np.mean(zeta_val, axis=1))
+    print('zeta (std):\n', np.std(zeta_val, axis=1))
+    print()

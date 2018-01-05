@@ -6,64 +6,10 @@ Description
 Main function `build_prediction`.
 """
 
-
-import numpy as np
 import tensorflow as tf
-from tensorflow.contrib.distributions import (
-    Mixture, NormalWithSoftplusScale, Categorical
-)
-try:
-    from tensorflow.contrib.distribution import Independent
-except:
-    # Your TF < 1.4.0
-    from independent import Independent
 
-from posterior import get_param_shape, get_parse_param
-
-
-def get_trained_q(trained_var):
-  """Get the trained inference distribution :math:`q` (c.f. section "Notation"
-  in the documentation).
-
-  Args:
-    trained_var:
-      `dict` object with keys contains "a", "mu", and "zeta", and values being
-      either numpy arraies or TensorFlow tensors (`tf.constant`), as the value
-      of the trained value of variables in "nn4post".
-
-  Returns:
-    An instance of `Mixture`.
-  """
-
-  var_names = ['a', 'mu', 'zeta']
-  for name in var_names:
-    if name not in trained_var.keys():
-      e = (
-          '{0} is not in the keys of {1}.'
-      ).format(name, trained_var)
-      raise Exception(e)
-
-  _trained_var = {
-      name:
-          val if isinstance(val, tf.Tensor) \
-          else tf.constant(val)
-      for name, val in trained_var.items()
-  }
-
-  cat = Categorical(tf.nn.softmax(_trained_var['a']))
-  mu_zetas = list(zip(
-      tf.unstack(_trained_var['mu'], axis=0),
-      tf.unstack(_trained_var['zeta'], axis=0),
-  ))
-  components = [
-      Independent(
-          NormalWithSoftplusScale(mu, zeta)
-      ) for mu, zeta in mu_zetas
-  ]
-  mixture = Mixture(cat, components)
-
-  return mixture
-
+from nn4post.utils.vectorization import get_parse_param
+from nn4post.utils.distribution import get_trained_q
 
 
 def get_predictions_dict(q, model, param_shape, input_, n_samples):
@@ -121,7 +67,6 @@ def get_predictions_dict(q, model, param_shape, input_, n_samples):
     predictions_dict[name] = predictions
 
   return predictions_dict
-
 
 
 def build_prediction(trained_var, model, param_shape, input_,
