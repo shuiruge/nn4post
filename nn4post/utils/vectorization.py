@@ -154,9 +154,9 @@ def vectorize(param_shape):
 
     def vectorized_fn(euclidean_param):
 
-      param = parse_param(euclidean_param)
+      param_dict = parse_param(euclidean_param)
 
-      return fn(**param)
+      return fn(**param_dict)
 
     return vectorized_fn
 
