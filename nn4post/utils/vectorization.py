@@ -107,3 +107,57 @@ def get_param_space_dim(param_shape):
   param_sizes = [get_size(shape) for shape in param_shape.values()]
   param_space_dim = sum(param_sizes)
   return param_space_dim
+
+
+
+def vectorize(param_shape):
+  """Returns a decorator that vectorize a function, implemented by TensorFlow,
+  on general parameter-space to that on the associated Euclidean parameter-
+  space.
+
+  Example:
+    ```python:
+
+      param_shape = {'param_1': [2, 5], 'param_2': [3], ...}
+
+      @vectorize(param_shape)
+      def fn(param_1, param_2, ...):
+          '''
+          Args:
+              param_1:
+                  An instance of `tf.Tensor` with shape `[2, 5]`.
+
+              param_2:
+                  An instance of `tf.Tensor` with shape `[3]`.
+
+              ...
+
+          Returns:
+              Any.
+          '''
+
+          # Your implementation.
+    ```
+
+  Args:
+    param_shape:
+      `dict` with keys the keys in `param_dict` and values the assocated shapes
+      (as lists).
+
+  Returns:
+    A decorator.
+  """
+
+  parse_param = get_parse_param(param_shape)
+
+  def decorator(fn):
+
+    def vectorized_fn(euclidean_param):
+
+      param = parse_param(euclidean_param)
+
+      return fn(**param)
+
+    return vectorized_fn
+
+  return decorator

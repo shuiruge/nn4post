@@ -15,9 +15,10 @@ Tested on TF 1.4.0.
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.contrib.distributions import Normal, Categorical, Mixture
+from tensorflow.contrib.distributions import (
+    Categorical, Normal, NormalWithSoftplusScale, Mixture)
 try:
-    from tensorflow.contrib.distribution import Independent
+    from tensorflow.contrib.distributions import Independent
 except:
     print('WARNING - Your TF < 1.4.0.')
     from nn4post.utils.independent import Independent
@@ -96,8 +97,8 @@ def build_nn4post(
         n_c, n_d, log_posterior, init_vars=None, base_graph=None,
         n_samples=10, r=1.0, beta=1.0,  max_a_range=10, wall_slope=10,
         epsilon=1e-08, dtype='float32'):
-  r"""Add the scope of "nn4post" to the graph `base_graph`. This is the
-  implementation of 'docs/nn4post.tm' (or '/docs/nn4post.pdf').
+  r"""Add the name-scope of "nn4post" to the graph `base_graph`. This is the
+  implementation of 'docs/main.tm' (or '/docs/main.pdf').
 
   CAUTION:
     This function will MODIFY the `base_graph`, or the graph returned from
@@ -165,10 +166,11 @@ def build_nn4post(
       etc., optional.
 
   Returns:
-    A tuple of two elements. The first is a `dict` for useful `op`s (for
-    convinence), with keys `'a'`, `'mu'`, `'zeta'`, and `'loss'`, and with their
-    associated ops as values. The second is a list of tupes of gradient and its
-    associated variable, as argument of `tf.train.Optimizer.apply_gradients()`.
+    A tuple of two elements. The first is a `dict` for useful `tensor`s (for
+    convinence), with keys `'a'`, `'mu'`, `'zeta'`, and `'loss'`, and with
+    their associated tensors as values. The second is a list of tupes of
+    gradient and its associated variable, as the argument of the method
+    `tf.train.Optimizer.apply_gradients()`.
   """
 
   graph = tf.get_default_graph() if base_graph is None else base_graph
@@ -372,11 +374,11 @@ def build_nn4post(
 
 
         # Re-arrange as a list of tuples
-        gvs = [(grad, variable) for variable, grad in gradient.items()]
+        grads_and_vars = [(grad, var_) for var_, grad in gradient.items()]
 
 
     # -- Collections
-    ops = {
+    collection = {
         'a': a,
         'mu': mu,
         'zeta': zeta,
@@ -385,13 +387,58 @@ def build_nn4post(
     }
 
     if isinstance(r, tf.Tensor):
-      ops['r'] = r
+      collection['r'] = r
     if isinstance(beta, tf.Tensor):
-      ops['beta'] = beta
+      collection['beta'] = beta
     if isinstance(n_samples, tf.Tensor):
-      ops['n_samples'] = n_samples
+      collection['n_samples'] = n_samples
 
-    for op_name, op in ops.items():
-      graph.add_to_collection(op_name, op)
+    for name, tensor in collection.items():
+      graph.add_to_collection(name, tensor)
 
-  return (ops, gvs)
+  return (collection, grads_and_vars)
+
+
+
+def get_trained_q(trained_var):
+  """Get the trained inference distribution :math:`q` (c.f. section "Notation"
+  in the documentation).
+
+  Args:
+    trained_var:
+      `dict` object with keys contains "a", "mu", and "zeta", and values being
+      either numpy arraies or TensorFlow tensors (`tf.constant`), as the value
+      of the trained value of variables in "nn4post".
+
+  Returns:
+    An instance of `Mixture`.
+  """
+
+  var_names = ['a', 'mu', 'zeta']
+  for name in var_names:
+    if name not in trained_var.keys():
+      e = (
+          '{0} is not in the keys of {1}.'
+      ).format(name, trained_var)
+      raise Exception(e)
+
+  _trained_var = {
+      name:
+          val if isinstance(val, tf.Tensor) \
+          else tf.constant(val)
+      for name, val in trained_var.items()
+  }
+
+  cat = Categorical(tf.nn.softmax(_trained_var['a']))
+  mu_zetas = list(zip(
+      tf.unstack(_trained_var['mu'], axis=0),
+      tf.unstack(_trained_var['zeta'], axis=0),
+  ))
+  components = [
+      Independent(
+          NormalWithSoftplusScale(mu, zeta)
+      ) for mu, zeta in mu_zetas
+  ]
+  mixture = Mixture(cat, components)
+
+  return mixture

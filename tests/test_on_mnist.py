@@ -12,13 +12,13 @@ from tensorflow.contrib.distributions import (
 )
 from sklearn.utils import shuffle
 
-sys.path.append('../')
 from nn4post import build_nn4post
 from nn4post.utils import get_param_shape, get_param_space_dim
 from nn4post.utils.posterior import get_log_posterior
 from nn4post.utils.prediction import build_prediction
-import mnist
 from nn4post.utils.tf_trainer import SimpleTrainer
+
+import mnist
 
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # turn off the TF noise.
@@ -192,4 +192,3 @@ targets = y_test  # shape `[n_data]`, dtype `int32`.
 voted_predictions = voted_predictions.astype('int32')
 accuracy = get_accuracy(voted_predictions, targets)
 print('Accuracy: ', accuracy)
-

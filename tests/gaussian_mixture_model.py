@@ -9,10 +9,9 @@ import tensorflow as tf
 from tensorflow.contrib.distributions import (
     Categorical, NormalWithSoftplusScale, Mixture)
 
-sys.path.append('../')
 from nn4post import build_nn4post
 try:
-    from tensorflow.contrib.distribution import Independent
+    from tensorflow.contrib.distributions import Independent
 except:
     print('WARNING - Your TF < 1.4.0.')
     from nn4post.utils.independent import Independent
