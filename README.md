@@ -50,12 +50,12 @@ First, define your posterior in its logorithm:
 
 
 
-### Vectorization
+### Euclideanization
 
-Then you have to vectorize your `log_posterior`. This is because that `nn4post`
+Then you have to "euclideanize" your `log_posterior`. This is because that `nn4post`
 is made for general `log_posterior`, regardless of its arragement of arguments,
 thus works on the Euclidean parameter-space only. Even though, we have provided
-helpful utils in `nn4post.utils` module for vectorization.
+helpful utils in `nn4post.utils` module for euclideanization.
 
 If you have known the shapes of the parameters in the argument `param` or the
 arguments `param_i`s, then collect the shapes into a dictionary with keys the
@@ -67,10 +67,10 @@ Then get the dimension of the Euclidean parameter-space by
 
     param_space_dim = nn4post.utils.get_param_space_dim(param_shape)
 
-and directly vectorize your `log_posterior` by a decorator
+and directly euclideanize your `log_posterior` by a decorator
 
 
-    @nn4post.utils.vectorize(param_shape)
+    @nn4post.utils.euclideanize(param_shape)
     def log_posterior(param_1, param_2, ...):
         # Your implementation.
 
@@ -87,7 +87,7 @@ a dictionary, by simply
 
     param_shape = nn4post.utils.get_param_shape(param_val)
     
-And then follow the previous to vectorize your `log_posterior`.
+And then follow the previous to euclideanize your `log_posterior`.
 
 
 ### Inference
