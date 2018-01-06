@@ -700,7 +700,7 @@
     wherein <math|r=10>, <math|R<rsub|1>> becomes unit after
     <math|N<rsub|d>\<geqslant\>?>, and that <math|R<rsub|1>> will be around
     <math|0.5> if let <math|r\<sim\><sqrt|N<rsub|d>>>.<\footnote>
-      C.f. the code ``<shell|/docs/curse_of_dimensionality.py>''.
+      C.f. the code ``<shell|/docs/curse_of_dimensionality/curse_of_dimensionality.py>''.
     </footnote>
   </example>
 

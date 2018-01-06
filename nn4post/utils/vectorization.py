@@ -21,12 +21,12 @@ def get_size(shape):
 
 
 def get_param_shape(param_dict):
-  """
+  """Parse shapes from instances of `np.array`, `tf.Tensor`, or `Distribution`.
+
   Args:
     param_dict:
-      `dict`, like `{'w': ..., 'b': ...}, with values being either instances
-      of `tf.contrib.distributions.Distribution`, or any objects that have
-      `shape` attribute (e.g. numpy array or TensorFlow tensor).
+      `dict`, like `{'w': ..., 'b': ...}, with values being instances of
+      `np.array`, `tf.Tensor`, or `Distribution`.
 
   Returns:
     `dict` with keys the keys in `param_dict` and values the assocated shapes
@@ -43,7 +43,10 @@ def get_param_shape(param_dict):
 
 
 def get_parse_param(param_shape):
-  """
+  """Returns a parser of parameters that parses a tensor of the shape `[n_d]`,
+  which is an element in the Euclidean parameter-space :math:`\mathbb{R}^{n_d}`,
+  to the tensors of the shapes provided by `param_shape`.
+
   Args:
     param_shape:
       `dict` with keys the keys in `param_dict` and values the assocated shapes

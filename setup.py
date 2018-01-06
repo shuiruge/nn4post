@@ -36,5 +36,4 @@ setup(
         'Programming Language :: Python 3+',
         'Framework :: TensorFlow',
     ],
-    zip_safe=False,
 )
