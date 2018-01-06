@@ -9,7 +9,7 @@ Main function `build_prediction`.
 import tensorflow as tf
 
 from nn4post import get_trained_q
-from nn4post.utils.vectorization import get_parse_param
+from nn4post.utils.euclideanization import get_parse_param
 
 
 def get_predictions_dict(q, model, param_shape, input_, n_samples):

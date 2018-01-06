@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Helper functions for vectorization."""
+"""Helper functions for euclideanization."""
 
 import numpy as np
 import tensorflow as tf
@@ -110,17 +110,17 @@ def get_param_space_dim(param_shape):
 
 
 
-def vectorize(param_shape):
-  """Returns a decorator that vectorize a function, implemented by TensorFlow,
-  on general parameter-space to that on the associated Euclidean parameter-
-  space.
+def euclideanize(param_shape):
+  """Returns a decorator that euclideanize a function, implemented by
+  TensorFlow, on general parameter-space to that on the associated Euclidean
+  parameter-space.
 
   Example:
     ```python:
 
       param_shape = {'param_1': [2, 5], 'param_2': [3], ...}
 
-      @vectorize(param_shape)
+      @euclideanize(param_shape)
       def fn(param_1, param_2, ...):
           '''
           Args:
@@ -152,12 +152,12 @@ def vectorize(param_shape):
 
   def decorator(fn):
 
-    def vectorized_fn(euclidean_param):
+    def euclideanized_fn(euclidean_param):
 
       param_dict = parse_param(euclidean_param)
 
       return fn(**param_dict)
 
-    return vectorized_fn
+    return euclideanized_fn
 
   return decorator

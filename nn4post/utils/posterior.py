@@ -4,7 +4,7 @@
 
 import tensorflow as tf
 
-from nn4post.utils.vectorization import get_param_shape, get_parse_param
+from nn4post.utils.euclideanization import get_param_shape, get_parse_param
 
 
 
