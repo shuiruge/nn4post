@@ -64,7 +64,7 @@ with tf.name_scope('posterior'):
 
 # test!
 # test 1
-init_vars = {
+init_var = {
     'a':
         np.zeros([N_C], dtype=DTYPE),
     'mu':
@@ -77,7 +77,7 @@ init_vars = {
                  dtype=DTYPE),
 }
 # test 2
-init_vars = {
+init_var = {
     'a':
         np.zeros([N_C], dtype=DTYPE),
     'mu':
@@ -91,7 +91,7 @@ init_vars = {
 n_samples = tf.placeholder(shape=[], dtype='float32', name='n_samples')
 beta = tf.placeholder(shape=[], dtype='float32', name='beta')
 
-ops, gvs = build_nn4post(N_C, N_D, log_posterior, init_vars=init_vars,
+ops, gvs = build_nn4post(N_C, N_D, log_posterior, init_var=init_var,
                          n_samples=N_SAMPLES, beta=beta)
 
 train_op = OPTIMIZER.apply_gradients(gvs)

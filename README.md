@@ -97,12 +97,12 @@ mixture distribution, or say, the number of "perceptrons". Then set the arguemen
 `n_d`, which is the dimension of Euclidean parameter-space, and which we have
 known, as the `param_shape_dim`.
 
-Then calling `build_nn4post(N_C, param_space_dim, log_posterior)` will setup a
-computational graph of TensorFlow, and return `collection` and `grads_and_vars`.
+Then calling `build_nn4post(n_c, param_space_dim, log_posterior)` will build up
+a computational graph of TensorFlow, returns `collection` and `grads_and_vars`.
 The `collection` is a dictionary contains "loss", etc. This is just for
 convenience, since these are also involved in the collection of the TensorFlow
 graph. The `grads_and_vars` is as the argument of the method
-`tf.train.Optimizer.apply_gradients()`.
+[`tf.train.Optimizer.apply_gradients()`](https://www.tensorflow.org/api_docs/python/tf/train/Optimizer#apply_gradients).
 
 Then you can train the inference model by the standard process in TensorFlow
 by `tf.train.Optimizer` in a session, say `sess`.
@@ -115,7 +115,7 @@ model by running
 
     trained_var = {}
     for var_name in ['a', 'mu', 'zeta']:
-        var_value = .sess.run(collection[var_name])
+        var_value = sess.run(collection[var_name])
         trained_var[var_name] = var_value
         
 And then get the trained inference distribution by

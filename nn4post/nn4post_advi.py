@@ -94,7 +94,7 @@ def get_wall(wall_position, wall_slope):
 
 
 def build_nn4post(
-        n_c, n_d, log_posterior, init_vars=None, base_graph=None,
+        n_c, n_d, log_posterior, init_var=None, base_graph=None,
         n_samples=10, r=1.0, beta=1.0,  max_a_range=10, wall_slope=10,
         epsilon=1e-08, dtype='float32'):
   r"""Add the name-scope of "nn4post" to the graph `base_graph`. This is the
@@ -118,7 +118,7 @@ def build_nn4post(
       Callable from tensor of the shape `[n_d]` to scalar, both with the same
       dtype as the `dtype` argument.
 
-    init_vars:
+    init_var:
       `dict` for setting the initial values of variables. optional. It has
       keys `'a'`, `'mu'`, and `'zeta'`, and values of numpy arraies or tensors
       of the shapes `[n_c]`, `[n_c, n_d]`, and `[n_c, n_d]`, respectively. All
@@ -184,7 +184,7 @@ def build_nn4post(
 
       with tf.name_scope('variables'):
 
-        if init_vars is None:
+        if init_var is None:
           init_a = np.zeros([n_c], dtype=dtype)
 
           if n_c == 1:
@@ -197,9 +197,9 @@ def build_nn4post(
           init_zeta = np.ones([n_c, n_d], dtype=dtype)
 
         else:
-          init_a = init_vars['a']
-          init_mu = init_vars['mu']
-          init_zeta = init_vars['zeta']
+          init_a = init_var['a']
+          init_mu = init_var['mu']
+          init_zeta = init_var['zeta']
 
         # shape: `[n_c]`
         a = tf.Variable(init_a, name='a')
