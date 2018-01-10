@@ -118,20 +118,20 @@ model by running
         var_value = sess.run(collection[var_name])
         trained_var[var_name] = var_value
         
-And then get the trained inference distribution by
-
-    trained_q = nn4post.get_trained_q(trained_var)
-    
-which is an instance of `tf.distributions.Distribution`, thus from which we
-can sample the paramters in the Euclidean parameter-space, say
-`sampled_euclidean_param`. And to parse the Euclidean parameter to the parameter
-we want, use the
+And then get the trained distributions that fit the posteriors by
 
     parse_param = nn4post.utils.get_parse_param(param_shape)
+    trained_posterior = nn4post.utils.get_trained_posterior(trained_var, param_shape)
     
+which is a dictionary with keys like `'param_1'`, `'param_2'`, etc, and values the
+associated `Mixture` distribuitions that fit the associated posteriors.
+
 Thus
 
-    sampled_param = parse_param(sampled_euclidean_param)
+    sampled_param = {
+        name: post.sample(n_samples)
+        for name, post in trained_posterior.items()
+    }
 
 
 Q.E.D.

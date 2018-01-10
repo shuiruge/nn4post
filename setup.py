@@ -9,7 +9,7 @@ DESCRIPTION = 'Neural network for posterior'
 AUTHOR = 'shuiruge'
 AUTHOR_EMAIL = 'shuiruge@hotmail.com'
 URL = 'https://github.com/shuiruge/nn4post/'
-VERSION = '0.9.0'
+VERSION = '0.9.1'
 with open('README.md') as f:
     LONG_DESCRIPTION = f.read()
  

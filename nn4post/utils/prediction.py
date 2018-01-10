@@ -8,7 +8,7 @@ Main function `build_prediction`.
 
 import tensorflow as tf
 
-from nn4post import get_trained_q
+from nn4post.utils.distribution import get_trained_q
 from nn4post.utils.euclideanization import get_parse_param
 
 
@@ -29,9 +29,9 @@ def get_predictions_dict(q, model, param_shape, input_, n_samples):
         `dict`, like `{'y': Y}`, where `Y` is an instance of `tf.Distribution`.
       As the model :math:`f(x, \theta)` in the documentation.
 
-    param_shape:
-      `dict` with keys the keys in `param_dict` and values the assocated
-      shapes (as lists).
+	param_shape:
+      `dict` with keys the parameter-names (the same as the keys in `param` in
+      the `model`) and values the assocated shapes (as lists).
 
     input_:
       `dict`, like `{'x_1': x_1, 'x_2': x_2}, with values Tensors.
@@ -89,9 +89,9 @@ def build_prediction(trained_var, model, param_shape, input_,
         `dict`, like `{'y': Y}`, where `Y` is an instance of `tf.Distribution`.
       As the model :math:`f(x, \theta)` in the documentation.
 
-      param_shape:
-        `dict` with keys the keys in `param_dict` and values the assocated
-        shapes (as lists).
+    param_shape:
+      `dict` with keys the keys in `param_dict` and values the assocated
+      shapes (as lists).
 
     input_:
       `dict`, like `{'x_1': x_1, 'x_2': x_2}, with values Tensors.
