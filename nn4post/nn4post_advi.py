@@ -93,16 +93,11 @@ def get_wall(wall_position, wall_slope):
 
 
 def build_nn4post(
-        n_c, n_d, log_posterior, init_var=None, base_graph=None,
+        n_c, n_d, log_posterior_upto_const, init_var=None, base_graph=None,
         n_samples=10, r=1.0, beta=1.0,  max_a_range=10, wall_slope=10,
-        epsilon=1e-08, dtype='float32'):
-  r"""Add the name-scope of "nn4post" to the graph `base_graph`. This is the
-  implementation of 'docs/main.tm' (or '/docs/main.pdf').
-
-  CAUTION:
-    This function will MODIFY the `base_graph`, or the graph returned from
-    `tf.get_default_graph()` if the `base_graph` is `None`. (Pure functional
-    approach is suppressed, since it's memory costy.)
+        epsilon=1e-08, dtype='float32', name='nn4post'):
+  r"""Add the name-scope `name` to the graph `base_graph`. This is the
+  implementation of 'docs/main.pdf'.
 
   Args:
     n_c:
@@ -113,9 +108,10 @@ def build_nn4post(
       `int`, as the number of dimension, i.e. the :math:`N_d` in the
       documentation.
 
-    log_posterior:
+    log_posterior_upto_const:
       Callable from tensor of the shape `[n_d]` to scalar, both with the same
-      dtype as the `dtype` argument.
+      dtype as the `dtype` argument, as the logorithm of the posterior up to
+      a constant.
 
     init_var:
       `dict` for setting the initial values of variables. optional. It has
@@ -164,6 +160,9 @@ def build_nn4post(
       `str`, as the dtype of floats employed herein, like `float32`, `float64`,
       etc., optional.
 
+    name:
+      `str`, as the main name-scope.
+
   Returns:
     A tuple of two elements. The first is a `dict` for useful `tensor`s (for
     convinence), with keys `'a'`, `'mu'`, `'zeta'`, and `'loss'`, and with
@@ -178,7 +177,7 @@ def build_nn4post(
   with graph.as_default():
 
 
-    with tf.name_scope('nn4post'):
+    with tf.name_scope(name):
 
 
       with tf.name_scope('variables'):
@@ -265,7 +264,7 @@ def build_nn4post(
           with tf.name_scope('expect_log_p'):
 
             def log_p(thetas):
-              """Vectorize `log_posterior`.
+              """Vectorize `log_posterior_upto_const`.
 
               Args:
                 thetas:
@@ -274,7 +273,7 @@ def build_nn4post(
               Returns:
                 Tensor of the shape `[None]`.
               """
-              return tf.map_fn(log_posterior, thetas)
+              return tf.map_fn(log_posterior_upto_const, thetas)
 
             # Expectation of :math:`\ln p`
             # shape: `[n_c]`
