@@ -32,9 +32,9 @@ a shortcut.
 
 ### Define Posterior
 
-First, define your posterior in its logorithm:
+First, define your posterior in its logorithm, which can be up to a constant:
 
-    def log_posterior(param_1, param_2, ...):
+    def log_posterior_upto_const(param_1, param_2, ...):
         """
         Args:
             param_1:
@@ -52,10 +52,11 @@ First, define your posterior in its logorithm:
 
 ### Euclideanization
 
-Then you have to "euclideanize" your `log_posterior`. This is because that `nn4post`
-is made for general `log_posterior`, regardless of its arragement of arguments,
-thus works on the Euclidean parameter-space only. Even though, we have provided
-helpful utils in `nn4post.utils` module for euclideanization.
+Then you have to "euclideanize" your `log_posterior_upto_const`. This is
+because that `nn4post` is made for general `log_posterior_upto_const`,
+regardless of its arragement of arguments, thus works on the Euclidean
+parameter-space only. Even though, we have provided helpful utils in
+`nn4post.utils` module for euclideanization.
 
 If you have known the shapes of the parameters in the argument `param` or the
 arguments `param_i`s, then collect the shapes into a dictionary with keys the
@@ -67,11 +68,11 @@ Then get the dimension of the Euclidean parameter-space by
 
     param_space_dim = nn4post.utils.get_param_space_dim(param_shape)
 
-and directly euclideanize your `log_posterior` by a decorator
+and directly euclideanize your `log_posterior_upto_const` by a decorator
 
 
     @nn4post.utils.euclideanize(param_shape)
-    def log_posterior(param_1, param_2, ...):
+    def log_posterior_upto_const(param_1, param_2, ...):
         # Your implementation.
 
 And if you do not know the shapes of the parameters, but have known the priors
@@ -87,7 +88,7 @@ a dictionary, by simply
 
     param_shape = nn4post.utils.get_param_shape(param_val)
     
-And then follow the previous to euclideanize your `log_posterior`.
+And then follow the previous to euclideanize your `log_posterior_upto_const`.
 
 
 ### Inference
@@ -97,11 +98,11 @@ mixture distribution, or say, the number of "perceptrons". Then set the arguemen
 `n_d`, which is the dimension of Euclidean parameter-space, and which we have
 known, as the `param_shape_dim`.
 
-Then calling `build_nn4post(n_c, param_space_dim, log_posterior)` will build up
-a computational graph of TensorFlow, returns `collection` and `grads_and_vars`.
-The `collection` is a dictionary contains "loss", etc. This is just for
-convenience, since these are also involved in the collection of the TensorFlow
-graph. The `grads_and_vars` is as the argument of the method
+Then calling `build_nn4post(n_c, param_space_dim, log_posterior_upto_const)`
+will build up a computational graph of TensorFlow, returns `collection` and
+`grads_and_vars`. The `collection` is a dictionary contains "loss", etc. This
+is just for convenience, since these are also involved in the collection of
+the TensorFlow graph. The `grads_and_vars` is as the argument of the method
 [`tf.train.Optimizer.apply_gradients()`](https://www.tensorflow.org/api_docs/python/tf/train/Optimizer#apply_gradients).
 
 Then you can train the inference model by the standard process in TensorFlow
