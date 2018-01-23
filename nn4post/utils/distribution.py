@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Helper functions for gaining the trained distribution(s)."""
 
 import numpy as np
 import tensorflow as tf

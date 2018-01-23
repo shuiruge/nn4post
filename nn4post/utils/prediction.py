@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Description
------------
-Main function `build_prediction`.
-"""
+"""Helper functions building the predictive distribution."""
 
 import tensorflow as tf
 
