@@ -94,7 +94,7 @@ def get_wall(wall_position, wall_slope):
 
 def build_nn4post(
         n_c, n_d, log_posterior_upto_const, init_var=None, base_graph=None,
-        n_samples=10, r=1.0, beta=1.0,  max_a_range=10, wall_slope=10,
+        n_samples=100, r=1.0, beta=1.0,  max_a_range=10, wall_slope=10,
         epsilon=1e-08, dtype='float32', name='nn4post'):
   r"""Add the name-scope `name` to the graph `base_graph`. This is the
   implementation of 'docs/main.pdf'.
@@ -362,7 +362,7 @@ def build_nn4post(
         with tf.name_scope('keep_non_frozen_out'):
 
           # Notice `tf.truediv` is not broadcastable
-          denominator = tf.pow(c + epsilon, beta)  # `[]`
+          denominator = tf.pow(c + epsilon, beta)  # `[n_c]`
           gradient = {
               variable:
                 grad / denominator if variable is a  # `[n_c]`
@@ -394,4 +394,4 @@ def build_nn4post(
     for name, tensor in collection.items():
       graph.add_to_collection(name, tensor)
 
-  return (collection, grads_and_vars)
+  return collection, grads_and_vars
