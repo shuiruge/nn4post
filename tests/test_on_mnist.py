@@ -12,7 +12,7 @@ from tensorflow.contrib.distributions import (
 )
 from sklearn.utils import shuffle
 
-from nn4post import build_nn4post
+from nn4post import InferenceBuilder
 from nn4post.utils import get_param_shape, get_param_space_dim
 from nn4post.utils.posterior import get_log_posterior
 from nn4post.utils.prediction import build_prediction
@@ -106,7 +106,7 @@ param_shape = get_param_shape(param_prior)
 param_space_dim = get_param_space_dim(param_shape)
 print('\n-- Dimension of parameter-space: {}.\n'.format(param_space_dim))
 
-make_loss_and_gradients = build_nn4post(N_C, param_space_dim, log_posterior)
+builder = InferenceBuilder(N_C, param_space_dim, log_posterior)
 
 with tf.name_scope('nn4post'):
     with tf.name_scope('variables'):
@@ -121,7 +121,7 @@ with tf.name_scope('nn4post'):
                    dtype='float32')
 
 var = {'a': a, 'mu': mu, 'zeta': zeta}
-loss, gradients = make_loss_and_gradients(**var)
+loss, gradients = builder.make_loss_and_gradients(**var)
 
 
 # TRAIN
