@@ -25,7 +25,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # turn off the TF noise.
 
 
 # PARAMETERS
-N_C = 1
+N_C = 2
 NOISE_STD = 0.0
 BATCH_SIZE = 64
 
@@ -106,7 +106,22 @@ param_shape = get_param_shape(param_prior)
 param_space_dim = get_param_space_dim(param_shape)
 print('\n-- Dimension of parameter-space: {}.\n'.format(param_space_dim))
 
-ops, gvs = build_nn4post(N_C, param_space_dim, log_posterior)
+make_loss_and_gradients = build_nn4post(N_C, param_space_dim, log_posterior)
+
+with tf.name_scope('nn4post'):
+    with tf.name_scope('variables'):
+        a = tf.Variable(
+                np.zeros([N_C]),
+                dtype='float32')
+        mu = tf.Variable(
+                 np.random.normal(size=[N_C, param_space_dim]),
+                 dtype='float32')
+        zeta = tf.Variable(
+                   np.zeros([N_C, param_space_dim]),
+                   dtype='float32')
+
+var = {'a': a, 'mu': mu, 'zeta': zeta}
+loss, gradients = make_loss_and_gradients(**var)
 
 
 # TRAIN
@@ -117,8 +132,8 @@ def get_feed_dict_generator():
         y_train = np.argmax(y_train, axis=1)
         yield {x: x_train, y: y_train}
 trainer = SimpleTrainer(
-    loss=ops['loss'],
-    gvs=gvs,
+    loss=loss,
+    gvs=gradients,
     optimizer=tf.train.AdamOptimizer(0.005),
     logdir='../dat/logs/nn4post_advi_on_mnist',
     dir_to_ckpt='../dat/checkpoints/nn4post_advi_on_mnist/',
@@ -138,11 +153,10 @@ y_test = y_test.astype('int32')
 
 
 # Get the trained variables.
-var_names = ['a', 'mu', 'zeta']
 trained_var = {
     name:
-        trainer.sess.run(ops[name])
-    for name in var_names
+        trainer.sess.run(v)
+    for name, v in var.items()
 }
 print('a: ', trained_var['a'])
 print('zeta mean: ', np.mean(trained_var['zeta']))
