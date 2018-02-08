@@ -26,7 +26,7 @@ from tensorflow.contrib.framework import is_tensor
 
 
 def get_gaussian_mixture_log_prob(cat_probs, gauss_mu, gauss_sigma):
-  """Get the logrithmic p.d.f. of a Gaussian mixture model.
+  r"""Get the logrithmic p.d.f. of a Gaussian mixture model.
 
   Args:
     cat_probs:
@@ -60,7 +60,7 @@ def get_gaussian_mixture_log_prob(cat_probs, gauss_mu, gauss_sigma):
 
 
 def get_wall(wall_position, wall_slope):
-  """Get a "wall-function" in space of any dimensionality. Along any dimension,
+  r"""Get a "wall-function" in space of any dimensionality. Along any dimension,
   for any position on the left of wall-position, the hight of the wall is zero,
   otherwise being `wall_slope * (position - wall_position)`, as a wall shall
   be in the world.
@@ -93,14 +93,11 @@ def get_wall(wall_position, wall_slope):
 
 
 
-def build_nn4post(n_c, n_d, log_posterior_upto_const, base_graph=None,
-                  n_samples=100, r=1.0, beta=1.0,  max_a_range=10,
-                  wall_slope=10, epsilon=1e-08, dtype='float32',
-                  name='nn4post'):
-  r"""Add the name-scope `name` to the graph `base_graph`. This is the
-  implementation of 'docs/main.pdf'.
-
-  Args:
+class InferenceBuilder(object):
+  r"""Builder for the inference by nn4post. C.f. the documentation in
+  "/docs/main.pdf".
+  
+  Attributes:
     n_c:
       `int`, as the number of categorical probabilities, i.e. the :math:`N_c`
       in the documentation.
@@ -111,68 +108,134 @@ def build_nn4post(n_c, n_d, log_posterior_upto_const, base_graph=None,
 
     log_posterior_upto_const:
       Callable from tensor of the shape `[n_d]` to scalar, both with the same
-      dtype as the `dtype` argument, as the logorithm of the posterior up to
-      a constant.
+      dtype as the `self.dtype`, as the logorithm of the posterior up to a
+      constant.
 
-    init_var:
-      `dict` for setting the initial values of variables. optional. It has
-      keys `'a'`, `'mu'`, and `'zeta'`, and values of numpy arraies or tensors
-      of the shapes `[n_c]`, `[n_c, n_d]`, and `[n_c, n_d]`, respectively. All
-      these values shall be the same dtype as the `dtype` argument.
-
-    base_graph:
-      An instance of `tf.Graph`, optional, as the graph that the scope for
-      "nn4post" are added to. If `None`, use the graph returned from
-      `tf.get_default_graph()`.
+    graph:
+      An instance of `tf.Graph`, as the graph that the main name scope are
+      added to.
 
     n_samples:
       `int` or `tf.placeholder` with scalar shape and `int` dtype, as the
-      number of samples in the Monte Carlo integrals, optional.
+      number of samples in the Monte Carlo integrals.
 
     r:
-      `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
-      rescaling factor of `a`, optional.
+      `float` or `tf.placeholder` with scalar shape and `self.dtype` dtype, as
+      the rescaling factor of `a`.
 
     beta:
       `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
       "smooth switcher" :math:`\partial \mathcal{L} / \partial z_i` in the
-      documentation, optional.
+      documentation.
 
     max_a_range:
-      `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
-      bound of `max(a) - min(a)`, optional.
+      `float` or `tf.placeholder` with scalar shape and `self.dtype` dtype, as
+      the bound of `max(a) - min(a)`.
 
     wall_slope:
-      `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
-      slope-parameter in the wall-function in the regularization of loss,
-      which bounds the maximum value of the range of `a`, optional.
-
-      NOTE:
-        The only restirction to this parameter is that `wall_slope` shall be
-        much greater than unit. But when learning-rate of optimizer is not small
-        enough (as generally demanded in the early stage of training), extremely
-        great value of `wall_slope` will triger `NaN`.
+      `float` or `tf.placeholder` with scalar shape and `self.dtype` dtype, as
+      the slope-parameter in the wall-function in the regularization of loss,
+      which bounds the maximum value of the range of `a`.
 
     epsilon:
-      `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
-      :math:`epsilon` in the documentation, optional.
+      `float` or `tf.placeholder` with scalar shape and `self.dtype` dtype, as
+      the :math:`epsilon` in the documentation.
 
     dtype:
-      `str`, as the dtype of floats employed herein, like `float32`, `float64`,
-      etc., optional.
-
-    name:
-      `str`, as the main name-scope.
-
-  Returns:
-    A tuple of two elements. The first is a `dict` for useful `tensor`s (for
-    convinence), with keys `'a'`, `'mu'`, `'zeta'`, and `'loss'`, and with
-    their associated tensors as values. The second is a list of tupes of
-    gradient and its associated variable, as the argument of the method
-    `tf.train.Optimizer.apply_gradients()`.
+      `str`, as the dtype of floats employed herein.
+   
+  Methods:
+    make_loss_and_gradients:
+      Implements and returns loss and its gradients to the arguments.
   """
 
-  def check_args(a, mu, zeta):
+  def __init__(self, n_c, n_d, log_posterior_upto_const, base_graph=None,
+               n_samples=100, r=1.0, beta=1.0, max_a_range=10, wall_slope=10,
+               epsilon=1e-08, dtype='float32'):
+    """Initialize the builder.
+
+    Args:
+      n_c:
+        `int`, as the number of categorical probabilities, i.e. the :math:`N_c`
+        in the documentation.
+
+      n_d:
+        `int`, as the number of dimension, i.e. the :math:`N_d` in the
+        documentation.
+
+      log_posterior_upto_const:
+        Callable from tensor of the shape `[n_d]` to scalar, both with the same
+        dtype as the `dtype` argument, as the logorithm of the posterior up to
+        a constant.
+
+      init_var:
+        `dict` for setting the initial values of variables. optional. It has
+        keys `'a'`, `'mu'`, and `'zeta'`, and values of numpy arraies or tensors
+        of the shapes `[n_c]`, `[n_c, n_d]`, and `[n_c, n_d]`, respectively. All
+        these values shall be the same dtype as the `dtype` argument.
+
+      base_graph:
+        An instance of `tf.Graph`, optional, as the graph that the scope for
+        "nn4post" are added to. If `None`, use the graph returned from
+        `tf.get_default_graph()`.
+
+      n_samples:
+        `int` or `tf.placeholder` with scalar shape and `int` dtype, as the
+        number of samples in the Monte Carlo integrals, optional.
+
+      r:
+        `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
+        rescaling factor of `a`, optional.
+
+      beta:
+        `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
+        "smooth switcher" :math:`\partial \mathcal{L} / \partial z_i` in the
+        documentation, optional.
+
+      max_a_range:
+        `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
+        bound of `max(a) - min(a)`, optional.
+
+      wall_slope:
+        `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
+        slope-parameter in the wall-function in the regularization of loss,
+        which bounds the maximum value of the range of `a`, optional.
+
+        NOTE:
+          The only restirction to this parameter is that `wall_slope` shall be
+          much greater than unit. But when learning-rate of optimizer is not
+          small enough (as generally demanded in the early stage of training),
+          extremely great value of `wall_slope` will triger `NaN`.
+
+      epsilon:
+        `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
+        :math:`epsilon` in the documentation, optional.
+
+      dtype:
+        `str`, as the dtype of floats employed herein, like `float32`, etc.,
+        optional.
+    """
+
+    self.n_c = n_c
+    self.n_d = n_d
+    self.log_posterior_upto_const = log_posterior_upto_const
+
+    if base_graph is None:
+      self.graph = tf.get_default_graph()
+    else:
+      self.graph = base_graph
+
+    # Configurations
+    self.n_samples = n_samples
+    self.r = r
+    self.beta = beta
+    self.max_a_range = max_a_range
+    self.wall_slope = wall_slope
+    self.epsilon = epsilon
+    self.dtype = dtype
+
+
+  def check_args(self, a, mu, zeta):
     """Checks the types, shapes, and dtypes of the arguments `a`, `mu`, and
     `zeta`. Raises `TypeError` if the check is not passed."""
 
@@ -181,64 +244,67 @@ def build_nn4post(n_c, n_d, log_posterior_upto_const, base_graph=None,
       if not is_tensor(_):
         raise TypeError(
             '{} should be an instance of `Tensor`.'.format(_))
-      if _.dtype != dtype and _.dtype != dtype + '_ref':
+      if _.dtype != self.dtype and _.dtype != self.dtype + '_ref':
         raise TypeError(
-            '{} should have dtype {}.'.format(_, dtype))
+            '{} should have dtype {}.'.format(_, self.dtype))
 
     # Check shape
-    if a.shape != [n_c]:
-      raise TypeError(
-          'Arguemnt `a` shall be the shape as N_c {}.'.format(n_c))
-    if mu.shape != [n_c, n_d]:
-      raise TypeError(
-          'Arguemnt `mu` shall be the shape as N_c {}.'.format([n_c, n_d]))
-    if zeta.shape != [n_c, n_d]:
-      raise TypeError(
-          'Arguemnt `mu` shall be the shape as N_c {}.'.format([n_c, n_d]))
+    if a.shape != [self.n_c]:
+      raise TypeError('Arguemnt `a` shall be the shape as N_c {}.'\
+                      .format(self.n_c))
+    if mu.shape != [self.n_c, self.n_d]:
+      raise TypeError('Arguemnt `mu` shall be the shape as [N_c, N_d] {}.'\
+                      .format([self.n_c, self.n_d]))
+    if zeta.shape != [self.n_c, self.n_d]:
+      raise TypeError('Arguemnt `zeta` shall be the shape as [N_c, N_d] {}.'\
+                      .format([self.n_c, self.n_d]))
 
-  graph = tf.get_default_graph() if base_graph is None else base_graph
 
-  with graph.as_default():
+  def make_loss_and_gradients(self, a, mu, zeta, name='nn4post'):
+    r"""This function (or say, a `tf.Operation` constructor) implements (c.f.
+    the documentation):
 
-    with tf.name_scope(name):
+    ```tex:
+    $$`\mathcal{L} ( a, \mu, \zeta )$$
 
-      def make_loss_and_gradients(a, mu, zeta):
-        r"""This function implements (c.f. the documentation):
+    and, if denote $z:=(a, \mu, \zeta)$,
 
-        ```tex:
-        $$`\mathcal{L} ( a, \mu, \zeta )$$
+    $$\frac{ \partial \mathcal{L} } }{ \partial z } ( a, \mu, \zeta ),$$
 
-        and, if denote $z:=(a, \mu, \zeta)$,
+    and return them altogether.
+    ```
 
-        $$\frac{ \partial \mathcal{L} } }{ \partial z } ( a, \mu, \zeta ),$$
+    Args:
+      a:
+        `Tensor`, with shape `[n_c]` and dtype `dtype`. Expected to be an 
+        instance of `tf.Variable`, but can be not so.
 
-        and return them altogether.
-        ```
+      mu:
+        `Tensor`, with shape `[n_c, n_d]` and dtype `dtype`. Expected to be
+        an instance of `tf.Variable`, but can be not so.
 
-        Args:
-          a:
-            `Tensor`, with shape `[n_c]` and dtype `dtype`. Expected to be an 
-            instance of `tf.Variable`, but can be not so.
+      zeta:
+        `Tensor`, with shape `[n_c, n_d]` and dtype `dtype`. Expected to be
+        instance of `tf.Variable`, but can be not so.
 
-          mu:
-            `Tensor`, with shape `[n_c, n_d]` and dtype `dtype`. Expected to be
-            an instance of `tf.Variable`, but can be not so.
+      name:
+        `str`, as the main name-scope, optional.
 
-          zeta:
-            `Tensor`, with shape `[n_c, n_d]` and dtype `dtype`. Expected to be
-            instance of `tf.Variable`, but can be not so.
+    Returns:
+      Tuple of two elements. The first is the loss, :math:`\mathcal{L}`;
+      and the second is a list of pairs of gradients, with the type as the
+      returned by calling `tf.gradients` with arguments `[a, mu, zeta]`.
 
-        Returns:
-          Tuple of two elements. The first is the loss, :math:`\mathcal{L}`;
-          and the second is a list of pairs of gradients, with the type as the
-          returned by calling `tf.gradients` with arguments `[a, mu, zeta]`.
+    Raises:
+      TypeError:
+        If the arguments do not match their types, shapes, or dtypes.
+    """
 
-        Raises:
-          TypeError:
-            If the arguments do not match their types, shapes, or dtypes.
-        """
+    with self.graph.as_default():
 
-        check_args(a, mu, zeta)
+      with tf.name_scope(name):
+
+        self.check_args(a, mu, zeta)
 
         with tf.name_scope('distributions'):
 
@@ -252,13 +318,7 @@ def build_nn4post(n_c, n_d, log_posterior_upto_const, base_graph=None,
             # Rescaling of `a`. C.f. "/docs/nn4post.tm", section "Re-
             # scaling of a".
             # shape: `[n_c]`
-            c = tf.nn.softmax(r * (a - a_mean), name='c')
-
-            # Replaced by clipping the gradient of `a`, c.f. `name_scope`
-            # `'gradients/clipping_grad_a'`.
-            ## Additionally clip `c` by a minimal value
-            ## shape: `[n_c]`
-            #c = tf.clip_by_value(c, epsilon, 1, name='c_clipped')
+            c = tf.nn.softmax(self.r * (a - a_mean), name='c')
 
           with tf.name_scope('standard_normal'):
 
@@ -275,7 +335,7 @@ def build_nn4post(n_c, n_d, log_posterior_upto_const, base_graph=None,
           with tf.name_scope('samples'):
 
             # shape: `[n_samples, n_c, n_d]`
-            eta_samples = std_normal.sample(n_samples)
+            eta_samples = std_normal.sample(self.n_samples)
 
           with tf.name_scope('re_parameter'):
 
@@ -283,7 +343,7 @@ def build_nn4post(n_c, n_d, log_posterior_upto_const, base_graph=None,
             theta_samples = eta_samples * sigma + mu
 
             # shape: `[n_samples * n_c, n_d]`
-            flat_theta_samples = tf.reshape(theta_samples, [-1, n_d])
+            flat_theta_samples = tf.reshape(theta_samples, [-1, self.n_d])
 
           with tf.name_scope('p_part'):
 
@@ -299,7 +359,7 @@ def build_nn4post(n_c, n_d, log_posterior_upto_const, base_graph=None,
                 Returns:
                   Tensor of the shape `[None]`.
                 """
-                return tf.map_fn(log_posterior_upto_const, thetas)
+                return tf.map_fn(self.log_posterior_upto_const, thetas)
 
               # Expectation of :math:`\ln p`
               # shape: `[n_c]`
@@ -307,7 +367,7 @@ def build_nn4post(n_c, n_d, log_posterior_upto_const, base_graph=None,
                   tf.reshape(
                       # shape: `[n_samples * n_c]`
                       log_p(flat_theta_samples),
-                      [n_samples, n_c]),
+                      [self.n_samples, self.n_c]),
                   axis=0)
 
             # shape: `[]`
@@ -339,7 +399,7 @@ def build_nn4post(n_c, n_d, log_posterior_upto_const, base_graph=None,
               expect_log_q = tf.reduce_mean(
                   tf.reshape(
                       log_q(flat_theta_samples),  # shape: `[n_samples * n_c]`.
-                      [n_samples, n_c]),
+                      [self.n_samples, self.n_c]),
                   axis=0)
 
             # shape: `[]`
@@ -361,7 +421,7 @@ def build_nn4post(n_c, n_d, log_posterior_upto_const, base_graph=None,
               # shape: `[]`, and non-negative.
               a_range = tf.reduce_max(a) - tf.reduce_min(a)
               # Use "wall_function" for regularization.
-              wall = get_wall(max_a_range, wall_slope)
+              wall = get_wall(self.max_a_range, self.wall_slope)
               # shape: `[]`
               regularization = elbo * wall(a_range)
 
@@ -384,7 +444,7 @@ def build_nn4post(n_c, n_d, log_posterior_upto_const, base_graph=None,
 
             # Notice `tf.truediv` is not broadcastable
             # shape: `[n_c]`
-            denominator = tf.pow(c + epsilon, beta)
+            denominator = tf.pow(c + self.epsilon, self.beta)
             gradient_dict = {
                 variable:
                   # shape: `[n_c]`
@@ -397,6 +457,4 @@ def build_nn4post(n_c, n_d, log_posterior_upto_const, base_graph=None,
           # Re-arrange as a list of tuples
           gradients = [(g, v) for v, g in gradient_dict.items()]
 
-        return loss, gradients
-
-  return make_loss_and_gradients
+    return loss, gradients
