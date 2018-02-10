@@ -19,7 +19,6 @@ from tensorflow.contrib.distributions import Categorical, Normal, Mixture
 try:
     from tensorflow.contrib.distributions import Independent
 except:
-    print('WARNING - Your TF < 1.4.0.')
     from nn4post.utils.independent import Independent
 from tensorflow.contrib.framework import is_tensor
 
@@ -46,16 +45,18 @@ def get_gaussian_mixture_log_prob(cat_probs, gauss_mu, gauss_sigma):
     Callable, mapping from tensor of the shape of `gauss_mu[0]` to scalar, as
     the p.d.f..
   """
+  with tf.name_scope('gaussian_mixture_log_prob'):
 
-  n_cats = cat_probs.shape[0]
-  cat = Categorical(probs=cat_probs)
-  components = [
-      Independent( Normal(gauss_mu[i], gauss_sigma[i]) )
-      for i in range(n_cats)
-  ]
-  distribution = Mixture(cat=cat, components=components)
+    n_cats = cat_probs.shape[0]
+    cat = Categorical(probs=cat_probs)
+    components = [
+        Independent( Normal(gauss_mu[i], gauss_sigma[i]) )
+        for i in range(n_cats)
+    ]
+    gaussian_mixture = Mixture(cat=cat, components=components)
+    gaussian_mixture_log_prob = gaussian_mixture.log_prob
 
-  return distribution.log_prob
+  return gaussian_mixture_log_prob
 
 
 
@@ -87,7 +88,9 @@ def get_wall(wall_position, wall_slope):
   """
 
   def wall(x):
-    return tf.nn.softplus( wall_slope * (x - wall_position) )
+    with tf.name_scope('wall'):
+      wall_val = tf.nn.softplus( wall_slope * (x - wall_position) )
+    return wall_val
 
   return wall
 
@@ -96,63 +99,17 @@ def get_wall(wall_position, wall_slope):
 class InferenceBuilder(object):
   r"""Builder for the inference by nn4post. C.f. the documentation in
   "/docs/main.pdf".
-  
-  Attributes:
-    n_c:
-      `int`, as the number of categorical probabilities, i.e. the :math:`N_c`
-      in the documentation.
-
-    n_d:
-      `int`, as the number of dimension, i.e. the :math:`N_d` in the
-      documentation.
-
-    log_posterior_upto_const:
-      Callable from tensor of the shape `[n_d]` to scalar, both with the same
-      dtype as the `self.dtype`, as the logorithm of the posterior up to a
-      constant.
-
-    graph:
-      An instance of `tf.Graph`, as the graph that the main name scope are
-      added to.
-
-    n_samples:
-      `int` or `tf.placeholder` with scalar shape and `int` dtype, as the
-      number of samples in the Monte Carlo integrals.
-
-    r:
-      `float` or `tf.placeholder` with scalar shape and `self.dtype` dtype, as
-      the rescaling factor of `a`.
-
-    beta:
-      `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
-      "smooth switcher" :math:`\partial \mathcal{L} / \partial z_i` in the
-      documentation.
-
-    max_a_range:
-      `float` or `tf.placeholder` with scalar shape and `self.dtype` dtype, as
-      the bound of `max(a) - min(a)`.
-
-    wall_slope:
-      `float` or `tf.placeholder` with scalar shape and `self.dtype` dtype, as
-      the slope-parameter in the wall-function in the regularization of loss,
-      which bounds the maximum value of the range of `a`.
-
-    epsilon:
-      `float` or `tf.placeholder` with scalar shape and `self.dtype` dtype, as
-      the :math:`epsilon` in the documentation.
-
-    dtype:
-      `str`, as the dtype of floats employed herein.
    
   Methods:
     make_loss_and_gradients:
-      Implements and returns loss and its gradients to the arguments.
+      `Python operation` that accepts the `Tensor`s `a`, `mu`, `zeta` as
+      arguments, and returns loss and its gradients to the arguments.
   """
 
-  def __init__(self, n_c, n_d, log_posterior_upto_const, base_graph=None,
-               n_samples=100, r=1.0, beta=1.0, max_a_range=10, wall_slope=10,
-               epsilon=1e-08, dtype='float32'):
-    """Initialize the builder.
+  def __init__(self, n_c, n_d, log_posterior_upto_const, n_samples=100,
+               r=1.0, beta=1.0, max_a_range=10, wall_slope=10, epsilon=1e-08,
+               dtype='float32'):
+    r"""Initialize the builder.
 
     Args:
       n_c:
@@ -173,11 +130,6 @@ class InferenceBuilder(object):
         keys `'a'`, `'mu'`, and `'zeta'`, and values of numpy arraies or tensors
         of the shapes `[n_c]`, `[n_c, n_d]`, and `[n_c, n_d]`, respectively. All
         these values shall be the same dtype as the `dtype` argument.
-
-      base_graph:
-        An instance of `tf.Graph`, optional, as the graph that the scope for
-        "nn4post" are added to. If `None`, use the graph returned from
-        `tf.get_default_graph()`.
 
       n_samples:
         `int` or `tf.placeholder` with scalar shape and `int` dtype, as the
@@ -220,11 +172,6 @@ class InferenceBuilder(object):
     self.n_d = n_d
     self.log_posterior_upto_const = log_posterior_upto_const
 
-    if base_graph is None:
-      self.graph = tf.get_default_graph()
-    else:
-      self.graph = base_graph
-
     # Configurations
     self.n_samples = n_samples
     self.r = r
@@ -235,32 +182,42 @@ class InferenceBuilder(object):
     self.dtype = dtype
 
 
-  def check_args(self, a, mu, zeta):
-    """Checks the types, shapes, and dtypes of the arguments `a`, `mu`, and
-    `zeta`. Raises `TypeError` if the check is not passed."""
+  def check_arguments(self, a, mu, zeta):
+    r"""Helper function of the method `self.make_loss_and_gradients`. Checks
+    the types, shapes, and dtypes of the arguments `a`, `mu`, and `zeta`.
+    Raises `TypeError` if the check is not passed.
 
-    # Check `Tensor` and dtype
-    for _ in [a, mu, zeta]:
-      if not is_tensor(_):
-        raise TypeError(
-            '{} should be an instance of `Tensor`.'.format(_))
-      if _.dtype != self.dtype and _.dtype != self.dtype + '_ref':
-        raise TypeError(
-            '{} should have dtype {}.'.format(_, self.dtype))
+    This replaces `tf.convert_to_tensor`, since this function also converts
+    `Variable` to non-variable `Tensor`, which is not what we expect.
+    """
 
-    # Check shape
-    if a.shape != [self.n_c]:
-      raise TypeError('Arguemnt `a` shall be the shape as N_c {}.'\
-                      .format(self.n_c))
-    if mu.shape != [self.n_c, self.n_d]:
-      raise TypeError('Arguemnt `mu` shall be the shape as [N_c, N_d] {}.'\
-                      .format([self.n_c, self.n_d]))
-    if zeta.shape != [self.n_c, self.n_d]:
-      raise TypeError('Arguemnt `zeta` shall be the shape as [N_c, N_d] {}.'\
-                      .format([self.n_c, self.n_d]))
+    with tf.name_scope('check_args'):
+
+      # Check tensors
+      msg = 'Arguemnt `{}` should be tensor-like.'
+      for _ in (a, mu, zeta):
+        if not is_tensor(_):
+          raise TypeError(msg.format(_.name))
+
+      # Check dtypes
+      msg = 'Argument `{}` should have the dtype {}, but now {}.'
+      for _ in (a, mu, zeta):
+        if _.dtype not in (self.dtype, self.dtype + '_ref'):
+          raise TypeError(msg.format(_.name, self.dtype, _.dtype))
+
+      # Check shapes
+      msg = 'Arguemnt `{}` should have the shape {}, but now {}.'
+      shape = {
+          a: [self.n_c],
+          mu: [self.n_c, self.n_d],
+          zeta: [self.n_c, self.n_d]
+      }
+      for _ in (a, mu, zeta):
+        if _.shape != shape[_]:
+          raise TypeError(msg.format(_.name, shape[_], _.shape))
 
 
-  def make_loss_and_gradients(self, a, mu, zeta, name='nn4post'):
+  def make_loss_and_gradients(self, a, mu, zeta, name=None):
     r"""This function (or say, a `tf.Operation` constructor) implements (c.f.
     the documentation):
 
@@ -288,7 +245,7 @@ class InferenceBuilder(object):
         instance of `tf.Variable`, but can be not so.
 
       name:
-        `str`, as the main name-scope, optional.
+        `str` or `None`, as the main name-scope, optional.
 
     Returns:
       Tuple of two elements. The first is the loss, :math:`\mathcal{L}`;
@@ -298,163 +255,181 @@ class InferenceBuilder(object):
     Raises:
       TypeError:
         If the arguments do not match their types, shapes, or dtypes.
+
+    Examples:
+      >>> n_c = 3
+      >>> n_d = 1
+      >>> # Gaussian mixture distribution as the :math:`p`
+      >>> cat_probs = np.array([0.2, 0.8], dtype='float32')
+      >>> gauss_mu = np.array([[-1.0], [1.0]], dtype='float32')
+      >>> gauss_sigma = np.array([[1.0], [1.0]], dtype='float32')
+      >>> log_p = get_gaussian_mixture_log_prob(
+      ...             cat_probs, gauss_mu, gauss_sigma)
+      >>> # Then build up the inference
+      >>> ib = InferenceBuilder(
+      ...          n_c=n_c, n_d=n_d, log_posterior_upto_const=log_p)
+      >>> a = tf.Variable(np.zeros([n_c]), dtype='float32')
+      >>> mu = tf.Variable(np.zeros([n_c, n_d]), dtype='float32')
+      >>> zeta = tf.Variable(np.zeros([n_c, n_d]), dtype='float32')
+      >>> loss, gradients = ib.make_loss_and_gradients(a, mu, zeta)
     """
 
-    with self.graph.as_default():
+    with tf.name_scope(name, 'nn4post', [a, mu, zeta]):
+    
+      # Instead of calling `tf.convert_to_tensor`,
+      self.check_arguments(a, mu, zeta)
 
-      with tf.name_scope(name):
+      with tf.name_scope('distributions'):
 
-        self.check_args(a, mu, zeta)
+        with tf.name_scope('categorical'):
 
-        with tf.name_scope('distributions'):
+          # For gauge fixing. C.f. "/docs/nn4post.tm", section "Gauge
+          # Fixing".
+          # shape: `[]`
+          a_mean = tf.reduce_mean(a, name='a_mean')
 
-          with tf.name_scope('categorical'):
+          # Rescaling of `a`. C.f. "/docs/nn4post.tm", section "Re-
+          # scaling of a".
+          # shape: `[n_c]`
+          c = tf.nn.softmax(self.r * (a - a_mean), name='c')
 
-            # For gauge fixing. C.f. "/docs/nn4post.tm", section "Gauge
-            # Fixing".
-            # shape: `[]`
-            a_mean = tf.reduce_mean(a, name='a_mean')
+        with tf.name_scope('standard_normal'):
 
-            # Rescaling of `a`. C.f. "/docs/nn4post.tm", section "Re-
-            # scaling of a".
+          # shape: `[n_c, n_d]`
+          sigma = tf.nn.softplus(zeta)
+
+          # shape: `[n_c, n_d]`
+          std_normal = Independent(
+              Normal(tf.zeros(mu.shape), tf.ones(sigma.shape))
+          )
+
+      with tf.name_scope('loss'):
+
+        with tf.name_scope('samples'):
+
+          # shape: `[n_samples, n_c, n_d]`
+          eta_samples = std_normal.sample(self.n_samples)
+
+        with tf.name_scope('re_parameter'):
+
+          # shape: `[n_samples, n_c, n_d]`
+          theta_samples = eta_samples * sigma + mu
+
+          # shape: `[n_samples * n_c, n_d]`
+          flat_theta_samples = tf.reshape(theta_samples, [-1, self.n_d])
+
+        with tf.name_scope('p_part'):
+
+          with tf.name_scope('expect_log_p'):
+
+            def log_p(thetas):
+              """Vectorizes `log_posterior_upto_const`.
+
+              Args:
+                thetas:
+                  Tensor of the shape `[None, n_d]`
+
+              Returns:
+                Tensor of the shape `[None]`.
+              """
+              return tf.map_fn(self.log_posterior_upto_const, thetas)
+
+            # Expectation of :math:`\ln p`
             # shape: `[n_c]`
-            c = tf.nn.softmax(self.r * (a - a_mean), name='c')
+            expect_log_p = tf.reduce_mean(
+                tf.reshape(
+                    # shape: `[n_samples * n_c]`
+                    log_p(flat_theta_samples),
+                    [self.n_samples, self.n_c]),
+                axis=0)
 
-          with tf.name_scope('standard_normal'):
+          # shape: `[]`
+          loss_p_part = - tf.reduce_sum(c * expect_log_p)
 
-            # shape: `[n_c, n_d]`
-            sigma = tf.nn.softplus(zeta)
+        with tf.name_scope('q_part'):
 
-            # shape: `[n_c, n_d]`
-            std_normal = Independent(
-                Normal(tf.zeros(mu.shape), tf.ones(sigma.shape))
-            )
+          with tf.name_scope('log_q'):
+
+            gaussian_mixture_log_prob = \
+                get_gaussian_mixture_log_prob(c, mu, sigma)
+
+            def log_q(thetas):
+              """The vectorized `log_q`.
+
+              Args:
+                thetas:
+                  Tensor of the shape `[None, n_d]`.
+
+              Returns:
+                Tensor of the shape `[None]`.
+              """
+              return tf.map_fn(gaussian_mixture_log_prob, thetas)
+
+          with tf.name_scope('expect_log_q'):
+
+            # Expectation of :math:`\ln q`
+            # shape: `[n_c]`
+            expect_log_q = tf.reduce_mean(
+                tf.reshape(
+                    log_q(flat_theta_samples),  # shape: `[n_samples * n_c]`.
+                    [self.n_samples, self.n_c]),
+                axis=0)
+
+          # shape: `[]`
+          loss_q_part = tf.reduce_sum(c * expect_log_q)
 
         with tf.name_scope('loss'):
 
-          with tf.name_scope('samples'):
+          with tf.name_scope('elbo'):
 
-            # shape: `[n_samples, n_c, n_d]`
-            eta_samples = std_normal.sample(self.n_samples)
+            elbo = loss_p_part + loss_q_part
 
-          with tf.name_scope('re_parameter'):
+          with tf.name_scope('regularization'):
 
-            # shape: `[n_samples, n_c, n_d]`
-            theta_samples = eta_samples * sigma + mu
+            # NOTE:
+            #   Get punished if the range of `a` exceeds `max_a_range`.
+            #   Multiplied by `elbo` for automatically setting the order of
+            #   punishment.
 
-            # shape: `[n_samples * n_c, n_d]`
-            flat_theta_samples = tf.reshape(theta_samples, [-1, self.n_d])
-
-          with tf.name_scope('p_part'):
-
-            with tf.name_scope('expect_log_p'):
-
-              def log_p(thetas):
-                """Vectorize `log_posterior_upto_const`.
-
-                Args:
-                  thetas:
-                    Tensor of the shape `[None, n_d]`
-
-                Returns:
-                  Tensor of the shape `[None]`.
-                """
-                return tf.map_fn(self.log_posterior_upto_const, thetas)
-
-              # Expectation of :math:`\ln p`
-              # shape: `[n_c]`
-              expect_log_p = tf.reduce_mean(
-                  tf.reshape(
-                      # shape: `[n_samples * n_c]`
-                      log_p(flat_theta_samples),
-                      [self.n_samples, self.n_c]),
-                  axis=0)
-
-            # shape: `[]`
-            loss_p_part = - tf.reduce_sum(c * expect_log_p)
-
-          with tf.name_scope('q_part'):
-
-            with tf.name_scope('log_q'):
-
-              gaussian_mixture_log_prob = \
-                  get_gaussian_mixture_log_prob(c, mu, sigma)
-
-              def log_q(thetas):
-                """Vectorize `log_q`.
-
-                Args:
-                  thetas:
-                    Tensor of the shape `[None, n_d]`.
-
-                Returns:
-                  Tensor of the shape `[None]`.
-                """
-                return tf.map_fn(gaussian_mixture_log_prob, thetas)
-
-            with tf.name_scope('expect_log_q'):
-
-              # Expectation of :math:`\ln q`
-              # shape: `[n_c]`
-              expect_log_q = tf.reduce_mean(
-                  tf.reshape(
-                      log_q(flat_theta_samples),  # shape: `[n_samples * n_c]`.
-                      [self.n_samples, self.n_c]),
-                  axis=0)
-
-            # shape: `[]`
-            loss_q_part = tf.reduce_sum(c * expect_log_q)
-
-          with tf.name_scope('loss'):
-
-            with tf.name_scope('elbo'):
-
-              elbo = loss_p_part + loss_q_part
-
-            with tf.name_scope('regularization'):
-
-              # NOTE:
-              #   Get punished if the range of `a` exceeds `max_a_range`.
-              #   Multiplied by `elbo` for automatically setting the order of
-              #   punishment.
-
+            with tf.name_scope('a_range'):
               # shape: `[]`, and non-negative.
               a_range = tf.reduce_max(a) - tf.reduce_min(a)
-              # Use "wall_function" for regularization.
-              wall = get_wall(self.max_a_range, self.wall_slope)
-              # shape: `[]`
-              regularization = elbo * wall(a_range)
 
+            # Use "wall_function" for regularization.
+            wall = get_wall(self.max_a_range, self.wall_slope)
             # shape: `[]`
-            loss = elbo + regularization
+            regularization = elbo * wall(a_range)
 
-        with tf.name_scope('gradients'):
+          # shape: `[]`
+          loss = elbo + regularization
 
-          # C.f. "/docs/nn4post.tm", section "Frozen-out Problem".
+      with tf.name_scope('gradients'):
 
-          with tf.name_scope('bared_gradients'):
+        # C.f. "/docs/nn4post.tm", section "Frozen-out Problem".
 
-            gradient_dict = {
-                variable:
-                  tf.gradients(loss, variable)[0]
-                for variable in {a, mu, zeta}
-            }
+        with tf.name_scope('bared_gradients'):
 
-          with tf.name_scope('keep_non_frozen_out'):
+          gradient_dict = {
+              variable:
+                tf.gradients(loss, variable)[0]
+              for variable in {a, mu, zeta}
+          }
 
-            # Notice `tf.truediv` is not broadcastable
-            # shape: `[n_c]`
-            denominator = tf.pow(c + self.epsilon, self.beta)
-            gradient_dict = {
-                variable:
-                  # shape: `[n_c]`
-                  grad / denominator if variable is a
-                  # shape: `[n_c, n_d]`
-                  else grad / tf.expand_dims(denominator, axis=1)
-                for variable, grad in gradient_dict.items()
-            }
+        with tf.name_scope('keep_non_frozen_out'):
 
-          # Re-arrange as a list of tuples
-          gradients = [(g, v) for v, g in gradient_dict.items()]
+          # Notice `tf.truediv` is not broadcastable
+          # shape: `[n_c]`
+          denominator = tf.pow(c + self.epsilon, self.beta)
+          gradient_dict = {
+              variable:
+                # shape: `[n_c]`
+                grad / denominator if variable is a
+                # shape: `[n_c, n_d]`
+                else grad / tf.expand_dims(denominator, axis=1)
+              for variable, grad in gradient_dict.items()
+          }
+
+        # Re-arrange as a list of tuples
+        gradients = [(g, v) for v, g in gradient_dict.items()]
 
     return loss, gradients

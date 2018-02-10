@@ -25,7 +25,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # turn off the TF noise.
 
 
 # PARAMETERS
-N_C = 2
+N_C = 1
 NOISE_STD = 0.0
 BATCH_SIZE = 64
 
@@ -108,17 +108,19 @@ print('\n-- Dimension of parameter-space: {}.\n'.format(param_space_dim))
 
 builder = InferenceBuilder(N_C, param_space_dim, log_posterior)
 
-with tf.name_scope('nn4post'):
-    with tf.name_scope('variables'):
-        a = tf.Variable(
-                np.zeros([N_C]),
-                dtype='float32')
-        mu = tf.Variable(
-                 np.random.normal(size=[N_C, param_space_dim]),
-                 dtype='float32')
-        zeta = tf.Variable(
-                   np.zeros([N_C, param_space_dim]),
-                   dtype='float32')
+with tf.name_scope('variables'):
+    a = tf.Variable(
+        np.zeros([N_C]),
+        dtype='float32',
+        name='a')
+    mu = tf.Variable(
+        np.random.normal(size=[N_C, param_space_dim]),
+        dtype='float32',
+        name='mu')
+    zeta = tf.Variable(
+        np.zeros([N_C, param_space_dim]),
+        dtype='float32',
+        name='zeta')
 
 var = {'a': a, 'mu': mu, 'zeta': zeta}
 loss, gradients = builder.make_loss_and_gradients(**var)

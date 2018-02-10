@@ -9,7 +9,6 @@ from tensorflow.contrib.distributions import (
 try:
     from tensorflow.contrib.distributions import Independent
 except:
-    print('WARNING - Your TF < 1.4.0.')
     from nn4post.utils.independent import Independent
 from nn4post.utils.euclideanization import get_parse_param
 
