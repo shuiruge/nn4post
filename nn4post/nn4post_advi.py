@@ -111,6 +111,9 @@ class InferenceBuilder(object):
                dtype='float32'):
     r"""Initialize the builder.
 
+    This initialization draws NONE on the TensorFlow graph. So, you can safely
+    call `InferenceBuilder(...)` in the outside of `your_graph.as_default()`.
+
     Args:
       n_c:
         `int`, as the number of categorical probabilities, i.e. the :math:`N_c`
