@@ -39,28 +39,82 @@ SKIP_STEP = 50
 
 
 
-# -- Gaussian Mixture Distribution
-with tf.name_scope('posterior'):
+def make_log_posterior(target_c, target_mu, target_zeta):
+  
+  target_c = tf.convert_to_tensor(target_c)
+  target_mu = tf.convert_to_tensor(target_mu)
+  target_zeta = tf.convert_to_tensor(target_zeta)
 
-  target_c = tf.constant([0.05, 0.25, 0.70])
-  target_mu = tf.stack([
-        tf.ones([N_D]) * (i - 1) * 3
-        for i in range(TARGET_N_C)
-      ], axis=0)
-  target_zeta_val = np.zeros([TARGET_N_C, N_D])
-  #target_zeta_val[1] = np.ones([N_D]) * 5.0
-  target_zeta = tf.constant(target_zeta_val, dtype='float32')
+  # -- Gaussian Mixture Distribution
+  with tf.name_scope('posterior'):
 
-  cat = Categorical(probs=target_c)
-  components = [
-      Independent(
-          NormalWithSoftplusScale(target_mu[i], target_zeta[i])
-      ) for i in range(TARGET_N_C)
-    ]
-  p = Mixture(cat, components)
+    cat = Categorical(probs=target_c)
+    components = [
+        Independent(
+            NormalWithSoftplusScale(target_mu[i], target_zeta[i])
+        ) for i in range(TARGET_N_C)
+      ]
+    p = Mixture(cat, components)
 
-  def log_posterior(theta):
-    return p.log_prob(theta)
+    def log_posterior(theta):
+      return p.log_prob(theta)
+
+return log_posterior
+
+
+def shall_stop(loss_values, n_means=20, tolerance=1e-2):
+
+  if len(loss_values) < 2 * n_means:
+
+    return False
+
+  else:
+    previous_loss = np.mean(loss_values[-2*n_means:-n_means])
+    current_loss = np.mean(loss_values[-n_means:])
+    delta_loss = previous_loss - current_loss
+    relative_delta_loss = abs( delta_loss / (current_loss + 1e-8) )
+
+    if relative_delta_loss < tolerance:
+      return True
+    else False
+
+
+
+def test(target_c, target_mu, target_zeta, init_var):
+
+  tf.reset_default_graph()
+
+  n_c, n_d = target_mu.shape
+  log_p = make_log_posterior(target_c, target_mu, target_zeta)
+
+  ib = InferenceBuilder(n_c, n_d, log_p)
+  a = tf.Variable(np.zeros([n_c]), dtype='float32')
+  mu = tf.Variable(np.zeros([n_c, n_d]), dtype='float32')
+  zeta = tf.Variable(np.zeros([n_c, n_d]), dtype='float32')
+  loss, gradients = ib.make_loss_and_gradients(a, mu, zeta)
+
+  optimizer = tf.tran.AdamOptimizer(0.01)
+  train_op = optimizer.apply_gradients(gradients)
+
+  with tf.Session() as sess:
+
+    test_result = {'loss': [], 'a': [], 'mu': [], 'zeta': []}
+
+    while not shall_stop(test_result['loss']):
+
+      _, loss_val, a_val, mu_val, zeta_val \
+          = sess.run([train_op, loss, a, mu, zeta])
+
+      test_result['loss'].append(loss_val)
+      test_result['a'].append(a_val)
+      test_result['mu'].append(mu_val)
+      test_result['zeta'].append(zeta_val)
+
+  return test_result
+
+
+
+
 
 # test!
 # test 1
