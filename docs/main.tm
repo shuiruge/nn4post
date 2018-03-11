@@ -636,6 +636,48 @@
   <math|N<rsub|D>/N<rsub|m>> of likelihood has to be taken into account. We
   have to know how many data we actually have, thus how confident we are.
 
+  <section|Prediction>
+
+  For the arbitrary model <math|y=f<around*|(|x;\<theta\>|)>>, for
+  <math|\<forall\>x>, Bayesian inference gives prediction,
+  <math|<around*|\<langle\>|f|\<rangle\>><around*|(|x|)>>, as
+
+  <\equation*>
+    <around*|\<langle\>|f|\<rangle\>><around*|(|x|)>\<assign\>\<bbb-E\><rsub|\<theta\>\<sim\>p<around*|(|\<theta\>\|D|)>><around*|[|f<around*|(|x;\<theta\>|)>|]>,
+  </equation*>
+
+  or by Monte-Carlo integral,
+
+  <\equation*>
+    <around*|\<langle\>|f|\<rangle\>><around*|(|x|)>=<big|sum><rsub|\<theta\><rsub|i>\<sim\>p<around*|(|\<theta\>\|D|)>>p<around*|(|\<theta\><rsub|i>\|D|)>
+    f<around*|(|x;\<theta\>|)>,
+  </equation*>
+
+  where <math|<around*|{|\<theta\><rsub|i>:i=1,\<ldots\>,N<rsub|s>|}>>
+  sampled from <math|p<around*|(|\<theta\>\|D|)>>. With a trained
+  distribution <math|q<around*|(|\<theta\>;z<rsub|\<ast\>>|)>> (star notation
+  for representing the trained), we can instead sample
+  <math|<around*|{|\<theta\><rsub|i>:i=1,\<ldots\>,N<rsub|s>|}>> from
+  <math|q<around*|(|\<theta\>;z<rsub|\<ast\>>|)>>, and then compute
+  <math|p<around*|(|\<theta\><rsub|i>\|D|)>> and
+  <math|q<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>|)>> for all the sampled
+  <math|\<theta\><rsub|i>>; and finally for any <math|x> we can compute
+  <math|<around*|\<langle\>|f|\<rangle\>><around*|(|x|)>> by
+
+  <\equation*>
+    <around*|\<langle\>|f|\<rangle\>><around*|(|x|)>=<big|sum><rsub|\<theta\><rsub|i>\<sim\>q<around*|(|\<theta\>;z<rsub|\<ast\>>|)>><frac|p<around*|(|\<theta\><rsub|i>\|D|)>|q<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>|)>>
+    f<around*|(|x;\<theta\><rsub|i>|)>.
+  </equation*>
+
+  Notice that we did not compute the mean value
+  <math|f<around*|(|x;\<theta\><rsub|i>|)>> directly, as
+  <math|\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>;a<rsub|\<ast\>>,\<mu\><rsub|\<ast\>>,\<zeta\><rsub|\<ast\>>|)>><around*|[|f<around*|(|x;\<theta\>|)>|]>>,
+  which is not accurate enough since <math|q<around*|(|\<theta\>;a<rsub|\<ast\>>,\<mu\><rsub|\<ast\>>,\<zeta\><rsub|\<ast\>>|)>>
+  is just an approximation to <math|p<around*|(|\<theta\><mid|\|>D|)>>.
+  Instead, our implementation does help gain the accurate enough result of
+  the Monte-Carlo integral, at the same time avoids the non-convergence of
+  MCMC by ``sampling by importance''.
+
   <section|Deep Learning>
 
   It cannot solve the vanishing gradient problem of deep neural network,
@@ -761,12 +803,12 @@
     <associate|auto-25|<tuple|5|6>>
     <associate|auto-26|<tuple|6|6>>
     <associate|auto-27|<tuple|7|6>>
-    <associate|auto-28|<tuple|7.1|?>>
-    <associate|auto-29|<tuple|7.1.1|?>>
+    <associate|auto-28|<tuple|8|?>>
+    <associate|auto-29|<tuple|8.1|?>>
     <associate|auto-3|<tuple|2.1|1>>
-    <associate|auto-30|<tuple|7.1.2|?>>
-    <associate|auto-31|<tuple|8|?>>
-    <associate|auto-32|<tuple|11|?>>
+    <associate|auto-30|<tuple|8.1.1|?>>
+    <associate|auto-31|<tuple|8.1.2|?>>
+    <associate|auto-32|<tuple|9|?>>
     <associate|auto-33|<tuple|9|?>>
     <associate|auto-34|<tuple|8.1.2|?>>
     <associate|auto-35|<tuple|9|?>>
@@ -897,37 +939,41 @@
       Bayesian and Traditional Methods <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-23>>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|4<space|2spc>Deep
-      Learning> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|4<space|2spc>Prediction>
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-24><vspace|0.5fn>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|5<space|2spc>Transfer
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|5<space|2spc>Deep
       Learning> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-25><vspace|0.5fn>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|6<space|2spc>Why
-      not MCMC?> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|6<space|2spc>Transfer
+      Learning> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-26><vspace|0.5fn>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|7<space|2spc>Problems>
-      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|7<space|2spc>Why
+      not MCMC?> <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-27><vspace|0.5fn>
 
-      <with|par-left|<quote|1tab>|7.1<space|2spc>The Curse of Dimensinality
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|8<space|2spc>Problems>
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-28>>
+      <no-break><pageref|auto-28><vspace|0.5fn>
 
-      <with|par-left|<quote|2tab>|7.1.1<space|2spc>Range of Sampling
+      <with|par-left|<quote|1tab>|8.1<space|2spc>The Curse of Dimensinality
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-29>>
 
-      <with|par-left|<quote|2tab>|7.1.2<space|2spc>Relative Error of
-      Inference <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <with|par-left|<quote|2tab>|8.1.1<space|2spc>Range of Sampling
+      <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
       <no-break><pageref|auto-30>>
 
-      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|8<space|2spc>Drafts>
+      <with|par-left|<quote|2tab>|8.1.2<space|2spc>Relative Error of
+      Inference <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
+      <no-break><pageref|auto-31>>
+
+      <vspace*|1fn><with|font-series|<quote|bold>|math-font-series|<quote|bold>|9<space|2spc>Drafts>
       <datoms|<macro|x|<repeat|<arg|x>|<with|font-series|medium|<with|font-size|1|<space|0.2fn>.<space|0.2fn>>>>>|<htab|5mm>>
-      <no-break><pageref|auto-31><vspace|0.5fn>
+      <no-break><pageref|auto-32><vspace|0.5fn>
     </associate>
   </collection>
 </auxiliary>
