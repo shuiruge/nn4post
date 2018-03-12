@@ -520,6 +520,59 @@ in Bayesian mode, the factor $N_{D} /N_{m}$ of likelihood has to be taken into
 account. We have to know how many data we actually have, thus how confident we
 are.
 
+\section{Prediction}
+
+\begin{theorem}
+  Let $p ( \theta |D )$ the posterior, and $\tilde{p} ( \theta |D ) =C p (
+  \theta |D )$ for arbitrary contant $C$, but unknown. For the arbitrary
+  ``observable'' $y=g ( x; \theta )$, for $\forall x$, Bayesian inference
+  gives prediction $\langle g \rangle ( x )$ defined as
+  \[ \langle g \rangle ( x ) \assign \int \mathd \theta  p ( \theta |D )  g (
+     x; \theta ) \]
+  can be computed by the trained distribution $q ( \theta ;z_{\ast} )$ ($z
+  \assign ( a, \mu , \zeta )$ for shot, and star notation for representing the
+  trained) by Monte-Carlo integral
+  \[ \langle g \rangle ( x ) = \frac{1}{C} \times \sum_{i=1}^{N_{s}} \left[
+     \frac{\tilde{p} ( \theta_{i} |D )}{q ( \theta_{i} ;z_{\ast} )}  g ( x;
+     \theta_{i} ) \right] , \]
+  where $\{ \theta_{i} :i=1, \ldots ,N_{s} \}$ sampled from $q ( \theta
+  ;z_{\ast} )$ and $C= \sum_{i=1}^{N_{s}} \tilde{p} ( \theta_{i} |D ) /q (
+  \theta_{i} ;z_{\ast} )$.
+\end{theorem}
+
+\begin{proof}
+  Since
+  \[ \int \mathd \theta   \tilde{p} ( \theta |D ) =C \times \int \mathd \theta
+     p ( \theta |D ) =C \times 1 \]
+  and
+  \[ \int \mathd \theta   \tilde{p} ( \theta |D ) = \int \mathd \theta  q (
+     \theta ;z_{\ast} ) \frac{\tilde{p} ( \theta |D )}{q ( \theta ;z_{\ast} )}
+     \approx \sum_{i=1}^{N_{s}} \frac{\tilde{p} ( \theta_{i} |D )}{q (
+     \theta_{i} ;z_{\ast} )} \]
+  where $\{ \theta_{i} :i=1, \ldots ,N_{s} \}$ sampled from $q ( \theta
+  ;z_{\ast} )$, we get
+  \[ C= \sum_{i=1}^{N_{s}} \frac{\tilde{p} ( \theta_{i} |D )}{q ( \theta_{i}
+     ;z_{\ast} )} . \]
+  Then,
+  \begin{eqnarray*}
+    \int \mathd \theta  p ( \theta |D )  g ( x; \theta ) & = & \frac{1}{C}  
+    \int \mathd \theta   \tilde{p} ( \theta |D )  g ( x; \theta )\\
+    & = & \frac{1}{C}   \int \mathd \theta  q ( \theta ;z_{\ast} )
+    \frac{\tilde{p} ( \theta |D )}{q ( \theta ;z_{\ast} )}  g ( x; \theta )\\
+    & \approx & \frac{1}{C} \times \sum_{i=1}^{N_{s}} \left[ \frac{\tilde{p}
+    ( \theta_{i} |D )}{q ( \theta_{i} ;z_{\ast} )}  g ( x; \theta_{i} )
+    \right] ,
+  \end{eqnarray*}
+  which is what we want.
+\end{proof}
+
+Notice that we did not compute the mean value $g ( x; \theta )$ directly, as
+$\mathbbm{E}_{\theta \sim q ( \theta ;a_{\ast} , \mu_{\ast} , \zeta_{\ast} )}
+[ g ( x; \theta ) ]$, which is not accurate enough since $q ( \theta ;z_{\ast}
+)$ is just an approximation to $p ( \theta | D )$. Instead, our implementation
+does help gain the accurate enough result of the Monte-Carlo integral, at the
+same time avoids the non-convergence of MCMC by ``sampling by importance''.
+
 \section{Deep Learning}
 
 It cannot solve the vanishing gradient problem of deep neural network, since

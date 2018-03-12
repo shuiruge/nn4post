@@ -638,41 +638,75 @@
 
   <section|Prediction>
 
-  For the arbitrary model <math|y=f<around*|(|x;\<theta\>|)>>, for
-  <math|\<forall\>x>, Bayesian inference gives prediction,
-  <math|<around*|\<langle\>|f|\<rangle\>><around*|(|x|)>>, as
+  <\theorem>
+    Let <math|p<around*|(|\<theta\>\|D|)>> the posterior, and
+    <math|<wide|p|~><around*|(|\<theta\>\|D|)>=C p<around*|(|\<theta\>\|D|)>>
+    for arbitrary contant <math|C>, but unknown. For the arbitrary
+    ``observable'' <math|y=g<around*|(|x;\<theta\>|)>>, for
+    <math|\<forall\>x>, Bayesian inference gives prediction
+    <math|<around*|\<langle\>|g|\<rangle\>><around*|(|x|)>> defined as
 
-  <\equation*>
-    <around*|\<langle\>|f|\<rangle\>><around*|(|x|)>\<assign\>\<bbb-E\><rsub|\<theta\>\<sim\>p<around*|(|\<theta\>\|D|)>><around*|[|f<around*|(|x;\<theta\>|)>|]>,
-  </equation*>
+    <\equation*>
+      <around*|\<langle\>|g|\<rangle\>><around*|(|x|)>\<assign\><big|int>\<mathd\>\<theta\>
+      p<around*|(|\<theta\>\|D|)> g<around*|(|x;\<theta\>|)>
+    </equation*>
 
-  or by Monte-Carlo integral,
+    can be computed by the trained distribution
+    <math|q<around*|(|\<theta\>;z<rsub|\<ast\>>|)>>
+    (<math|z\<assign\><around*|(|a,\<mu\>,\<zeta\>|)>> for shot, and star
+    notation for representing the trained) by Monte-Carlo integral
 
-  <\equation*>
-    <around*|\<langle\>|f|\<rangle\>><around*|(|x|)>=<big|sum><rsub|\<theta\><rsub|i>\<sim\>p<around*|(|\<theta\>\|D|)>>p<around*|(|\<theta\><rsub|i>\|D|)>
-    f<around*|(|x;\<theta\>|)>,
-  </equation*>
+    <\equation*>
+      <around*|\<langle\>|g|\<rangle\>><around*|(|x|)>=<frac|1|C>\<times\><big|sum><rsub|i=1><rsup|N<rsub|s>><around*|[|<frac|<wide|p|~><around*|(|\<theta\><rsub|i>\|D|)>|q<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>|)>>
+      g<around*|(|x;\<theta\><rsub|i>|)>|]>,
+    </equation*>
 
-  where <math|<around*|{|\<theta\><rsub|i>:i=1,\<ldots\>,N<rsub|s>|}>>
-  sampled from <math|p<around*|(|\<theta\>\|D|)>>. With a trained
-  distribution <math|q<around*|(|\<theta\>;z<rsub|\<ast\>>|)>> (star notation
-  for representing the trained), we can instead sample
-  <math|<around*|{|\<theta\><rsub|i>:i=1,\<ldots\>,N<rsub|s>|}>> from
-  <math|q<around*|(|\<theta\>;z<rsub|\<ast\>>|)>>, and then compute
-  <math|p<around*|(|\<theta\><rsub|i>\|D|)>> and
-  <math|q<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>|)>> for all the sampled
-  <math|\<theta\><rsub|i>>; and finally for any <math|x> we can compute
-  <math|<around*|\<langle\>|f|\<rangle\>><around*|(|x|)>> by
+    where <math|<around*|{|\<theta\><rsub|i>:i=1,\<ldots\>,N<rsub|s>|}>>
+    sampled from <math|q<around*|(|\<theta\>;z<rsub|\<ast\>>|)>> and
+    <math|C=<big|sum><rsub|i=1><rsup|N<rsub|s>><wide|p|~><around*|(|\<theta\><rsub|i>\|D|)>/q<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>|)>>.
+  </theorem>
 
-  <\equation*>
-    <around*|\<langle\>|f|\<rangle\>><around*|(|x|)>=<big|sum><rsub|\<theta\><rsub|i>\<sim\>q<around*|(|\<theta\>;z<rsub|\<ast\>>|)>><frac|p<around*|(|\<theta\><rsub|i>\|D|)>|q<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>|)>>
-    f<around*|(|x;\<theta\><rsub|i>|)>.
-  </equation*>
+  <\proof>
+    Since
+
+    <\equation*>
+      <big|int>\<mathd\>\<theta\> <wide|p|~><around*|(|\<theta\>\|D|)>=C\<times\><big|int>\<mathd\>\<theta\>
+      p<around*|(|\<theta\>\|D|)>=C\<times\>1
+    </equation*>
+
+    and
+
+    <\equation*>
+      <big|int>\<mathd\>\<theta\> <wide|p|~><around*|(|\<theta\>\|D|)>=<big|int>\<mathd\>\<theta\>
+      q<around*|(|\<theta\>;z<rsub|\<ast\>>|)><frac|<wide|p|~><around*|(|\<theta\>\|D|)>|q<around*|(|\<theta\>;z<rsub|\<ast\>>|)>>\<approx\><big|sum><rsub|i=1><rsup|N<rsub|s>><frac|<wide|p|~><around*|(|\<theta\><rsub|i>\|D|)>|q<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>|)>>
+    </equation*>
+
+    where <math|<around*|{|\<theta\><rsub|i>:i=1,\<ldots\>,N<rsub|s>|}>>
+    sampled from <math|q<around*|(|\<theta\>;z<rsub|\<ast\>>|)>>, we get
+
+    <\equation*>
+      C=<big|sum><rsub|i=1><rsup|N<rsub|s>><frac|<wide|p|~><around*|(|\<theta\><rsub|i>\|D|)>|q<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>|)>>.
+    </equation*>
+
+    Then,
+
+    <\eqnarray*>
+      <tformat|<table|<row|<cell|<big|int>\<mathd\>\<theta\>
+      p<around*|(|\<theta\>\|D|)> g<around*|(|x;\<theta\>|)>>|<cell|=>|<cell|<frac|1|C>
+      <big|int>\<mathd\>\<theta\> <wide|p|~><around*|(|\<theta\>\|D|)>
+      g<around*|(|x;\<theta\>|)>>>|<row|<cell|>|<cell|=>|<cell|<frac|1|C>
+      <big|int>\<mathd\>\<theta\> q<around*|(|\<theta\>;z<rsub|\<ast\>>|)><frac|<wide|p|~><around*|(|\<theta\>\|D|)>|q<around*|(|\<theta\>;z<rsub|\<ast\>>|)>>
+      g<around*|(|x;\<theta\>|)>>>|<row|<cell|>|<cell|\<approx\>>|<cell|<frac|1|C>\<times\><big|sum><rsub|i=1><rsup|N<rsub|s>><around*|[|<frac|<wide|p|~><around*|(|\<theta\><rsub|i>\|D|)>|q<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>|)>>
+      g<around*|(|x;\<theta\><rsub|i>|)>|]>,>>>>
+    </eqnarray*>
+
+    which is what we want.
+  </proof>
 
   Notice that we did not compute the mean value
-  <math|f<around*|(|x;\<theta\><rsub|i>|)>> directly, as
-  <math|\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>;a<rsub|\<ast\>>,\<mu\><rsub|\<ast\>>,\<zeta\><rsub|\<ast\>>|)>><around*|[|f<around*|(|x;\<theta\>|)>|]>>,
-  which is not accurate enough since <math|q<around*|(|\<theta\>;a<rsub|\<ast\>>,\<mu\><rsub|\<ast\>>,\<zeta\><rsub|\<ast\>>|)>>
+  <math|g<around*|(|x;\<theta\>|)>> directly, as
+  <math|\<bbb-E\><rsub|\<theta\>\<sim\>q<around*|(|\<theta\>;a<rsub|\<ast\>>,\<mu\><rsub|\<ast\>>,\<zeta\><rsub|\<ast\>>|)>><around*|[|g<around*|(|x;\<theta\>|)>|]>>,
+  which is not accurate enough since <math|q<around*|(|\<theta\>;z<rsub|\<ast\>>|)>>
   is just an approximation to <math|p<around*|(|\<theta\><mid|\|>D|)>>.
   Instead, our implementation does help gain the accurate enough result of
   the Monte-Carlo integral, at the same time avoids the non-convergence of
