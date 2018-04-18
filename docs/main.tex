@@ -530,14 +530,18 @@ are.
   \[ \langle g \rangle ( x ) \assign \int \mathd \theta  p ( \theta |D )  g (
      x; \theta ) \]
   can be computed by the trained distribution $q ( \theta ;z_{\ast} )$ ($z
-  \assign ( a, \mu , \zeta )$ for shot, and star notation for representing the
-  trained) by Monte-Carlo integral
-  \[ \langle g \rangle ( x ) = \frac{1}{C} \times \sum_{i=1}^{N_{s}} \left[
-     \frac{\tilde{p} ( \theta_{i} |D )}{q ( \theta_{i} ;z_{\ast} )}  g ( x;
-     \theta_{i} ) \right] , \]
+  \assign ( a, \mu , \zeta )$ for short, and star notation for representing
+  the trained) by Monte-Carlo integral
+  \[ \langle g \rangle ( x ) \approx \sum_{i=1}^{N_{s}} \left[ \frac{w (
+     \theta_{i} ;z_{\ast} ,D )}{\sum_{j=1}^{N_{s}} w ( \theta_{j} ;z_{\ast} ,D
+     )} \times g ( x; \theta_{i} ) \right] , \]
+  with
+  \[ w ( \theta_{i} ;z_{\ast} ,D ) \assign \frac{\tilde{p} ( \theta_{i} |D
+     )}{q ( \theta_{i} ;z_{\ast} )} , \]
   where $\{ \theta_{i} :i=1, \ldots ,N_{s} \}$ sampled from $q ( \theta
-  ;z_{\ast} )$ and $C= \sum_{i=1}^{N_{s}} \tilde{p} ( \theta_{i} |D ) /q (
-  \theta_{i} ;z_{\ast} )$.
+  ;z_{\ast} )$. The error of the approximation can be estimated as
+  $\mathcal{O} \left( 1/ \sqrt{N_{s}} \right)$ and is independent of the
+  dimension of the space of $\theta$.
 \end{theorem}
 
 \begin{proof}
@@ -561,9 +565,20 @@ are.
     \frac{\tilde{p} ( \theta |D )}{q ( \theta ;z_{\ast} )}  g ( x; \theta )\\
     & \approx & \frac{1}{C} \times \sum_{i=1}^{N_{s}} \left[ \frac{\tilde{p}
     ( \theta_{i} |D )}{q ( \theta_{i} ;z_{\ast} )}  g ( x; \theta_{i} )
-    \right] ,
+    \right] .
   \end{eqnarray*}
-  which is what we want.
+  Denoting
+  \[ w ( \theta_{i} ;z_{\ast} ,D ) \assign \frac{\tilde{p} ( \theta_{i} |D
+     )}{q ( \theta_{i} ;z_{\ast} )} , \]
+  and with some direct re-arrangements, we get
+  \[ \int \mathd \theta  p ( \theta |D )  g ( x; \theta ) \approx
+     \sum_{i=1}^{N_{s}} \left[ \frac{w ( \theta_{i} ;z_{\ast} ,D
+     )}{\sum_{j=1}^{N_{s}} w ( \theta_{j} ;z_{\ast} ,D )} \times g ( x;
+     \theta_{i} ) \right] \]
+  which is what we want. In this proof, all the approximations come from
+  Monte-Carlo integrals, whose error can thus be estimated as $\mathcal{O}
+  \left( 1/ \sqrt{N_{s}} \right)$ which is independent of the dimension of the
+  space of $\theta$.
 \end{proof}
 
 Notice that we did not compute the mean value $g ( x; \theta )$ directly, as
@@ -600,7 +615,7 @@ marginalization of our model is straight forward.
 Instead, the MCMC approximation to posterior cannot be marginalized easily,
 and even intractable. So, MCMC approximation cannot provide transfer learning
 as we eager. This is the most important reason that we do not prefer MCMC.
-Furthermore, MCMC is not greedy enough so that it converges quite slow,
+Furthermore, MCMC is not greedy enough so that it converges quite slowly,
 especially in high-dimensional parameter-space.
 
 \section{Problems}

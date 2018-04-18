@@ -653,17 +653,24 @@
 
     can be computed by the trained distribution
     <math|q<around*|(|\<theta\>;z<rsub|\<ast\>>|)>>
-    (<math|z\<assign\><around*|(|a,\<mu\>,\<zeta\>|)>> for shot, and star
+    (<math|z\<assign\><around*|(|a,\<mu\>,\<zeta\>|)>> for short, and star
     notation for representing the trained) by Monte-Carlo integral
 
     <\equation*>
-      <around*|\<langle\>|g|\<rangle\>><around*|(|x|)>=<frac|1|C>\<times\><big|sum><rsub|i=1><rsup|N<rsub|s>><around*|[|<frac|<wide|p|~><around*|(|\<theta\><rsub|i>\|D|)>|q<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>|)>>
-      g<around*|(|x;\<theta\><rsub|i>|)>|]>,
+      <around*|\<langle\>|g|\<rangle\>><around*|(|x|)>\<approx\><big|sum><rsub|i=1><rsup|N<rsub|s>><around*|[|<frac|w<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>,D|)>|<big|sum><rsub|j=1><rsup|N<rsub|s>>w<around*|(|\<theta\><rsub|j>;z<rsub|\<ast\>>,D|)>>\<times\>g<around*|(|x;\<theta\><rsub|i>|)>|]>,
+    </equation*>
+
+    with
+
+    <\equation*>
+      w<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>,D|)>\<assign\><frac|<wide|p|~><around*|(|\<theta\><rsub|i>\|D|)>|q<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>|)>>,
     </equation*>
 
     where <math|<around*|{|\<theta\><rsub|i>:i=1,\<ldots\>,N<rsub|s>|}>>
-    sampled from <math|q<around*|(|\<theta\>;z<rsub|\<ast\>>|)>> and
-    <math|C=<big|sum><rsub|i=1><rsup|N<rsub|s>><wide|p|~><around*|(|\<theta\><rsub|i>\|D|)>/q<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>|)>>.
+    sampled from <math|q<around*|(|\<theta\>;z<rsub|\<ast\>>|)>>. The error
+    of the approximation can be estimated as
+    <math|<with|math-font|cal|O><around*|(|1/<sqrt|N<rsub|s>>|)>> and is
+    independent of the dimension of the space of <math|\<theta\>>.
   </theorem>
 
   <\proof>
@@ -697,10 +704,26 @@
       g<around*|(|x;\<theta\>|)>>>|<row|<cell|>|<cell|=>|<cell|<frac|1|C>
       <big|int>\<mathd\>\<theta\> q<around*|(|\<theta\>;z<rsub|\<ast\>>|)><frac|<wide|p|~><around*|(|\<theta\>\|D|)>|q<around*|(|\<theta\>;z<rsub|\<ast\>>|)>>
       g<around*|(|x;\<theta\>|)>>>|<row|<cell|>|<cell|\<approx\>>|<cell|<frac|1|C>\<times\><big|sum><rsub|i=1><rsup|N<rsub|s>><around*|[|<frac|<wide|p|~><around*|(|\<theta\><rsub|i>\|D|)>|q<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>|)>>
-      g<around*|(|x;\<theta\><rsub|i>|)>|]>,>>>>
+      g<around*|(|x;\<theta\><rsub|i>|)>|]>.>>>>
     </eqnarray*>
 
-    which is what we want.
+    Denoting
+
+    <\equation*>
+      w<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>,D|)>\<assign\><frac|<wide|p|~><around*|(|\<theta\><rsub|i>\|D|)>|q<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>|)>>,
+    </equation*>
+
+    and with some direct re-arrangements, we get
+
+    <\equation*>
+      <big|int>\<mathd\>\<theta\> p<around*|(|\<theta\>\|D|)>
+      g<around*|(|x;\<theta\>|)>\<approx\><big|sum><rsub|i=1><rsup|N<rsub|s>><around*|[|<frac|w<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>,D|)>|<big|sum><rsub|j=1><rsup|N<rsub|s>>w<around*|(|\<theta\><rsub|j>;z<rsub|\<ast\>>,D|)>>\<times\>g<around*|(|x;\<theta\><rsub|i>|)>|]>
+    </equation*>
+
+    which is what we want. In this proof, all the approximations come from
+    Monte-Carlo integrals, whose error can thus be estimated as
+    <math|<with|math-font|cal|O><around*|(|1/<sqrt|N<rsub|s>>|)>> which is
+    independent of the dimension of the space of <math|\<theta\>>.
   </proof>
 
   Notice that we did not compute the mean value
@@ -742,7 +765,7 @@
   and even intractable. So, MCMC approximation cannot provide transfer
   learning as we eager. This is the most important reason that we do not
   prefer MCMC. Furthermore, MCMC is not greedy enough so that it converges
-  quite slow, especially in high-dimensional parameter-space.
+  quite slowly, especially in high-dimensional parameter-space.
 
   <section|Problems>
 
