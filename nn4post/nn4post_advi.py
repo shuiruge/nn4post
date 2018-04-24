@@ -12,7 +12,6 @@ TF version
 Tested on TF 1.4.0.
 """
 
-
 import numpy as np
 import tensorflow as tf
 from tensorflow.contrib.distributions import Categorical, Normal, Mixture
@@ -23,41 +22,34 @@ except:
 from tensorflow.contrib.framework import is_tensor
 
 
-
-def get_gaussian_mixture_log_prob(cat_probs, gauss_mu, gauss_sigma):
+def get_gaussian_mixture_log_prob(cat_prob, mu, sigma, name=None):
   r"""Get the logrithmic p.d.f. of a Gaussian mixture model.
 
   Args:
-    cat_probs:
-      `1-D` tensor with unit (reduce) sum, as the categorical probabilities.
+    cat_prob: Tensor with unit (reduce) sum, as the categorical probabilities,
+      with the shape `[n_c]`.
 
-    gauss_mu:
-      List of tensors, with the length the shape of `cat_probs`, as the `mu`
-      values of the Gaussian components. All these tensors shall share the
-      same shape (as, e.g., `gauss_mu[0]`)
+    mus: Tensor of the shape `[n_c, n_d]`. XXX
 
-    gauss_sigma:
-      List of tensors, with the length the shape of `cat_probs`, as the `sigma`
-      values of the Gaussian components. Thus shall be all positive, and shall
-      be all the same shape as `gauss_mu[0]`.
+    sigma: Tensor of the shape `[n_c, n_d]`. XXX
 
   Returns:
-    Callable, mapping from tensor of the shape of `gauss_mu[0]` to scalar, as
+    Callable, mapping from tensor of the shape of `mus[0]` to scalar, as
     the p.d.f..
   """
-  with tf.name_scope('gaussian_mixture_log_prob'):
-
-    n_cats = cat_probs.shape[0]
-    cat = Categorical(probs=cat_probs)
+  with tf.name_scope(name, 'gaussian_mixture_log_prob',
+                     [cat_prob, mu, sigma]):
+    n_cats = cat_prob.shape[0]
+    cat = Categorical(probs=cat_prob)
+    mu_comps = tf.unstack(mu, axis=0)  # compoments.
+    zeta_comps = tf.unstanc(zeta, axis=0)
     components = [
-        Independent( Normal(gauss_mu[i], gauss_sigma[i]) )
+        Independent( Normal(mu_comps[i], zeta_comps[i]) )
         for i in range(n_cats)
     ]
     gaussian_mixture = Mixture(cat=cat, components=components)
     gaussian_mixture_log_prob = gaussian_mixture.log_prob
-
-  return gaussian_mixture_log_prob
-
+    return gaussian_mixture_log_prob
 
 
 def get_wall(wall_position, wall_slope):
@@ -69,24 +61,20 @@ def get_wall(wall_position, wall_slope):
   We use softplus to implement the wall.
 
   Args:
-    wall_position:
-      Tensor, as the position of the wall. Type `float` is also valid for
-      representing scalar.
+    wall_position: Tensor, as the position of the wall. Type `float` is also
+      valid for representing scalar.
 
-    wall_slope:
-      Tensor of the same shape and dtype as `wall_position`, as the slope of the
-      wall. Type `float` is also valid for representing scalar.
+    wall_slope: Tensor of the same shape and dtype as `wall_position`, as the
+      slope of the wall. Type `float` is also valid for representing scalar.
 
   Returns:
     Callable, with
     Args:
-      x:
-        `Tensor`.
+      x: `Tensor`.
     Returns:
       `Tensor` with the same shape and dtype as `x`, as the hight of the wall
       at position `x`.
   """
-
   def wall(x):
     with tf.name_scope('wall'):
       wall_val = tf.nn.softplus( wall_slope * (x - wall_position) )
@@ -95,66 +83,76 @@ def get_wall(wall_position, wall_slope):
   return wall
 
 
+def convert_to_tensor(x):
+  """Converts `x` to tensor, or simply returns `x` if it's an instance of
+  `tf.Variable`."""
+  if isinstance(x, tf.Variable):
+    return x
+  else:
+    return tf.convert_to_tensor(x)
 
-class InferenceBuilder(object):
-  r"""Builder for the inference by nn4post. C.f. the documentation in
-  "/docs/main.pdf".
-   
-  Methods:
-    make_loss_and_gradients:
-      `Python operation` that accepts the `Tensor`s `a`, `mu`, `zeta` as
-      arguments, and returns loss and its gradients to the arguments.
-  """
 
-  def __init__(self, n_c, n_d, log_posterior_upto_const, n_samples=100,
-               r=1.0, beta=1.0, max_a_range=10, wall_slope=10, epsilon=1e-08,
-               dtype='float32'):
+class QParameters(object):
+  """Auxillary class, representing the collection of the parameters of the
+  q-distribution."""
+
+  def __init__(self, a, mu, zeta):
+    """
+    Args:
+      a: Array-like or tensor-like.
+      mu: Array-like or tensor-like.
+      zeta: Array-like or tensor-like.
+    """
+    self.a = convert_to_tensor(a)
+    self.mu = convert_to_tensor(mu)
+    self.zeta = convert_to_tensor(zeta)
+
+
+class Inferencer(object):
+  r"""By nn4post. C.f. the documentation in "/docs/main.pdf"."""
+
+  def __init__(self, n_c, n_d, log_posterior_upto_const,
+               n_samples=100, r=1.0, beta=1.0, max_a_range=10,
+               wall_slope=10, epsilon=1e-08, dtype='float32'):
     r"""Initialize the builder.
 
     This initialization draws NONE on the TensorFlow graph. So, you can safely
     call `InferenceBuilder(...)` in the outside of `your_graph.as_default()`.
 
     Args:
-      n_c:
-        `int`, as the number of categorical probabilities, i.e. the :math:`N_c`
-        in the documentation.
+      n_c: `int`, as the number of categorical probabilities, i.e. the
+        :math:`N_c` in the documentation.
 
-      n_d:
-        `int`, as the number of dimension, i.e. the :math:`N_d` in the
+      n_d: `int`, as the number of dimension, i.e. the :math:`N_d` in the
         documentation.
 
-      log_posterior_upto_const:
-        Callable from tensor of the shape `[n_d]` to scalar, both with the same
-        dtype as the `dtype` argument, as the logorithm of the posterior up to
-        a constant.
+      log_posterior_upto_const: Callable from tensor of the shape `[n_d]` to
+        scalar, both with the same dtype as the `dtype` argument, as the
+        logorithm of the posterior up to a constant.
 
-      init_var:
-        `dict` for setting the initial values of variables. optional. It has
-        keys `'a'`, `'mu'`, and `'zeta'`, and values of numpy arraies or tensors
-        of the shapes `[n_c]`, `[n_c, n_d]`, and `[n_c, n_d]`, respectively. All
-        these values shall be the same dtype as the `dtype` argument.
+      init_var: `dict` for setting the initial values of variables. optional.
+        It has keys `'a'`, `'mu'`, and `'zeta'`, and values of numpy arraies
+        or tensors of the shapes `[n_c]`, `[n_c, n_d]`, and `[n_c, n_d]`,
+        respectively. All these values shall be the same dtype as the `dtype`
+        argument.
 
-      n_samples:
-        `int` or `tf.placeholder` with scalar shape and `int` dtype, as the
-        number of samples in the Monte Carlo integrals, optional.
+      n_samples: `int` or `tf.placeholder` with scalar shape and `int` dtype,
+        as the number of samples in the Monte Carlo integrals, optional.
 
-      r:
-        `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
-        rescaling factor of `a`, optional.
+      r: `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as
+        the rescaling factor of `a`, optional.
 
-      beta:
-        `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
-        "smooth switcher" :math:`\partial \mathcal{L} / \partial z_i` in the
-        documentation, optional.
+      beta: `float` or `tf.placeholder` with scalar shape and `dtype` dtype,
+        as the "smooth switcher" :math:`\partial \mathcal{L} / \partial z_i`
+        in the documentation, optional.
 
-      max_a_range:
-        `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
-        bound of `max(a) - min(a)`, optional.
+      max_a_range: `float` or `tf.placeholder` with scalar shape and `dtype`
+        dtype, as the bound of `max(a) - min(a)`, optional.
 
-      wall_slope:
-        `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
-        slope-parameter in the wall-function in the regularization of loss,
-        which bounds the maximum value of the range of `a`, optional.
+      wall_slope: `float` or `tf.placeholder` with scalar shape and `dtype`
+        dtype, as the slope-parameter in the wall-function in the regulariza-
+        tion of loss, which bounds the maximum value of the range of `a`,
+        optional.
 
         NOTE:
           The only restirction to this parameter is that `wall_slope` shall be
@@ -162,13 +160,11 @@ class InferenceBuilder(object):
           small enough (as generally demanded in the early stage of training),
           extremely great value of `wall_slope` will triger `NaN`.
 
-      epsilon:
-        `float` or `tf.placeholder` with scalar shape and `dtype` dtype, as the
-        :math:`epsilon` in the documentation, optional.
+      epsilon: `float` or `tf.placeholder` with scalar shape and `dtype`
+        dtype, as the :math:`epsilon` in the documentation, optional.
 
-      dtype:
-        `str`, as the dtype of floats employed herein, like `float32`, etc.,
-        optional.
+      dtype: `str`, as the dtype of floats employed herein, like `float32`,
+        etc., optional.
     """
 
     self.n_c = n_c
@@ -183,7 +179,6 @@ class InferenceBuilder(object):
     self.wall_slope = wall_slope
     self.epsilon = epsilon
     self.dtype = dtype
-
 
   def check_arguments(self, a, mu, zeta):
     r"""Helper function of the method `self.make_loss_and_gradients`. Checks
@@ -219,7 +214,6 @@ class InferenceBuilder(object):
         if _.shape != shape[_]:
           raise TypeError(msg.format(_.name, shape[_], _.shape))
 
-
   def make_loss_and_gradients(self, a, mu, zeta, name=None):
     r"""This function (or say, a `tf.Operation` constructor) implements (c.f.
     the documentation):
@@ -235,20 +229,16 @@ class InferenceBuilder(object):
     ```
 
     Args:
-      a:
-        `Tensor`, with shape `[n_c]` and dtype `dtype`. Expected to be an 
+      a: `Tensor`, with shape `[n_c]` and dtype `dtype`. Expected to be an
         instance of `tf.Variable`, but can be not so.
 
-      mu:
-        `Tensor`, with shape `[n_c, n_d]` and dtype `dtype`. Expected to be
+      mu: `Tensor`, with shape `[n_c, n_d]` and dtype `dtype`. Expected to be
         an instance of `tf.Variable`, but can be not so.
 
-      zeta:
-        `Tensor`, with shape `[n_c, n_d]` and dtype `dtype`. Expected to be
-        instance of `tf.Variable`, but can be not so.
+      zeta: `Tensor`, with shape `[n_c, n_d]` and dtype `dtype`. Expected to
+        be an instance of `tf.Variable`, but can be not so.
 
-      name:
-        `str` or `None`, as the main name-scope, optional.
+      name: `str` or `None`, as the main name-scope, optional.
 
     Returns:
       Tuple of two elements. The first is the loss, :math:`\mathcal{L}`;
@@ -256,25 +246,23 @@ class InferenceBuilder(object):
       returned by calling `tf.gradients` with arguments `[a, mu, zeta]`.
 
     Raises:
-      TypeError:
-        If the arguments do not match their types, shapes, or dtypes.
+      TypeError: If the arguments do not match their types, shapes, or dtypes.
 
     Examples:
       >>> n_c = 3
       >>> n_d = 1
       >>> # Gaussian mixture distribution as the :math:`p`
-      >>> cat_probs = np.array([0.2, 0.8], dtype='float32')
-      >>> gauss_mu = np.array([[-1.0], [1.0]], dtype='float32')
-      >>> gauss_sigma = np.array([[1.0], [1.0]], dtype='float32')
+      >>> cat_prob = np.array([0.2, 0.8], dtype='float32')
+      >>> mus = np.array([[-1.0], [1.0]], dtype='float32')
+      >>> sigmas = np.array([[1.0], [1.0]], dtype='float32')
       >>> log_p = get_gaussian_mixture_log_prob(
-      ...             cat_probs, gauss_mu, gauss_sigma)
+      ...             cat_prob, mus, sigmas)
       >>> # Then build up the inference
-      >>> ib = InferenceBuilder(
-      ...          n_c=n_c, n_d=n_d, log_posterior_upto_const=log_p)
+      >>> inferencer = Inferencer(n_c, n_d, log_p)
       >>> a = tf.Variable(np.zeros([n_c]), dtype='float32')
       >>> mu = tf.Variable(np.zeros([n_c, n_d]), dtype='float32')
       >>> zeta = tf.Variable(np.zeros([n_c, n_d]), dtype='float32')
-      >>> loss, gradients = ib.make_loss_and_gradients(a, mu, zeta)
+      >>> loss, gradients = inferencer.make_loss_and_gradients(a, mu, zeta)
     """
 
     with tf.name_scope(name, 'nn4post', [a, mu, zeta]):
@@ -313,7 +301,7 @@ class InferenceBuilder(object):
           # shape: `[n_samples, n_c, n_d]`
           eta_samples = std_normal.sample(self.n_samples)
 
-        with tf.name_scope('re_parameter'):
+        with tf.name_scope('re_parameterize'):
 
           # shape: `[n_samples, n_c, n_d]`
           theta_samples = eta_samples * sigma + mu
@@ -436,3 +424,33 @@ class InferenceBuilder(object):
         gradients = [(g, v) for v, g in gradient_dict.items()]
 
     return loss, gradients
+
+  @staticmethod
+  def get_q(q_parameters):
+    r"""Get the inference-distribution :math:`q` (c.f. section "Notation" in
+    the documentation) from its parameters.
+
+    Args:
+      q_parameters: An instance of `QParameters`.
+
+    Returns:
+      An instance of `Mixture`.
+
+    Raises:
+      TypeError: If `q_parameters` is not an instance of `QParameters`.
+    """
+    if not isinstance(q_parameters, QParameters):
+      raise TypeError
+
+    cat = Categorical(tf.nn.softmax(q_parameters.a))
+    mu_zetas = list(zip(
+        tf.unstack(q_parameters.mu, axis=0),
+        tf.unstack(q_parameters.zeta, axis=0),
+    ))
+    components = [
+        Independent(
+            NormalWithSoftplusScale(mu, zeta)
+        ) for mu, zeta in mu_zetas
+    ]
+    q = Mixture(cat, components)
+    return q
