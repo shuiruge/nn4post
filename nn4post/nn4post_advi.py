@@ -14,12 +14,10 @@ Tested on TF 1.4.0.
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.contrib.distributions import Categorical, Normal, Mixture
-try:
-    from tensorflow.contrib.distributions import Independent
-except:
-    from nn4post.utils.independent import Independent
+import tensorflow.contrib.distributions as dst
 from tensorflow.contrib.framework import is_tensor
+
+from nn4post.utils.tf_utils import convert_to_tensor
 
 
 def get_gaussian_mixture_log_prob(cat_prob, mu, sigma, name=None):
@@ -40,14 +38,14 @@ def get_gaussian_mixture_log_prob(cat_prob, mu, sigma, name=None):
   with tf.name_scope(name, 'gaussian_mixture_log_prob',
                      [cat_prob, mu, sigma]):
     n_cats = cat_prob.shape[0]
-    cat = Categorical(probs=cat_prob)
+    cat = dst.Categorical(probs=cat_prob)
     mu_comps = tf.unstack(mu, axis=0)  # compoments.
     zeta_comps = tf.unstanc(zeta, axis=0)
     components = [
-        Independent( Normal(mu_comps[i], zeta_comps[i]) )
+        dst.Independent( dst.Normal(mu_comps[i], zeta_comps[i]) )
         for i in range(n_cats)
     ]
-    gaussian_mixture = Mixture(cat=cat, components=components)
+    gaussian_mixture = dst.Mixture(cat=cat, components=components)
     gaussian_mixture_log_prob = gaussian_mixture.log_prob
     return gaussian_mixture_log_prob
 
@@ -83,15 +81,6 @@ def get_wall(wall_position, wall_slope):
   return wall
 
 
-def convert_to_tensor(x):
-  """Converts `x` to tensor, or simply returns `x` if it's an instance of
-  `tf.Variable`."""
-  if isinstance(x, tf.Variable):
-    return x
-  else:
-    return tf.convert_to_tensor(x)
-
-
 class QParameters(object):
   """Auxillary class, representing the collection of the parameters of the
   q-distribution."""
@@ -106,6 +95,13 @@ class QParameters(object):
     self.a = convert_to_tensor(a)
     self.mu = convert_to_tensor(mu)
     self.zeta = convert_to_tensor(zeta)
+
+
+class Sample(object):
+
+  def __init__(self, value, weight):
+    self.value = value
+    self.weight = weight
 
 
 class Inferencer(object):
@@ -290,8 +286,8 @@ class Inferencer(object):
           sigma = tf.nn.softplus(zeta)
 
           # shape: `[n_c, n_d]`
-          std_normal = Independent(
-              Normal(tf.zeros(mu.shape), tf.ones(sigma.shape))
+          std_normal = dst.Independent(
+              dst.Normal(tf.zeros(mu.shape), tf.ones(sigma.shape))
           )
 
       with tf.name_scope('loss'):
@@ -434,7 +430,7 @@ class Inferencer(object):
       q_parameters: An instance of `QParameters`.
 
     Returns:
-      An instance of `Mixture`.
+      An instance of `dst.Mixture`.
 
     Raises:
       TypeError: If `q_parameters` is not an instance of `QParameters`.
@@ -442,15 +438,47 @@ class Inferencer(object):
     if not isinstance(q_parameters, QParameters):
       raise TypeError
 
-    cat = Categorical(tf.nn.softmax(q_parameters.a))
+    cat = dst.Categorical(tf.nn.softmax(q_parameters.a))
     mu_zetas = list(zip(
         tf.unstack(q_parameters.mu, axis=0),
         tf.unstack(q_parameters.zeta, axis=0),
     ))
     components = [
-        Independent(
-            NormalWithSoftplusScale(mu, zeta)
+        dst.Independent(
+            dst.NormalWithSoftplusScale(mu, zeta)
         ) for mu, zeta in mu_zetas
     ]
-    q = Mixture(cat, components)
+    q = dst.Mixture(cat, components)
     return q
+
+  def get_weights(self, thetas, log_q):
+    r"""XXX
+
+    Args:
+      thetas: Tensor with shape `[n_samples, n_d]`.
+      log_q: Callable, as the log PDF of the `q`-distribution.
+
+    Returns:
+      Tensor with the shape `[n_samples]`.
+    """
+    def eta(theta):
+      return self.log_posterior_upto_const(theta) - log_q(theta)
+
+    # shape: `[n_samples]`
+    etas = tf.map_fn(eta, thetas)
+    weights = tf.nn.softmax(etas)
+    return weights
+
+  def get_samples_and_weights(self, q, n_samples):
+    r"""XXX
+
+    Args:
+      n_samples: Positive integer.
+
+    Returns:
+      Tuple of two tensors for samples (shape `[n_samples, n_d]`) and the
+      corresponding weights (shape `[n_samples`]).
+    """
+    samples = q.sample(n_samples)
+    weights = self.get_weights(samples, q.log_prob)
+    return (samples, weights)

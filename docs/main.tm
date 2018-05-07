@@ -654,19 +654,26 @@
     can be computed by the trained distribution
     <math|q<around*|(|\<theta\>;z<rsub|\<ast\>>|)>>
     (<math|z\<assign\><around*|(|a,\<mu\>,\<zeta\>|)>> for short, and star
-    notation for representing the trained) by Monte-Carlo integral
+    notation for representing the trained) by weighted Monte-Carlo integral
 
     <\equation*>
-      <around*|\<langle\>|g|\<rangle\>><around*|(|x|)>\<approx\><big|sum><rsub|i=1><rsup|N<rsub|s>><around*|[|<frac|w<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>,D|)>|<big|sum><rsub|j=1><rsup|N<rsub|s>>w<around*|(|\<theta\><rsub|j>;z<rsub|\<ast\>>,D|)>>\<times\>g<around*|(|x;\<theta\><rsub|i>|)>|]>,
+      <around*|\<langle\>|g|\<rangle\>><around*|(|x|)>\<approx\><big|sum><rsub|s=1><rsup|N<rsub|s>><around*|[|w<around*|(|\<theta\><rsub|s>;z<rsub|\<ast\>>,D|)>\<times\>g<around*|(|x;\<theta\><rsub|s>|)>|]>,
     </equation*>
 
     with
 
     <\equation*>
-      w<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>,D|)>\<assign\><frac|<wide|p|~><around*|(|\<theta\><rsub|i>\|D|)>|q<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>|)>>,
+      w<around*|(|\<theta\><rsub|s>;z<rsub|\<ast\>>,D|)>\<assign\>softmax<rsub|s><around*|(|\<eta\>|)>
     </equation*>
 
-    where <math|<around*|{|\<theta\><rsub|i>:i=1,\<ldots\>,N<rsub|s>|}>>
+    where
+
+    <\equation*>
+      \<eta\><rsub|s>\<assign\>ln <wide|p|~><around*|(|\<theta\><rsub|s>\|D|)>-ln
+      q<around*|(|\<theta\><rsub|s>;z<rsub|\<ast\>>|)>,
+    </equation*>
+
+    and <math|<around*|{|\<theta\><rsub|s>:s=1,\<ldots\>,N<rsub|s>|}>>
     sampled from <math|q<around*|(|\<theta\>;z<rsub|\<ast\>>|)>>. The error
     of the approximation can be estimated as
     <math|<with|math-font|cal|O><around*|(|1/<sqrt|N<rsub|s>>|)>> and is
@@ -685,14 +692,14 @@
 
     <\equation*>
       <big|int>\<mathd\>\<theta\> <wide|p|~><around*|(|\<theta\>\|D|)>=<big|int>\<mathd\>\<theta\>
-      q<around*|(|\<theta\>;z<rsub|\<ast\>>|)><frac|<wide|p|~><around*|(|\<theta\>\|D|)>|q<around*|(|\<theta\>;z<rsub|\<ast\>>|)>>\<approx\><big|sum><rsub|i=1><rsup|N<rsub|s>><frac|<wide|p|~><around*|(|\<theta\><rsub|i>\|D|)>|q<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>|)>>
+      q<around*|(|\<theta\>;z<rsub|\<ast\>>|)><frac|<wide|p|~><around*|(|\<theta\>\|D|)>|q<around*|(|\<theta\>;z<rsub|\<ast\>>|)>>\<approx\><big|sum><rsub|s=1><rsup|N<rsub|s>><frac|<wide|p|~><around*|(|\<theta\><rsub|s>\|D|)>|q<around*|(|\<theta\><rsub|s>;z<rsub|\<ast\>>|)>>
     </equation*>
 
-    where <math|<around*|{|\<theta\><rsub|i>:i=1,\<ldots\>,N<rsub|s>|}>>
+    where <math|<around*|{|\<theta\><rsub|s>:s=1,\<ldots\>,N<rsub|s>|}>>
     sampled from <math|q<around*|(|\<theta\>;z<rsub|\<ast\>>|)>>, we get
 
     <\equation*>
-      C=<big|sum><rsub|i=1><rsup|N<rsub|s>><frac|<wide|p|~><around*|(|\<theta\><rsub|i>\|D|)>|q<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>|)>>.
+      C=<big|sum><rsub|s=1><rsup|N<rsub|s>><frac|<wide|p|~><around*|(|\<theta\><rsub|s>\|D|)>|q<around*|(|\<theta\><rsub|s>;z<rsub|\<ast\>>|)>>.
     </equation*>
 
     Then,
@@ -703,21 +710,21 @@
       <big|int>\<mathd\>\<theta\> <wide|p|~><around*|(|\<theta\>\|D|)>
       g<around*|(|x;\<theta\>|)>>>|<row|<cell|>|<cell|=>|<cell|<frac|1|C>
       <big|int>\<mathd\>\<theta\> q<around*|(|\<theta\>;z<rsub|\<ast\>>|)><frac|<wide|p|~><around*|(|\<theta\>\|D|)>|q<around*|(|\<theta\>;z<rsub|\<ast\>>|)>>
-      g<around*|(|x;\<theta\>|)>>>|<row|<cell|>|<cell|\<approx\>>|<cell|<frac|1|C>\<times\><big|sum><rsub|i=1><rsup|N<rsub|s>><around*|[|<frac|<wide|p|~><around*|(|\<theta\><rsub|i>\|D|)>|q<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>|)>>
+      g<around*|(|x;\<theta\>|)>>>|<row|<cell|>|<cell|\<approx\>>|<cell|<frac|1|C>\<times\><big|sum><rsub|i=1><rsup|N<rsub|s>><around*|[|<frac|<wide|p|~><around*|(|\<theta\><rsub|s>\|D|)>|q<around*|(|\<theta\><rsub|s>;z<rsub|\<ast\>>|)>>
       g<around*|(|x;\<theta\><rsub|i>|)>|]>.>>>>
     </eqnarray*>
 
     Denoting
 
     <\equation*>
-      w<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>,D|)>\<assign\><frac|<wide|p|~><around*|(|\<theta\><rsub|i>\|D|)>|q<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>|)>>,
+      \<eta\><rsub|s>\<assign\>ln <frac|<wide|p|~><around*|(|\<theta\><rsub|s>\|D|)>|q<around*|(|\<theta\><rsub|s>;z<rsub|\<ast\>>|)>>,
     </equation*>
 
     and with some direct re-arrangements, we get
 
     <\equation*>
       <big|int>\<mathd\>\<theta\> p<around*|(|\<theta\>\|D|)>
-      g<around*|(|x;\<theta\>|)>\<approx\><big|sum><rsub|i=1><rsup|N<rsub|s>><around*|[|<frac|w<around*|(|\<theta\><rsub|i>;z<rsub|\<ast\>>,D|)>|<big|sum><rsub|j=1><rsup|N<rsub|s>>w<around*|(|\<theta\><rsub|j>;z<rsub|\<ast\>>,D|)>>\<times\>g<around*|(|x;\<theta\><rsub|i>|)>|]>
+      g<around*|(|x;\<theta\>|)>\<approx\><big|sum><rsub|s=1><rsup|N<rsub|s>><around*|[|<frac|exp<around*|(|\<eta\><rsub|s>|)>|<big|sum><rsub|s<rprime|'>=1><rsup|N<rsub|s>>exp<around*|(|\<eta\><rsub|s<rprime|'>>|)>>\<times\>g<around*|(|x;\<theta\><rsub|s>|)>|]>
     </equation*>
 
     which is what we want. In this proof, all the approximations come from

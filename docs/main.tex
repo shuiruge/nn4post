@@ -531,14 +531,15 @@ are.
      x; \theta ) \]
   can be computed by the trained distribution $q ( \theta ;z_{\ast} )$ ($z
   \assign ( a, \mu , \zeta )$ for short, and star notation for representing
-  the trained) by Monte-Carlo integral
-  \[ \langle g \rangle ( x ) \approx \sum_{i=1}^{N_{s}} \left[ \frac{w (
-     \theta_{i} ;z_{\ast} ,D )}{\sum_{j=1}^{N_{s}} w ( \theta_{j} ;z_{\ast} ,D
-     )} \times g ( x; \theta_{i} ) \right] , \]
+  the trained) by weighted Monte-Carlo integral
+  \[ \langle g \rangle ( x ) \approx \sum_{s=1}^{N_{s}} [ w ( \theta_{s}
+     ;z_{\ast} ,D ) \times g ( x; \theta_{s} ) ] , \]
   with
-  \[ w ( \theta_{i} ;z_{\ast} ,D ) \assign \frac{\tilde{p} ( \theta_{i} |D
-     )}{q ( \theta_{i} ;z_{\ast} )} , \]
-  where $\{ \theta_{i} :i=1, \ldots ,N_{s} \}$ sampled from $q ( \theta
+  \[ w ( \theta_{s} ;z_{\ast} ,D ) \assign \tmop{softmax}_{s} ( \eta ) \]
+  where
+  \[ \eta_{s} \assign \ln   \tilde{p} ( \theta_{s} |D ) - \ln  q ( \theta_{s}
+     ;z_{\ast} ) , \]
+  and $\{ \theta_{s} :s=1, \ldots ,N_{s} \}$ sampled from $q ( \theta
   ;z_{\ast} )$. The error of the approximation can be estimated as
   $\mathcal{O} \left( 1/ \sqrt{N_{s}} \right)$ and is independent of the
   dimension of the space of $\theta$.
@@ -551,11 +552,11 @@ are.
   and
   \[ \int \mathd \theta   \tilde{p} ( \theta |D ) = \int \mathd \theta  q (
      \theta ;z_{\ast} ) \frac{\tilde{p} ( \theta |D )}{q ( \theta ;z_{\ast} )}
-     \approx \sum_{i=1}^{N_{s}} \frac{\tilde{p} ( \theta_{i} |D )}{q (
-     \theta_{i} ;z_{\ast} )} \]
-  where $\{ \theta_{i} :i=1, \ldots ,N_{s} \}$ sampled from $q ( \theta
+     \approx \sum_{s=1}^{N_{s}} \frac{\tilde{p} ( \theta_{s} |D )}{q (
+     \theta_{s} ;z_{\ast} )} \]
+  where $\{ \theta_{s} :s=1, \ldots ,N_{s} \}$ sampled from $q ( \theta
   ;z_{\ast} )$, we get
-  \[ C= \sum_{i=1}^{N_{s}} \frac{\tilde{p} ( \theta_{i} |D )}{q ( \theta_{i}
+  \[ C= \sum_{s=1}^{N_{s}} \frac{\tilde{p} ( \theta_{s} |D )}{q ( \theta_{s}
      ;z_{\ast} )} . \]
   Then,
   \begin{eqnarray*}
@@ -564,17 +565,16 @@ are.
     & = & \frac{1}{C}   \int \mathd \theta  q ( \theta ;z_{\ast} )
     \frac{\tilde{p} ( \theta |D )}{q ( \theta ;z_{\ast} )}  g ( x; \theta )\\
     & \approx & \frac{1}{C} \times \sum_{i=1}^{N_{s}} \left[ \frac{\tilde{p}
-    ( \theta_{i} |D )}{q ( \theta_{i} ;z_{\ast} )}  g ( x; \theta_{i} )
+    ( \theta_{s} |D )}{q ( \theta_{s} ;z_{\ast} )}  g ( x; \theta_{i} )
     \right] .
   \end{eqnarray*}
   Denoting
-  \[ w ( \theta_{i} ;z_{\ast} ,D ) \assign \frac{\tilde{p} ( \theta_{i} |D
-     )}{q ( \theta_{i} ;z_{\ast} )} , \]
+  \[ \eta_{s} \assign \ln   \frac{\tilde{p} ( \theta_{s} |D )}{q ( \theta_{s}
+     ;z_{\ast} )} , \]
   and with some direct re-arrangements, we get
   \[ \int \mathd \theta  p ( \theta |D )  g ( x; \theta ) \approx
-     \sum_{i=1}^{N_{s}} \left[ \frac{w ( \theta_{i} ;z_{\ast} ,D
-     )}{\sum_{j=1}^{N_{s}} w ( \theta_{j} ;z_{\ast} ,D )} \times g ( x;
-     \theta_{i} ) \right] \]
+     \sum_{s=1}^{N_{s}} \left[ \frac{\exp ( \eta_{s} )}{\sum_{s' =1}^{N_{s}}
+     \exp ( \eta_{s'} )} \times g ( x; \theta_{s} ) \right] \]
   which is what we want. In this proof, all the approximations come from
   Monte-Carlo integrals, whose error can thus be estimated as $\mathcal{O}
   \left( 1/ \sqrt{N_{s}} \right)$ which is independent of the dimension of the
