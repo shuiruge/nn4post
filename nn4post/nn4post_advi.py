@@ -176,6 +176,11 @@ class Inferencer(object):
     self.epsilon = epsilon
     self.dtype = dtype
 
+    # With place-holders
+    self.q = self.make_q()
+    self.n_pred_samples = tf.placeholder(shape=[], dytpe='int32')
+    self.samples, weights = self.make_samples_and_weights()
+
   def check_arguments(self, a, mu, zeta):
     r"""Helper function of the method `self.make_loss_and_gradients`. Checks
     the types, shapes, and dtypes of the arguments `a`, `mu`, and `zeta`.
@@ -451,34 +456,44 @@ class Inferencer(object):
     q = dst.Mixture(cat, components)
     return q
 
-  def get_weights(self, thetas, log_q):
+  def make_q(self):
+    # Get `QParameters`
+    a_ph = tf.placeholder(shape=[self.n_c], dtype=self.dtype)
+    mu_ph = tf.placeholder(shape=[self.n_c, self.n_d], dtype=self.dtype)
+    zeta_ph = tf.placeholder(shape=[self.n_c, self.n_d], dtype=self.dtype)
+    self.q_parameters = QParameters(self.a_ph, self.mu_ph, self.zeta_ph)
+
+    q = self.get_q(self.q_parameters)
+    return q
+
+  @staticmethod
+  def get_weights(thetas, log_p, log_q):
     r"""XXX
 
     Args:
       thetas: Tensor with shape `[n_samples, n_d]`.
+      log_p: Callable, as the posterior up to a constant factor.
       log_q: Callable, as the log PDF of the `q`-distribution.
 
     Returns:
       Tensor with the shape `[n_samples]`.
     """
     def eta(theta):
-      return self.log_posterior_upto_const(theta) - log_q(theta)
+      return self.log_p(theta) - log_q(theta)
 
     # shape: `[n_samples]`
     etas = tf.map_fn(eta, thetas)
     weights = tf.nn.softmax(etas)
     return weights
 
-  def get_samples_and_weights(self, q, n_samples):
+  def make_samples_and_weights(self):
     r"""XXX
 
-    Args:
-      n_samples: Positive integer.
-
     Returns:
-      Tuple of two tensors for samples (shape `[n_samples, n_d]`) and the
-      corresponding weights (shape `[n_samples`]).
+      Tuple of two tensors for samples (shape `[n_pred_samples, n_d]`) and the
+      corresponding weights (shape `[n_pred_samples`]).
     """
-    samples = q.sample(n_samples)
-    weights = self.get_weights(samples, q.log_prob)
+    samples = self.q.sample(self.n_pred_samples)
+    weights = self.get_weights(
+      samples, self.log_posterior_upto_const, self.q.log_prob)
     return (samples, weights)
