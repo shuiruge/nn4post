@@ -40,9 +40,9 @@ def get_gaussian_mixture_log_prob(cat_prob, mu, sigma, name=None):
     n_cats = cat_prob.shape[0]
     cat = dst.Categorical(probs=cat_prob)
     mu_comps = tf.unstack(mu, axis=0)  # compoments.
-    zeta_comps = tf.unstanc(zeta, axis=0)
+    sigma_comps = tf.unstack(sigma, axis=0)
     components = [
-        dst.Independent( dst.Normal(mu_comps[i], zeta_comps[i]) )
+        dst.Independent( dst.Normal(mu_comps[i], sigma_comps[i]) )
         for i in range(n_cats)
     ]
     gaussian_mixture = dst.Mixture(cat=cat, components=components)
@@ -107,7 +107,7 @@ class Sample(object):
 class Inferencer(object):
   r"""By nn4post. C.f. the documentation in "/docs/main.pdf"."""
 
-  def __init__(self, n_c, n_d, log_posterior_upto_const,
+  def __init__(self, n_c, n_d, log_p,
                n_samples=100, r=1.0, beta=1.0, max_a_range=10,
                wall_slope=10, epsilon=1e-08, dtype='float32'):
     r"""Initialize the builder.
@@ -122,9 +122,9 @@ class Inferencer(object):
       n_d: `int`, as the number of dimension, i.e. the :math:`N_d` in the
         documentation.
 
-      log_posterior_upto_const: Callable from tensor of the shape `[n_d]` to
-        scalar, both with the same dtype as the `dtype` argument, as the
-        logorithm of the posterior up to a constant.
+      log_p: Callable from tensor of the shape `[n_d]` to scalar, both
+        with the same dtype as the `dtype` argument, as the logorithm of
+        the posterior up to a constant factor.
 
       init_var: `dict` for setting the initial values of variables. optional.
         It has keys `'a'`, `'mu'`, and `'zeta'`, and values of numpy arraies
@@ -161,11 +161,27 @@ class Inferencer(object):
 
       dtype: `str`, as the dtype of floats employed herein, like `float32`,
         etc., optional.
+
+    Examples:
+      >>> n_c = 3
+      >>> n_d = 1
+      >>> # Gaussian mixture distribution as the :math:`p`
+      >>> cat_prob = np.array([0.2, 0.8], dtype='float32')
+      >>> mus = np.array([[-1.0], [1.0]], dtype='float32')
+      >>> sigmas = np.array([[1.0], [1.0]], dtype='float32')
+      >>> log_p = get_gaussian_mixture_log_prob(
+      ...             cat_prob, mus, sigmas)
+      >>> # Then build up the inference
+      >>> inferencer = Inferencer(n_c, n_d, log_p)
+      >>> a = tf.Variable(np.zeros([n_c]), dtype='float32')
+      >>> mu = tf.Variable(np.zeros([n_c, n_d]), dtype='float32')
+      >>> zeta = tf.Variable(np.zeros([n_c, n_d]), dtype='float32')
+      >>> loss, gradients = inferencer.make_loss_and_gradients(a, mu, zeta)
     """
 
     self.n_c = n_c
     self.n_d = n_d
-    self.log_posterior_upto_const = log_posterior_upto_const
+    self.log_p = log_p
 
     # Configurations
     self.n_samples = n_samples
@@ -178,7 +194,7 @@ class Inferencer(object):
 
     # With place-holders
     self.q = self.make_q()
-    self.n_pred_samples = tf.placeholder(shape=[], dytpe='int32')
+    self.n_pred_samples = tf.placeholder(shape=[], dtype='int32')
     self.samples, weights = self.make_samples_and_weights()
 
   def check_arguments(self, a, mu, zeta):
@@ -248,22 +264,6 @@ class Inferencer(object):
 
     Raises:
       TypeError: If the arguments do not match their types, shapes, or dtypes.
-
-    Examples:
-      >>> n_c = 3
-      >>> n_d = 1
-      >>> # Gaussian mixture distribution as the :math:`p`
-      >>> cat_prob = np.array([0.2, 0.8], dtype='float32')
-      >>> mus = np.array([[-1.0], [1.0]], dtype='float32')
-      >>> sigmas = np.array([[1.0], [1.0]], dtype='float32')
-      >>> log_p = get_gaussian_mixture_log_prob(
-      ...             cat_prob, mus, sigmas)
-      >>> # Then build up the inference
-      >>> inferencer = Inferencer(n_c, n_d, log_p)
-      >>> a = tf.Variable(np.zeros([n_c]), dtype='float32')
-      >>> mu = tf.Variable(np.zeros([n_c, n_d]), dtype='float32')
-      >>> zeta = tf.Variable(np.zeros([n_c, n_d]), dtype='float32')
-      >>> loss, gradients = inferencer.make_loss_and_gradients(a, mu, zeta)
     """
 
     with tf.name_scope(name, 'nn4post', [a, mu, zeta]):
@@ -314,8 +314,8 @@ class Inferencer(object):
 
           with tf.name_scope('expect_log_p'):
 
-            def log_p(thetas):
-              """Vectorizes `log_posterior_upto_const`.
+            def vlog_p(thetas):
+              """Vectorizes `log_p`.
 
               Args:
                 thetas:
@@ -324,14 +324,14 @@ class Inferencer(object):
               Returns:
                 Tensor of the shape `[None]`.
               """
-              return tf.map_fn(self.log_posterior_upto_const, thetas)
+              return tf.map_fn(self.log_p, thetas)
 
             # Expectation of :math:`\ln p`
             # shape: `[n_c]`
             expect_log_p = tf.reduce_mean(
                 tf.reshape(
                     # shape: `[n_samples * n_c]`
-                    log_p(flat_theta_samples),
+                    vlog_p(flat_theta_samples),
                     [self.n_samples, self.n_c]),
                 axis=0)
 
@@ -345,7 +345,7 @@ class Inferencer(object):
             gaussian_mixture_log_prob = \
                 get_gaussian_mixture_log_prob(c, mu, sigma)
 
-            def log_q(thetas):
+            def vlog_q(thetas):
               """The vectorized `log_q`.
 
               Args:
@@ -363,7 +363,8 @@ class Inferencer(object):
             # shape: `[n_c]`
             expect_log_q = tf.reduce_mean(
                 tf.reshape(
-                    log_q(flat_theta_samples),  # shape: `[n_samples * n_c]`.
+                    # shape: `[n_samples * n_c]`
+                    vlog_q(flat_theta_samples),
                     [self.n_samples, self.n_c]),
                 axis=0)
 
@@ -461,9 +462,9 @@ class Inferencer(object):
     a_ph = tf.placeholder(shape=[self.n_c], dtype=self.dtype)
     mu_ph = tf.placeholder(shape=[self.n_c, self.n_d], dtype=self.dtype)
     zeta_ph = tf.placeholder(shape=[self.n_c, self.n_d], dtype=self.dtype)
-    self.q_parameters = QParameters(self.a_ph, self.mu_ph, self.zeta_ph)
+    self.q_params = QParameters(a_ph, mu_ph, zeta_ph)
 
-    q = self.get_q(self.q_parameters)
+    q = self.get_q(self.q_params)
     return q
 
   @staticmethod
@@ -479,7 +480,7 @@ class Inferencer(object):
       Tensor with the shape `[n_samples]`.
     """
     def eta(theta):
-      return self.log_p(theta) - log_q(theta)
+      return log_p(theta) - log_q(theta)
 
     # shape: `[n_samples]`
     etas = tf.map_fn(eta, thetas)
@@ -495,5 +496,5 @@ class Inferencer(object):
     """
     samples = self.q.sample(self.n_pred_samples)
     weights = self.get_weights(
-      samples, self.log_posterior_upto_const, self.q.log_prob)
+      samples, self.log_p, self.q.log_prob)
     return (samples, weights)
